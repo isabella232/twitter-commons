@@ -1,9 +1,9 @@
 
 from __future__ import print_function
 
-import hashlib
 import os
-import sys  
+import sys
+import time
 
 from collections import defaultdict
 from contextlib import contextmanager
@@ -14,6 +14,7 @@ from twitter.common.dirutil import Lock
 from twitter.pants import get_buildroot
 from twitter.pants import SourceRoot
 from twitter.pants.base import ParseContext
+from twitter.pants.base.reporting import default_reporter
 from twitter.pants.base.target import Target
 from twitter.pants.targets import Pants
 from twitter.pants.goal.products import Products
@@ -46,6 +47,7 @@ class Context(object):
     def warn(self, msg): pass
 
   def __init__(self, config, options, target_roots, lock=Lock.unlocked(), log=None):
+    self._run_name = 'build' # 'build_%s' % time.strftime('%Y_%m_%d_%H_%M_%S')  # Safe for use in paths.
     self._config = config
     self._options = options
     self._lock = lock
@@ -55,6 +57,9 @@ class Context(object):
     self._buildroot = get_buildroot()
 
     self.replace_targets(target_roots)
+    html_output_path = os.path.join(self._config.getdefault('reports_dir'), 'html', '%s.html' % self._run_name)
+    self._reporter = default_reporter(html_output_path)
+    self._reporter.open()
 
   @property
   def config(self):
@@ -182,6 +187,12 @@ class Context(object):
     """Returns an iterator over the target(s) the given address points to."""
     with ParseContext.temp():
       return Pants(spec).resolve()
+
+  def output(self, str):
+    self._reporter.write(str)
+
+  def close_reporter(self):
+    self._reporter.close()
 
   @contextmanager
   def state(self, key, default=None):

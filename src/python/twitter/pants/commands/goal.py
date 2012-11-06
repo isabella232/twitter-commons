@@ -138,6 +138,8 @@ class Goal(Command):
                   "specified more than once to add more than one root target directory to scan.)"),
   ]
 
+  output = None
+
   @staticmethod
   def add_global_options(parser):
     for option in Goal.GLOBAL_OPTIONS:
@@ -429,6 +431,7 @@ class Goal(Command):
       print('Timing report')
       print('=============')
       self.timer.print_timings()
+    context.close_reporter()
     return ret
 
   def cleanup(self):
