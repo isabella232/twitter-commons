@@ -379,13 +379,6 @@ class Goal(Command):
   def run(self, lock):
     if self.options.dry_run:
       print '****** Dry Run ******'
-    with self.check_errors("Target contains a dependency cycle") as error:
-      with self.timer.timing('parse:check_cycles'):
-        for target in self.targets:
-          try:
-            InternalTarget.check_cycles(target)
-          except InternalTarget.CycleException as e:
-            error(target.id)
 
     logger = None
     if self.options.log or self.options.log_level:
@@ -445,6 +438,7 @@ class Goal(Command):
 # Install all default pants provided goals
 from twitter.pants.targets import JavaLibrary, JavaTests
 from twitter.pants.tasks.binary_create import BinaryCreate
+from twitter.pants.tasks.build_lint import BuildLint
 from twitter.pants.tasks.bundle_create import BundleCreate
 from twitter.pants.tasks.checkstyle import Checkstyle
 from twitter.pants.tasks.filedeps import FileDeps
@@ -496,23 +490,25 @@ goal(
   dependencies=['invalidate']
 ).install().with_description('Cleans all intermediate build output in a background process')
 
-if NailgunTask.killall:
-  class NailgunKillall(Task):
-    @classmethod
-    def setup_parser(cls, option_group, args, mkflag):
-      option_group.add_option(mkflag("everywhere"), dest="ng_killall_everywhere",
-                              default=False, action="store_true",
-                              help="[%default] Kill all nailguns servers launched by pants for "
-                                   "all workspaces on the system.")
 
-    def execute(self, targets):
-      if NailgunTask.killall:
-        NailgunTask.killall(self.context.log, everywhere=self.context.options.ng_killall_everywhere)
+class NailgunKillall(Task):
+  @classmethod
+  def setup_parser(cls, option_group, args, mkflag):
+    option_group.add_option(mkflag("everywhere"), dest="ng_killall_everywhere",
+                            default=False, action="store_true",
+                            help="[%default] Kill all nailguns servers launched by pants for "
+                                 "all workspaces on the system.")
 
-  ng_killall = goal(name='ng-killall', action=NailgunKillall)
-  ng_killall.install().with_description('Kill any running nailgun servers spawned by pants.')
+  def execute(self, targets):
+    if NailgunTask.killall:
+      NailgunTask.killall(self.context.log, everywhere=self.context.options.ng_killall_everywhere)
+    else:
+      raise NotImplementedError, 'NailgunKillall not implemented on this platform'
 
-  ng_killall.install('clean-all', first=True)
+ng_killall = goal(name='ng-killall', action=NailgunKillall)
+ng_killall.install().with_description('Kill any running nailgun servers spawned by pants.')
+
+ng_killall.install('clean-all', first=True)
 
 
 # TODO(John Sirois): Resolve eggs
@@ -606,27 +602,36 @@ goal(
   dependencies=['binary']
 ).install().with_description('Create an application bundle from binary targets.')
 
+# run doesn't need the serialization lock. It's reasonable to run some code
+# in a workspace while there's a compile going on unrelated code.
 goal(
   name='jvm-run',
   action=JvmRun,
-  dependencies=['compile']
+  dependencies=['compile'],
+  serialize=False,
 ).install('run').with_description('Run a (currently JVM only) binary target.')
 
 goal(
   name='jvm-run-dirty',
-  action=JvmRun
+  action=JvmRun,
+  serialize=False,
   ).install('run-dirty').with_description('Run a (currently JVM only) binary target, using\n' +
     'only currently existing binaries, skipping compilation')
+
+# repl doesn't need the serialization lock. It's reasonable to have
+# a repl running in a workspace while there's a compile going on unrelated code.
 goal(
   name='scala-repl',
   action=ScalaRepl,
-  dependencies=['compile']
+  dependencies=['compile'],
+  serialize=False,
 ).install('repl').with_description(
   'Run a (currently Scala only) REPL with the classpath set according to the targets.')
 
 goal(
   name='scala-repl-dirty',
-  action=ScalaRepl
+  action=ScalaRepl,
+  serialize=False,
 ).install('repl-dirty').with_description(
   'Run a (currently Scala only) REPL with the classpath set according to the targets, \n' +
     'using the currently existing binaries, skipping compilation')
@@ -641,6 +646,13 @@ goal(
   action=PathDeps
 ).install('pathdeps').with_description(
   'Print out a list of all paths containing build files the target depends on')
+
+goal(
+  name='buildlint',
+  action=BuildLint,
+  dependencies=['compile'],  # To pick up missing deps.
+).install()
+
 
 from twitter.pants.tasks.idea_gen import IdeaGen
 
@@ -667,6 +679,7 @@ goal(
   action=Provides,
   dependencies=['jar']
 ).install().with_description('Emit the list of symbols provided by the given targets.')
+
 
 from twitter.pants.tasks.python.setup import SetupPythonEnvironment
 

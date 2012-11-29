@@ -29,12 +29,14 @@ from twitter.pants import (
   is_test,
   is_apt)
 from twitter.pants.base.target import Target
+from twitter.pants.goal.phase import Phase
 from twitter.pants.targets.exportable_jvm_library import ExportableJvmLibrary
 from twitter.pants.targets.java_library import JavaLibrary
 from twitter.pants.targets.jvm_binary import JvmBinary
 from twitter.pants.targets.scala_library import ScalaLibrary
 from twitter.pants.tasks import binary_utils, TaskError
 from twitter.pants.tasks.binary_utils import profile_classpath
+from twitter.pants.tasks.checkstyle import Checkstyle
 from twitter.pants.tasks.jvm_binary_task import JvmBinaryTask
 
 __author__ = 'John Sirois'
@@ -391,14 +393,12 @@ class Project(object):
         self.has_scala = not self.skip_scala and (self.has_scala or is_scala(target))
 
         if isinstance(target, JavaLibrary) or isinstance(target, ScalaLibrary):
-          # TODO(John Sirois): this does not handle test resources, make test resources 1st class
-          # in ant build and punch this through to pants model
           resources = set()
           if target.resources:
             resources.update(target.resources)
           if resources:
             self.resource_extensions.update(Project.extract_resource_extensions(resources))
-            configure_source_sets(ExportableJvmLibrary.RESOURCES_BASE_DIR,
+            configure_source_sets(target.sibling_resources_base,
                                   resources,
                                   is_test = False)
 
@@ -476,7 +476,8 @@ class Project(object):
     return targets
 
   def configure_profiles(self, scala_compiler_profile):
-    self.checkstyle_classpath = profile_classpath('checkstyle')
+    checkstyle_enabled = len(Phase.goals_of_type(Checkstyle)) > 0
+    self.checkstyle_classpath = profile_classpath('checkstyle') if checkstyle_enabled else []
     self.scala_compiler_classpath = []
     if self.has_scala:
       self.scala_compiler_classpath.extend(profile_classpath(scala_compiler_profile))

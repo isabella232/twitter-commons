@@ -10,6 +10,7 @@ from contextlib import contextmanager
 
 from twitter.common.collections import OrderedSet
 from twitter.common.dirutil import Lock
+from twitter.common.process import ProcessProviderFactory
 
 from twitter.pants import get_buildroot
 from twitter.pants import SourceRoot
@@ -19,16 +20,14 @@ from twitter.pants.base.target import Target
 from twitter.pants.targets import Pants
 from twitter.pants.goal.products import Products
 
-# Utility definition for grabbing process info for locking, with python version workarounds.
-try:
-  import psutil
 
-  def _process_info(pid):
-    process = psutil.Process(pid)
-    return '%d (%s)' % (pid, ' '.join(process.cmdline))
-except ImportError:
-  def _process_info(pid):
-    return '%d' % pid
+# Utility definition for grabbing process info for locking.
+def _process_info(pid):
+  ps = ProcessProviderFactory.get()
+  ps.collect_set([pid])
+  handle = ps.get_handle(pid)
+  cmdline = handle.cmdline().replace('\0', ' ')
+  return '%d (%s)' % (pid, cmdline)
 
 
 class Context(object):
@@ -114,7 +113,7 @@ class Context(object):
     """Release the global lock if it's held.
     Returns True if the lock was held before this call.
     """
-    if self._lock is Lock.unlocked():
+    if self._lock.is_unlocked():
       return False
     else:
       self._lock.release()
@@ -146,8 +145,15 @@ class Context(object):
     This method ensures the target resolves files against the given target_base, creating the
     directory if needed and registering a source root.
     """
+    if 'derived_from' in kwargs:
+      derived_from = kwargs.get('derived_from')
+      del kwargs['derived_from']
+    else:
+      derived_from = None
     target = self._create_new_target(target_base, target_type, *args, **kwargs)
     self.add_target(target)
+    if derived_from:
+      target.derived_from = derived_from
     return target
 
   def _create_new_target(self, target_base, target_type, *args, **kwargs):
