@@ -142,7 +142,6 @@ class IvyResolve(NailgunTask):
     classpath_targets = filter(is_classpath, targets)
     target_workdir = os.path.join(self._work_dir, dirname_for_requested_targets(targets))
     target_classpath_file = os.path.join(target_workdir, 'classpath')
-    self.context.output('DOING AN IVY RESOLVE\n')
     with self.invalidated(classpath_targets, only_buildfiles=True, invalidate_dependants=True) as invalidation_check:
       # Note that it's possible for all targets to be valid but for no classpath file to exist at
       # target_classpath_file, e.g., if we previously build a superset of targets.

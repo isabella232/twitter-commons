@@ -162,6 +162,7 @@ class JavaCompile(NailgunTask):
 
     if not versioned_targets.valid:
       self.merge_depfile(versioned_targets)  # Get what we can from previous builds.
+      self.context.reporter.write_targets('Compiling targets', versioned_targets.targets)
       self.context.log.info('Compiling targets %s' % str(versioned_targets.targets))
       sources_by_target, processors, fingerprint = self.calculate_sources(versioned_targets.targets)
       if sources_by_target:

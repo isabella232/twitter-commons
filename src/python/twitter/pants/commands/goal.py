@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==================================================================================================
+import signal
+from twitter.pants.reporting.reporting_server import ReportingServer
 
 __author__ = 'jsirois'
 
@@ -34,7 +36,6 @@ from twitter.pants import get_buildroot, goal, group, is_apt, is_codegen, is_sca
 from twitter.pants.base import Address, BuildFile, Config, ParseContext, Target, Timer
 from twitter.pants.base.rcfile import RcFile
 from twitter.pants.commands import Command
-from twitter.pants.targets import InternalTarget
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.nailgun_task import NailgunTask
 from twitter.pants.goal import Context, GoalError, Phase
@@ -424,7 +425,7 @@ class Goal(Command):
       print('Timing report')
       print('=============')
       self.timer.print_timings()
-    context.close_reporter()
+    context.reporter.close()
     return ret
 
   def cleanup(self):
@@ -510,6 +511,57 @@ ng_killall.install().with_description('Kill any running nailgun servers spawned 
 
 ng_killall.install('clean-all', first=True)
 
+
+def get_port_and_pidfile(context):
+  port = context.options.port or context.config.getdefault('reporting_port', type=int)
+  pidfile = os.path.join(context.config.getdefault('server_dir'), 'pids', 'port_%d.pid' % port)
+  return port, pidfile
+
+class RunServer(Task):
+  @classmethod
+  def setup_parser(cls, option_group, args, mkflag):
+    option_group.add_option(mkflag("port"), dest="port", action="store", type="int", default=0,
+      help="Serve on this port.")
+    option_group.add_option(mkflag("report-root"), dest="report_root", default=None,
+      action="store", help="Serve report files under this directory.")
+
+  def execute(self, targets):
+    if not os.fork():
+      # The child process.
+      (port, pidfile) = get_port_and_pidfile(self.context)
+      safe_mkdir(os.path.dirname(pidfile))
+      with open(pidfile, 'w') as outfile:
+        outfile.write(str(os.getpid()))
+      root = self.context.options.report_root or self.context.config.getdefault('reports_dir')
+      ReportingServer(port, root).start()
+
+goal(
+  name='server',
+  action=RunServer,
+).install().with_description('Run the pants reporting server.')
+
+class KillServer(Task):
+  @classmethod
+  def setup_parser(cls, option_group, args, mkflag):
+    option_group.add_option(mkflag("port"), dest="port", action="store", type="int", default=0,
+      help="Serve on this port.")
+
+  def execute(self, targets):
+    (_, pidfile) = get_port_and_pidfile(self.context)
+    if os.path.exists(pidfile):
+      with open(pidfile, 'r') as infile:
+        pidstr = infile.read()
+      try:
+        os.unlink(pidfile)
+        pid = int(pidstr)
+        os.kill(pid, signal.SIGKILL)
+      except (ValueError, OSError):
+        pass
+
+goal(
+  name='killserver',
+  action=KillServer,
+).install().with_description('Kill the pants reporting server.')
 
 # TODO(John Sirois): Resolve eggs
 goal(

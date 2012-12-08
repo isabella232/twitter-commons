@@ -48,6 +48,7 @@ python_library(
     pants('src/python/twitter/common/lang'),
     pants('src/python/twitter/common/process'),
     pants('src/python/twitter/common/python'),
+    pants('src/python/twitter/common/threading'),
     pants(':pants-deps'),
   ],
   sources = PANTS_SOURCES,

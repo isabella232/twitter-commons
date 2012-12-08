@@ -80,15 +80,15 @@ class NailgunTask(Task):
       NailgunTask._DAEMON_OPTION_PRESENT = True
 
   def __init__(self, context, classpath=None, workdir=None, nailgun_jar=None, args=None,
-               stdin=None, stderr=sys.stderr, stdout=sys.stdout):
+               stdin=None, stderr=None, stdout=None):
     Task.__init__(self, context)
 
     self._classpath = classpath
     self._nailgun_jar = nailgun_jar or context.config.get('nailgun', 'jar')
     self._ng_server_args = args or context.config.getlist('nailgun', 'args')
     self._stdin = stdin
-    self._stderr = stderr
-    self._stdout = stdout
+    self._stderr = stderr if stderr else context.reporter
+    self._stdout = stdout if stdout else context.reporter
     self._daemon = context.options.nailgun_daemon
 
     workdir = workdir or context.config.get('nailgun', 'workdir')
@@ -109,7 +109,7 @@ class NailgunTask(Task):
 
       def call_nailgun(main_class, *args):
         if self.dry_run:
-          print('********** NailgunClient dry run: %s %s' % (main_class, ' '.join(args)))
+          self.context.report('********** NailgunClient dry run: %s %s' % (main_class, ' '.join(args)))
           return 0
         else:
           return nailgun(main_class, *args)
@@ -124,9 +124,10 @@ class NailgunTask(Task):
     else:
       only_write_cmd_line_to = StringIO.StringIO() if self.dry_run else None
       ret = binary_utils.runjava(main=main, classpath=cp, args=args, jvmargs=jvmargs,
+        stdout=self.context.reporter, stderr=self.context.reporter,
         only_write_cmd_line_to=only_write_cmd_line_to)
       if only_write_cmd_line_to:
-        print('********** Direct Java dry run: %s' % only_write_cmd_line_to.getvalue())
+        self.context.report('********** Direct Java dry run: %s' % only_write_cmd_line_to.getvalue())
         only_write_cmd_line_to.close()
       return ret
 

@@ -126,7 +126,8 @@ def safe_classpath(logger=None):
     yield
 
 
-def runjava(jvmargs=None, classpath=None, main=None, args=None, only_write_cmd_line_to=None):
+def runjava(jvmargs=None, classpath=None, main=None, args=None,
+            stdout=None, stderr=None, only_write_cmd_line_to=None):
   """Spawns a java process with the supplied configuration and returns its exit code."""
   cmd = ['java']
   if jvmargs:
@@ -144,7 +145,13 @@ def runjava(jvmargs=None, classpath=None, main=None, args=None, only_write_cmd_l
   else:
     log.debug('Executing: %s' % ' '.join(cmd))
     with safe_classpath():
-      return subprocess.call(cmd)
+      proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      (stdout_data, stderr_data) = proc.communicate()
+      if stdout:
+        stdout.write(stdout_data)
+      if stderr:
+        stderr.write(stderr_data)
+      return proc.returncode
 
 
 def nailgun_profile_classpath(nailgun_task, profile, ivy_jar=None, ivy_settings=None):

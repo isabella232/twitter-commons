@@ -1,0 +1,40 @@
+body {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 13px;
+}
+
+.success {
+  color: green;
+}
+.warning {
+  color: yellow;
+}
+.failure {
+  color: red;
+}
+
+.scope-header {
+  font-weight: bold;
+}
+.scope-header-icon {
+  float: left;
+  width: 16px;
+}
+.scope-header-text {
+  float: left;
+}
+.scope-header-after {
+  clear: left;
+}
+.scope-content {
+  margin-left: 20px;
+}
+
+.spinner {
+  background-image:url("../img/spinner.gif");
+  background-repeat: no-repeat;
+  background-position: left top;
+  width: 16px;
+  height: 16px;
+  float: left;
+}
