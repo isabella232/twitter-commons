@@ -28,7 +28,3 @@ function tail(path, targetSelector) {
     });
   }
 }
-
-$(function(){
-  tail('html/build.html', '#main-content');
-});

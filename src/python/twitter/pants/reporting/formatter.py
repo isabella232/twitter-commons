@@ -4,6 +4,7 @@ import re
 
 from twitter.pants import get_buildroot
 from twitter.pants.base.build_file import BuildFile
+from twitter.pants.reporting.renderer import Renderer
 
 
 class Formatter(object):
@@ -29,7 +30,8 @@ class PlainTextFormatter(Formatter):
 
 
 class HTMLFormatter(Formatter):
-  def __init__(self):
+  def __init__(self, template_dir):
+    self._renderer = Renderer(template_dir, require=['tailing'])
     self.buildroot = get_buildroot()
 
   def format(self, s):
@@ -59,7 +61,8 @@ class HTMLFormatter(Formatter):
     return HTMLFormatter.path_re.sub(lambda m: '<a target="_blank" href="%s">%s</a>' % (to_url(m), m.group(0)), s)
 
   def header(self):
-    return ''
+    args = { 'content_id': 'main_build_output'}
+    return self._renderer.render('tailing', args)
 
   def footer(self):
     return ''

@@ -513,8 +513,11 @@ ng_killall.install('clean-all', first=True)
 
 
 def get_port_and_pidfile(context):
-  port = context.options.port or context.config.getdefault('reporting_port', type=int)
-  pidfile = os.path.join(context.config.getdefault('server_dir'), 'pids', 'port_%d.pid' % port)
+  port = context.options.port or context.config.getint('reporting', 'reporting_port')
+  # We don't put the pidfile in .pants.d, because we want to find it even after a clean.
+  # TODO: Fold pants.run and other pidfiles into here. Generalize the pidfile idiom into
+  # some central library.
+  pidfile = os.path.join(get_buildroot(), '.pids', 'port_%d.pid' % port)
   return port, pidfile
 
 class RunServer(Task):
@@ -532,8 +535,9 @@ class RunServer(Task):
       safe_mkdir(os.path.dirname(pidfile))
       with open(pidfile, 'w') as outfile:
         outfile.write(str(os.getpid()))
-      root = self.context.options.report_root or self.context.config.getdefault('reports_dir')
-      ReportingServer(port, root).start()
+      template_dir = self.context.config.get('reporting', 'reports_template_dir')
+      root = self.context.options.report_root or self.context.config.get('reporting', 'reports_dir')
+      ReportingServer(port, template_dir, root).start()
 
 goal(
   name='server',

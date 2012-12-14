@@ -14,7 +14,7 @@ StringIO = Compatibility.StringIO
 
 
 def default_reporting(config, run_id):
-  reports_dir = config.getdefault('reports_dir')
+  reports_dir = config.get('reporting', 'reports_dir')
   link_to_latest = os.path.join(reports_dir, 'latest')
   if os.path.exists(link_to_latest):
     os.unlink(link_to_latest)
@@ -25,15 +25,15 @@ def default_reporting(config, run_id):
   safe_mkdir(this_run_html_dir)
   os.symlink(this_run_dir, link_to_latest)
 
-  assets_dir = config.getdefault('reports_assets_dir')
+  assets_dir = config.get('reporting', 'reports_assets_dir')
   os.symlink(assets_dir, os.path.join(this_run_dir, 'assets'))
-  os.symlink(os.path.join(assets_dir, 'html', 'main.html'), os.path.join(this_run_html_dir, 'main.html'))
 
   html_output_path = os.path.join(this_run_html_dir, 'build.html')
 
   report = Report()
   report.add_reporter(ConsoleReporter(PlainTextFormatter()))
-  report.add_reporter(FileReporter(HTMLFormatter(), html_output_path))
+  template_dir = config.get('reporting', 'reports_template_dir')
+  report.add_reporter(FileReporter(HTMLFormatter(template_dir), html_output_path))
   return report
 
 
