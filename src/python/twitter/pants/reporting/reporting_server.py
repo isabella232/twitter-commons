@@ -5,6 +5,8 @@ import sys
 import urlparse
 import BaseHTTPServer
 
+from collections import namedtuple
+
 from twitter.pants.reporting.renderer import Renderer
 
 
@@ -18,19 +20,28 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
   templates are a map from template name to template text, for when we need templates (e.g.,
   to render a directory listing nicely).
   """
-  def __init__(self, renderer, root, request, client_address, server):
-    self._renderer = renderer
-    self._root = root
+  Settings = namedtuple('Settings', ['renderer', 'root', 'allowed_clients'])
+
+  def __init__(self, settings, request, client_address, server):
+    self._root = settings.root
+    self._renderer = settings.renderer
+    self._allowed_clients = set(settings.allowed_clients)
+    self._client_address = client_address
     BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, request, client_address, server)
 
-  def _send_content(self, content, content_type):
-    self.send_response(200)
+  def _send_content(self, content, content_type, code=200):
+    self.send_response(code)
     self.send_header('Content-Type', content_type)
     self.send_header('Content-Length', str(len(content)))
     self.end_headers()
     self.wfile.write(content)
 
   def do_GET(self):
+    client_ip = self._client_address[0]
+    if not client_ip in self._allowed_clients and not 'ALL' in self._allowed_clients:
+      self._send_content('Access from host %s forbidden.' % client_ip, 'text/html')
+      return
+
     try:
       (_, _, path, query, _) = urlparse.urlsplit(self.path)
       params = urlparse.parse_qs(query)
@@ -73,12 +84,13 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     pass
 
 class ReportingServer(object):
-  def __init__(self, port, template_dir, root):
+  def __init__(self, port, template_dir, root, allowed_clients):
     renderer = Renderer(template_dir, require=['base'])
 
     class MyHandler(FileRegionHandler):
       def __init__(self, request, client_address, server):
-        FileRegionHandler.__init__(self, renderer, root, request, client_address, server)
+        settings = FileRegionHandler.Settings(renderer=renderer, root=root, allowed_clients=allowed_clients)
+        FileRegionHandler.__init__(self, settings, request, client_address, server)
 
     self._httpd = BaseHTTPServer.HTTPServer(('', port), MyHandler)
     self._httpd.timeout = 0.1  # Not the network timeout, but how often handle_request yields.

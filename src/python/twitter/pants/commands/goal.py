@@ -525,8 +525,11 @@ class RunServer(Task):
   def setup_parser(cls, option_group, args, mkflag):
     option_group.add_option(mkflag("port"), dest="port", action="store", type="int", default=0,
       help="Serve on this port.")
-    option_group.add_option(mkflag("report-root"), dest="report_root", default=None,
-      action="store", help="Serve report files under this directory.")
+    option_group.add_option(mkflag("allowed-clients"), dest="allowed_clients", default=["127.0.0.1"],
+      action="append",
+      help="Only requests from these IPs may access this server. Useful for temporarily showing build " \
+           "results to a colleague. The special value ALL means any client may connect. Use with caution, " \
+           "as your source code is exposed to all allowed clients!")
 
   def execute(self, targets):
     if not os.fork():
@@ -536,8 +539,7 @@ class RunServer(Task):
       with open(pidfile, 'w') as outfile:
         outfile.write(str(os.getpid()))
       template_dir = self.context.config.get('reporting', 'reports_template_dir')
-      root = self.context.options.report_root or self.context.config.get('reporting', 'reports_dir')
-      ReportingServer(port, template_dir, root).start()
+      ReportingServer(port, template_dir, get_buildroot(), self.context.options.allowed_clients).start()
 
 goal(
   name='server',
