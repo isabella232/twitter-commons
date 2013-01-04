@@ -16,7 +16,7 @@ from twitter.common.process import ProcessProviderFactory
 from twitter.pants import get_buildroot
 from twitter.pants import SourceRoot
 from twitter.pants.base import ParseContext
-from twitter.pants.reporting import  default_reporting
+from twitter.pants.reporting import default_reporting
 from twitter.pants.base.target import Target
 from twitter.pants.targets import Pants
 from twitter.pants.goal.products import Products

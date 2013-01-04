@@ -95,6 +95,8 @@ class ReportingServer(object):
     self._httpd = BaseHTTPServer.HTTPServer(('', port), MyHandler)
     self._httpd.timeout = 0.1  # Not the network timeout, but how often handle_request yields.
 
-  def start(self):
+  def start(self, run_before_blocking=list()):
+    for f in run_before_blocking:
+      f()
     self._httpd.serve_forever()
 

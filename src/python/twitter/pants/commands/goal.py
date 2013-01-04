@@ -13,15 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==================================================================================================
-import signal
-from twitter.pants.reporting.reporting_server import ReportingServer
 
 __author__ = 'jsirois'
 
 import daemon
+import errno
 import inspect
+import multiprocessing
 import os
 import sys
+import signal
+import socket
 import time
 import traceback
 
@@ -36,6 +38,7 @@ from twitter.pants import get_buildroot, goal, group, is_apt, is_codegen, is_sca
 from twitter.pants.base import Address, BuildFile, Config, ParseContext, Target, Timer
 from twitter.pants.base.rcfile import RcFile
 from twitter.pants.commands import Command
+from twitter.pants.reporting.reporting_server import ReportingServer
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.nailgun_task import NailgunTask
 from twitter.pants.goal import Context, GoalError, Phase
@@ -532,14 +535,52 @@ class RunServer(Task):
            "as your source code is exposed to all allowed clients!")
 
   def execute(self, targets):
-    if not os.fork():
-      # The child process.
+    DONE = '__done_reporting'
+
+    def run_server(reporting_queue):
       (port, pidfile) = get_port_and_pidfile(self.context)
-      safe_mkdir(os.path.dirname(pidfile))
-      with open(pidfile, 'w') as outfile:
-        outfile.write(str(os.getpid()))
-      template_dir = self.context.config.get('reporting', 'reports_template_dir')
-      ReportingServer(port, template_dir, get_buildroot(), self.context.options.allowed_clients).start()
+      def write_pidfile():
+        safe_mkdir(os.path.dirname(pidfile))
+        with open(pidfile, 'w') as outfile:
+          outfile.write(str(os.getpid()))
+
+      def report_launch():
+        reporting_queue.put('Launching server with pid %d at http://localhost:%d\n' % (os.getpid(), port))
+
+      def done_reporting():
+        reporting_queue.put(DONE)
+
+      try:
+        template_dir = self.context.config.get('reporting', 'reports_template_dir')
+        # We mustn't block in the child, because the multiprocessing module enforces that the
+        # parent either kills or joins to it. Instead we fork a grandchild that inherits the queue
+        # but is allowed to block indefinitely on the server loop.
+        if not os.fork():
+          # Child process.
+          server = ReportingServer(port, template_dir, get_buildroot(), self.context.options.allowed_clients)
+          # Block forever here.
+          server.start(run_before_blocking=[write_pidfile, report_launch, done_reporting])
+      except socket.error, e:
+        if e.errno == errno.EADDRINUSE:
+          reporting_queue.put('Server already running at http://localhost:%d\n' % port)
+          done_reporting()
+          return
+        else:
+          done_reporting()
+          raise
+    # We do reporting on behalf of the child process (necessary, since reporting is buffered in a
+    # background thread). We use multiprocessing.Process() to spawn the child so we can use that
+    # module's inter-process Queue implementation.
+    reporting_queue = multiprocessing.Queue()
+    proc = multiprocessing.Process(target=run_server, args=[reporting_queue])
+    proc.daemon = True
+    proc.start()
+    s = reporting_queue.get()
+    while s != DONE:
+      self.context.report(s)
+      s = reporting_queue.get()
+    # The child process is done reporting, and is now in the server loop, so we can proceed.
+
 
 goal(
   name='server',
@@ -553,7 +594,7 @@ class KillServer(Task):
       help="Serve on this port.")
 
   def execute(self, targets):
-    (_, pidfile) = get_port_and_pidfile(self.context)
+    (port, pidfile) = get_port_and_pidfile(self.context)
     if os.path.exists(pidfile):
       with open(pidfile, 'r') as infile:
         pidstr = infile.read()
@@ -561,8 +602,11 @@ class KillServer(Task):
         os.unlink(pidfile)
         pid = int(pidstr)
         os.kill(pid, signal.SIGKILL)
+        self.context.report('Killed server with pid %d at http://localhost:%d\n' % (pid, port))
       except (ValueError, OSError):
         pass
+    else:
+      self.context.report('No server found.\n')
 
 goal(
   name='killserver',
