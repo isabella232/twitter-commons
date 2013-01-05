@@ -1,0 +1,13 @@
+<html>
+<head>
+  <link rel="stylesheet" type="text/css" href="/assets/css/prettify.css">
+  {{#prettyprint_js_files}}
+  <script type="text/javascript" src="/assets/js/prettify/{{name}}"></script>
+  {{/prettyprint_js_files}}
+</head>
+<body onload="prettyPrint()">
+<pre class="{{#prettyprint}}prettyprint{{/prettyprint}} {{#linenums}}linenums{{/linenums}}">
+{{content}}
+</pre>
+</body>
+</html>
