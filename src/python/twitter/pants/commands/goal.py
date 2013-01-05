@@ -557,7 +557,8 @@ class RunServer(Task):
         # but is allowed to block indefinitely on the server loop.
         if not os.fork():
           # Child process.
-          server = ReportingServer(port, template_dir, get_buildroot(), self.context.options.allowed_clients)
+          server = ReportingServer(port, template_dir, self.context.config.get('reporting', 'reports_assets_dir'),
+            get_buildroot(), self.context.options.allowed_clients)
           # Block forever here.
           server.start(run_before_blocking=[write_pidfile, report_launch, done_reporting])
       except socket.error, e:

@@ -19,12 +19,13 @@ class Renderer(object):
     require - a list of template names that must be present in template_dir for initialization of
               this Renderer to succeed.
     """
-    self.templates = {}  # Map from template name (e.g., foo for foo.mustache) to template text.
+    self.templates = {}  # Map from template name (e.g., foo for foo.mustache) to full path of template file.
 
     # Populate templates with whatever we find in template_dir.
-    for name in filter(lambda x: x.endswith(Renderer.ext), os.listdir(template_dir)):
-      with open(os.path.join(template_dir, name), 'r') as infile:
-        self.templates[os.path.basename(infile.name)[0:-len(Renderer.ext)]] = infile.read()
+    for name_with_ext in filter(lambda x: x.endswith(Renderer.ext), os.listdir(template_dir)):
+      name = name_with_ext[0:-len(Renderer.ext)]
+      path = os.path.join(template_dir, name_with_ext)
+      self.templates[name] = path
 
     # Check that we have the templates we need.
     for name in require:
@@ -32,7 +33,9 @@ class Renderer(object):
         raise RendererError, 'Template missing. Expected %s/%s%s' % (template_dir, name, Renderer.ext)
 
   def render(self, template_name, args):
-    return pystache.render(self.templates.get(template_name), args)
+    with open(self.templates.get(template_name), 'r') as infile:
+      template = infile.read()
+    return pystache.render(template, args)
 
   def has_template(self, template_name):
     return template_name in self.templates

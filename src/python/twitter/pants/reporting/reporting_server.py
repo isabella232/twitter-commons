@@ -13,18 +13,16 @@ from twitter.pants.reporting.renderer import Renderer
 class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
   """A handler that serves regions of files under a given root:
 
-  /path/to/file?s=x&e=y serves from position x (inclusive) to position y (exclusive).
-  /path/to/file?s=x serves from position x (inclusive) until the end of the file.
-  /path/to/file serves the entire file.
-
-  templates are a map from template name to template text, for when we need templates (e.g.,
-  to render a directory listing nicely).
+  /browse/path/to/file?s=x&e=y serves from position x (inclusive) to position y (exclusive).
+  /browse/path/to/file?s=x serves from position x (inclusive) until the end of the file.
+  /browse/path/to/file serves the entire file.
   """
-  Settings = namedtuple('Settings', ['renderer', 'root', 'allowed_clients'])
+  Settings = namedtuple('Settings', ['renderer', 'assets_dir', 'root', 'allowed_clients'])
 
   def __init__(self, settings, request, client_address, server):
     self._root = settings.root
     self._renderer = settings.renderer
+    self._assets_dir = settings.assets_dir
     self._allowed_clients = set(settings.allowed_clients)
     self._client_address = client_address
     BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, request, client_address, server)
@@ -45,21 +43,33 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     try:
       (_, _, path, query, _) = urlparse.urlsplit(self.path)
       params = urlparse.parse_qs(query)
-      abspath = os.path.normpath(os.path.join(self._root, path[1:]))
-      if not abspath.startswith(self._root):
-        raise ValueError  # Prevent using .. to get files from anywhere other than root.
-      if os.path.isdir(abspath):
-        self._serve_dir(abspath, params)
-      elif os.path.isfile(abspath):
+      if path.startswith('/browse/'):
+        relpath = path[8:]
+        abspath = os.path.normpath(os.path.join(self._root, relpath))
+        if not abspath.startswith(self._root):
+          raise ValueError  # Prevent using .. to get files from anywhere other than root.
+        if os.path.isdir(abspath):
+          self._serve_dir(abspath, params)
+        elif os.path.isfile(abspath):
+          self._serve_file(abspath, params)
+      elif path.startswith('/assets/'):
+        relpath = path[8:]
+        abspath = os.path.normpath(os.path.join(self._assets_dir, relpath))
         self._serve_file(abspath, params)
     except (IOError, ValueError):
       sys.stderr.write('Invalid request %s' % self.path)
 
   def _serve_dir(self, abspath, params):
-    link_base = '/' + os.path.relpath(abspath, self._root)
-    entries = [ {'link': os.path.join(link_base, e), 'name': e} for e in os.listdir(abspath)]
+    relpath = os.path.relpath(abspath, self._root)
+    if relpath == '.':
+      breadcrumbs = []
+    else:
+      path_parts = [os.path.basename(self._root)] + relpath.split(os.path.sep)
+      path_links = ['/'.join(path_parts[1:i+1]) for i, name in enumerate(path_parts)]
+      breadcrumbs = [{'link_path': link_path, 'name': name } for link_path, name in zip(path_links, path_parts)]
+    entries = [ {'link_path': os.path.join(relpath, e), 'name': e} for e in os.listdir(abspath)]
     args = self._default_template_args('dir')
-    args.update({ 'entries': entries, 'params': params })
+    args.update({ 'root_parent': os.path.dirname(self._root), 'breadcrumbs': breadcrumbs, 'entries': entries, 'params': params })
     self._send_content(self._renderer.render('base', args), 'text/html')
 
   def _serve_file(self, abspath, params):
@@ -84,12 +94,13 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     pass
 
 class ReportingServer(object):
-  def __init__(self, port, template_dir, root, allowed_clients):
+  def __init__(self, port, template_dir, assets_dir, root, allowed_clients):
     renderer = Renderer(template_dir, require=['base'])
 
     class MyHandler(FileRegionHandler):
       def __init__(self, request, client_address, server):
-        settings = FileRegionHandler.Settings(renderer=renderer, root=root, allowed_clients=allowed_clients)
+        settings = FileRegionHandler.Settings(renderer=renderer, assets_dir=assets_dir,
+                                              root=root, allowed_clients=allowed_clients)
         FileRegionHandler.__init__(self, settings, request, client_address, server)
 
     self._httpd = BaseHTTPServer.HTTPServer(('', port), MyHandler)
