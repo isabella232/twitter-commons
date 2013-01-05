@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 import os
+import re
 import sys
 import time
 
@@ -10,7 +11,7 @@ from contextlib import contextmanager
 
 
 from twitter.common.collections import OrderedSet
-from twitter.common.dirutil import Lock
+from twitter.common.dirutil import Lock, safe_mkdir_for
 from twitter.common.process import ProcessProviderFactory
 
 from twitter.pants import get_buildroot
@@ -31,6 +32,41 @@ def _process_info(pid):
   return '%d (%s)' % (pid, cmdline)
 
 
+class RunInfo(object):
+  """A little plaintext file containing very basic info about a pants run.
+
+  Can only be appended to, never edited."""
+  def __init__(self, info_file):
+    self._info_file = info_file
+    safe_mkdir_for(self._info_file)
+    self._info = {}
+    if os.path.exists(self._info_file):
+      with open(self._info_file, 'r') as infile:
+        info = infile.read()
+      for m in re.finditer("""^([^:]+):(.*)$""", info, re.MULTILINE):
+        self._info[m.group(1).strip()] = m.group(2).strip()
+
+  def get_info(self, key):
+    return self._info.get(key, None)
+
+  def __getattr__(self, key):
+    ret = self.get_info(key)
+    if ret is None:
+      raise KeyError, key
+    return ret
+
+  def add_info(self, key, val):
+    self.add_infos([(key, val)])
+
+  def add_infos(self, keyvals):
+    with open(self._info_file, 'a') as outfile:
+      for key, val in keyvals:
+        if ':' in key:
+          raise Exception, 'info key must not contain a colon'
+        outfile.write('%s: %s\n' % (key, val))
+        self._info[key] = val
+
+
 class Context(object):
   """Contains the context for a single run of pants.
 
@@ -47,7 +83,12 @@ class Context(object):
     def warn(self, msg): pass
 
   def __init__(self, config, options, target_roots, lock=Lock.unlocked(), log=None):
-    self._run_id = 'build_%s' % time.strftime('%Y_%m_%d_%H_%M_%S')  # Safe for use in paths.
+    run_timestamp = time.time()
+    # run_id is safe for use in paths.
+    millis = (run_timestamp * 1000) % 1000
+    run_id = 'build_%s_%d' % (time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(run_timestamp)), millis)
+    self._run_info = RunInfo(os.path.join(config.getdefault('info_dir'), '%s.info' % run_id))
+    self._run_info.add_infos([('id', run_id), ('timestamp', run_timestamp)])
     self._config = config
     self._options = options
     self._lock = lock
@@ -57,8 +98,13 @@ class Context(object):
     self._buildroot = get_buildroot()
 
     self.replace_targets(target_roots)
-    self.reporter = default_reporting(self._config, self._run_id)
+    self.reporter = default_reporting(self)
     self.reporter.open()
+
+  @property
+  def run_info(self):
+    """Returns the info for this pants run."""
+    return self._run_info
 
   @property
   def config(self):

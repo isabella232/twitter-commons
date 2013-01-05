@@ -13,29 +13,33 @@ StringIO = Compatibility.StringIO
 
 
 
-def default_reporting(config, run_id):
-  reports_dir = config.get('reporting', 'reports_dir')
+def default_reporting(context):
+  reports_dir = context.config.get('reporting', 'reports_dir')
   link_to_latest = os.path.join(reports_dir, 'latest')
   if os.path.exists(link_to_latest):
     os.unlink(link_to_latest)
 
+  run_id = context.run_info.get_info('id')
+  if run_id is None:
+    raise Exception, 'No run_id set'
   this_run_dir = os.path.join(reports_dir, run_id)
   safe_rmtree(this_run_dir)
+  context.run_info.add_info('default_report', this_run_dir)
+
   this_run_html_dir = os.path.join(this_run_dir, 'html')
   safe_mkdir(this_run_html_dir)
   os.symlink(this_run_dir, link_to_latest)
 
-  assets_dir = config.get('reporting', 'reports_assets_dir')
+  assets_dir = context.config.get('reporting', 'reports_assets_dir')
   os.symlink(assets_dir, os.path.join(this_run_dir, 'assets'))
 
   html_output_path = os.path.join(this_run_html_dir, 'build.html')
 
   report = Report()
   report.add_reporter(ConsoleReporter(PlainTextFormatter()))
-  template_dir = config.get('reporting', 'reports_template_dir')
+  template_dir = context.config.get('reporting', 'reports_template_dir')
   report.add_reporter(FileReporter(HTMLFormatter(template_dir), html_output_path))
   return report
-
 
 class Report(object):
   class Outcome:

@@ -38,7 +38,7 @@ from twitter.pants import get_buildroot, goal, group, is_apt, is_codegen, is_sca
 from twitter.pants.base import Address, BuildFile, Config, ParseContext, Target, Timer
 from twitter.pants.base.rcfile import RcFile
 from twitter.pants.commands import Command
-from twitter.pants.reporting.reporting_server import ReportingServer
+from twitter.pants.reporting import reporting_server
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.nailgun_task import NailgunTask
 from twitter.pants.goal import Context, GoalError, Phase
@@ -551,14 +551,17 @@ class RunServer(Task):
         reporting_queue.put(DONE)
 
       try:
-        template_dir = self.context.config.get('reporting', 'reports_template_dir')
         # We mustn't block in the child, because the multiprocessing module enforces that the
         # parent either kills or joins to it. Instead we fork a grandchild that inherits the queue
         # but is allowed to block indefinitely on the server loop.
         if not os.fork():
           # Child process.
-          server = ReportingServer(port, template_dir, self.context.config.get('reporting', 'reports_assets_dir'),
-            get_buildroot(), self.context.options.allowed_clients)
+          info_dir = self.context.config.getdefault('info_dir')
+          template_dir = self.context.config.get('reporting', 'reports_template_dir')
+          assets_dir = self.context.config.get('reporting', 'reports_assets_dir')
+          settings = reporting_server.Settings(info_dir=info_dir, template_dir=template_dir,
+            assets_dir=assets_dir, root=get_buildroot(), allowed_clients=self.context.options.allowed_clients)
+          server = reporting_server.ReportingServer(port, settings)
           # Block forever here.
           server.start(run_before_blocking=[write_pidfile, report_launch, done_reporting])
       except socket.error, e:

@@ -38,8 +38,8 @@ class HTMLFormatter(Formatter):
     return self._linkify(cgi.escape(s)).replace('\n', '</br>')
 
   # Heuristics to find and linkify file and http references.
-  # We require no trailing dots because none of our files have them in practice, but some tools
-  # print an ellipsis after file names (I'm looking at you, zinc).
+  # We require no trailing dots because some tools print an ellipsis after file names
+  # (I'm looking at you, zinc). None of our files end in a dot in practice, so this is fine.
   path_re = re.compile(r'(https?://)?/?(?:\w|[-:.])+(?:/(?:\w|[-:.])+)+\w')  # At least two path components.
   def _linkify(self, s):
     def to_url(m):

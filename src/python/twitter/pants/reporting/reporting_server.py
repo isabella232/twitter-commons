@@ -1,7 +1,7 @@
-import glob
 import mimetypes
 import os
 import pystache
+import re
 import sys
 import urllib
 import urlparse
@@ -9,8 +9,14 @@ import BaseHTTPServer
 
 from collections import namedtuple
 
+from twitter.pants.goal.context import RunInfo
 from twitter.pants.reporting.renderer import Renderer
 
+
+# Prettyprint plugin files.
+PPP_RE=re.compile("""^lang-.*\.js$""")
+
+Settings = namedtuple('Settings', ['info_dir', 'template_dir', 'assets_dir', 'root', 'allowed_clients'])
 
 class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
   """A handler that serves regions of files under a given root:
@@ -19,14 +25,17 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
   /browse/path/to/file?s=x serves from position x (inclusive) until the end of the file.
   /browse/path/to/file serves the entire file.
   """
-  Settings = namedtuple('Settings', ['renderer', 'assets_dir', 'root', 'allowed_clients'])
-
-  def __init__(self, settings, request, client_address, server):
-    self._root = settings.root
-    self._renderer = settings.renderer
-    self._assets_dir = settings.assets_dir
-    self._allowed_clients = set(settings.allowed_clients)
+  def __init__(self, settings, renderer, request, client_address, server):
+    self._settings = settings
+    self._root = self._settings.root
+    self._renderer = renderer
     self._client_address = client_address
+    self._handlers = [
+      ('/builds/', self._handle_builds),
+      ('/browse/', self._handle_browse),
+      ('/content/', self._handle_content),
+      ('/assets/', self._handle_assets)
+    ]
     BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, request, client_address, server)
 
   def _send_content(self, content, content_type, code=200):
@@ -38,32 +47,56 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
   def do_GET(self):
     client_ip = self._client_address[0]
-    if not client_ip in self._allowed_clients and not 'ALL' in self._allowed_clients:
+    if not client_ip in self._settings.allowed_clients and not 'ALL' in self._settings.allowed_clients:
       self._send_content('Access from host %s forbidden.' % client_ip, 'text/html')
       return
 
     try:
       (_, _, path, query, _) = urlparse.urlsplit(self.path)
       params = urlparse.parse_qs(query)
-      if path.startswith('/browse/'):
-        relpath = path[8:]
-        abspath = os.path.normpath(os.path.join(self._root, relpath))
-        if not abspath.startswith(self._root):
-          raise ValueError  # Prevent using .. to get files from anywhere other than root.
-        if os.path.isdir(abspath):
-          self._serve_dir(abspath, params)
-        elif os.path.isfile(abspath):
-          self._serve_file(abspath, params)
-      elif path.startswith('/content/'):
-        relpath = path[9:]
-        abspath = os.path.normpath(os.path.join(self._root, relpath))
-        self._serve_file_content(abspath, params)
-      elif path.startswith('/assets/'):
-        relpath = path[8:]
-        abspath = os.path.normpath(os.path.join(self._assets_dir, relpath))
-        self._serve_asset(abspath)
+      for prefix, handler in self._handlers:
+        if self._maybe_handle(prefix, handler, path, params):
+          break
     except (IOError, ValueError):
       sys.stderr.write('Invalid request %s' % self.path)
+
+  def _maybe_handle(self, prefix, handler, path, params):
+    if path.startswith(prefix):
+      relpath = path[len(prefix):]
+      handler(relpath, params)
+      return True
+    else:
+      return False
+
+  def _handle_builds(self, relpath, params):
+    if relpath == '':
+      build_infos = self._get_build_info()
+      args = self._default_template_args('build_list')
+      args.update({ 'build_infos': build_infos })
+      self._send_content(self._renderer.render('base', args), 'text/html')
+
+  def _handle_browse(self, relpath, params):
+    abspath = os.path.normpath(os.path.join(self._root, relpath))
+    if not abspath.startswith(self._root):
+      raise ValueError  # Prevent using .. to get files from anywhere other than root.
+    if os.path.isdir(abspath):
+      self._serve_dir(abspath, params)
+    elif os.path.isfile(abspath):
+      self._serve_file(abspath, params)
+
+  def _handle_content(self, relpath, params):
+    abspath = os.path.normpath(os.path.join(self._root, relpath))
+    self._serve_file_content(abspath, params)
+
+  def _handle_assets(self, relpath, params):
+    abspath = os.path.normpath(os.path.join(self._settings.assets_dir, relpath))
+    self._serve_asset(abspath)
+
+  def _get_build_info(self):
+    if not os.path.isdir(self._settings.info_dir):
+      return []
+    return [RunInfo(os.path.join(self._settings.info_dir, x))
+            for x in os.listdir(self._settings.info_dir) if x.endswith('.info')]
 
   def _serve_dir(self, abspath, params):
     relpath = os.path.relpath(abspath, self._root)
@@ -107,17 +140,16 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       content = repr(content)[1:-1]  # Will escape non-printables etc. We don't take the surrounding quotes.
       n = 120  # Split into lines of this size.
       content = '\n'.join([content[i:i+n] for i in xrange(0, len(content), n)])
-      prettyprint = False
-      prettyprint_js_files = []
+      prettify = False
+      prettify_extra_langs = []
     else:
-      prettyprint = True
-      prettyprint_js_files = [ {'name': x} for x in \
-        filter(lambda x: x.endswith('.js'), os.listdir(os.path.join(self._assets_dir, 'js', 'prettify'))) ]
+      prettify = True
+      prettify_extra_langs = \
+        [ {'name': x} for x in os.listdir(os.path.join(self._settings.assets_dir, 'js', 'prettify_extra_langs')) ]
     linenums = True
-    args = { 'prettyprint_js_files': prettyprint_js_files, 'content': content,
-             'prettyprint': prettyprint, 'linenums': linenums }
+    args = { 'prettify_extra_langs': prettify_extra_langs, 'content': content,
+             'prettify': prettify, 'linenums': linenums }
     self._send_content(self._renderer.render('file_content', args), 'text/html')
-
 
   def _serve_asset(self, abspath):
     content_type = mimetypes.guess_type(abspath)[0] or 'text/plain'
@@ -137,14 +169,12 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     pass
 
 class ReportingServer(object):
-  def __init__(self, port, template_dir, assets_dir, root, allowed_clients):
-    renderer = Renderer(template_dir, require=['base'])
+  def __init__(self, port, settings):
+    renderer = Renderer(settings.template_dir, require=['base'])
 
     class MyHandler(FileRegionHandler):
       def __init__(self, request, client_address, server):
-        settings = FileRegionHandler.Settings(renderer=renderer, assets_dir=assets_dir,
-                                              root=root, allowed_clients=allowed_clients)
-        FileRegionHandler.__init__(self, settings, request, client_address, server)
+        FileRegionHandler.__init__(self, settings, renderer, request, client_address, server)
 
     self._httpd = BaseHTTPServer.HTTPServer(('', port), MyHandler)
     self._httpd.timeout = 0.1  # Not the network timeout, but how often handle_request yields.
