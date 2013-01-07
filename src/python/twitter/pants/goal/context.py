@@ -55,6 +55,9 @@ class RunInfo(object):
       raise KeyError, key
     return ret
 
+  def get_as_dict(self):
+    return self._info.copy()
+
   def add_info(self, key, val):
     self.add_infos([(key, val)])
 
@@ -86,9 +89,10 @@ class Context(object):
     run_timestamp = time.time()
     # run_id is safe for use in paths.
     millis = (run_timestamp * 1000) % 1000
-    run_id = 'build_%s_%d' % (time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(run_timestamp)), millis)
+    run_id = 'pants_run_%s_%d' % (time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(run_timestamp)), millis)
+    cmd_line = ' '.join(['pants'] + sys.argv[1:])
     self._run_info = RunInfo(os.path.join(config.getdefault('info_dir'), '%s.info' % run_id))
-    self._run_info.add_infos([('id', run_id), ('timestamp', run_timestamp)])
+    self._run_info.add_infos([('id', run_id), ('timestamp', run_timestamp), ('cmd_line', cmd_line)])
     self._config = config
     self._options = options
     self._lock = lock

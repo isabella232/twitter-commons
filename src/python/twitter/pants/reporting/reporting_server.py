@@ -1,3 +1,4 @@
+import itertools
 import mimetypes
 import os
 import pystache
@@ -5,9 +6,11 @@ import re
 import sys
 import urllib
 import urlparse
+
 import BaseHTTPServer
 
 from collections import namedtuple
+from datetime import date, datetime
 
 from twitter.pants.goal.context import RunInfo
 from twitter.pants.reporting.renderer import Renderer
@@ -31,7 +34,7 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self._renderer = renderer
     self._client_address = client_address
     self._handlers = [
-      ('/builds/', self._handle_builds),
+      ('/runs/', self._handle_runs),
       ('/browse/', self._handle_browse),
       ('/content/', self._handle_content),
       ('/assets/', self._handle_assets)
@@ -68,11 +71,11 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     else:
       return False
 
-  def _handle_builds(self, relpath, params):
+  def _handle_runs(self, relpath, params):
     if relpath == '':
-      build_infos = self._get_build_info()
-      args = self._default_template_args('build_list')
-      args.update({ 'build_infos': build_infos })
+      runs_by_day = self._partition_runs_by_day()
+      args = self._default_template_args('run_list')
+      args.update({ 'runs_by_day': runs_by_day })
       self._send_content(self._renderer.render('base', args), 'text/html')
 
   def _handle_browse(self, relpath, params):
@@ -92,10 +95,35 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     abspath = os.path.normpath(os.path.join(self._settings.assets_dir, relpath))
     self._serve_asset(abspath)
 
-  def _get_build_info(self):
+  def _partition_runs_by_day(self):
+    run_infos = self._get_run_info()
+    for x in run_infos:
+      ts = float(x['timestamp'])
+      x['time_of_day_text'] = datetime.fromtimestamp(ts).strftime('%H:%M:%S.') + '%03d' % (int(ts * 1000) % 1000)
+
+    def date_text(dt):
+      delta_days = (date.today() - dt).days
+      if delta_days == 0:
+        return 'Today'
+      elif delta_days == 1:
+        return 'Yesterday'
+      elif delta_days < 7:
+        return dt.strftime('%A')  # Weekday name.
+      else:
+        d = dt.day % 10
+        suffix = 'st' if d == 1 else 'nd' if d == 2 else 'rd' if d == 3 else 'th'
+        return dt.strftime('%B %d') + suffix  # E.g., October 30th.
+
+    keyfunc = lambda x: datetime.fromtimestamp(float(x['timestamp']))
+    sorted_run_infos = sorted(run_infos, key=keyfunc, reverse=True)
+    return [ { 'date_text': date_text(dt), 'run_infos': [x for x in infos] }
+             for dt, infos in itertools.groupby(sorted_run_infos, lambda x: keyfunc(x).date()) ]
+
+  def _get_run_info(self):
     if not os.path.isdir(self._settings.info_dir):
       return []
-    return [RunInfo(os.path.join(self._settings.info_dir, x))
+    # We copy the RunInfo as a dict, so we can add stuff to it to pass to the template.
+    return [RunInfo(os.path.join(self._settings.info_dir, x)).get_as_dict()
             for x in os.listdir(self._settings.info_dir) if x.endswith('.info')]
 
   def _serve_dir(self, abspath, params):
