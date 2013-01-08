@@ -24,7 +24,6 @@ def default_reporting(context):
     raise Exception, 'No run_id set'
   this_run_dir = os.path.join(reports_dir, run_id)
   safe_rmtree(this_run_dir)
-  context.run_info.add_info('default_report', this_run_dir)
 
   this_run_html_dir = os.path.join(this_run_dir, 'html')
   safe_mkdir(this_run_html_dir)
@@ -34,6 +33,7 @@ def default_reporting(context):
   os.symlink(assets_dir, os.path.join(this_run_dir, 'assets'))
 
   html_output_path = os.path.join(this_run_html_dir, 'build.html')
+  context.run_info.add_info('default_report', html_output_path)
 
   report = Report()
   report.add_reporter(ConsoleReporter(PlainTextFormatter()))

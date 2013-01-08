@@ -1,0 +1,20 @@
+<div class="run">
+{{#no_such_run}}
+<div class="no-such-run">No run found with id {{.}}</div>
+{{/no_such_run}}
+{{^no_such_run}}
+<div class="run-info">
+{{#run_info}}
+<div class="timestamp-text">Pants run at {{timestamp_text}}</div>
+<div class="cmd-line-label">Command line:</div>
+<div class="cmd-line monospace">{{cmd_line}}</div>
+{{/run_info}}
+</div>
+<div id="report_{{#run_info}}{{id}}{{/run_info}}"></div>
+<script>
+  $(function(){
+    tail('{{report_url}}', '#report_{{#run_info}}{{id}}{{/run_info}}');
+  });
+</script>
+{{/no_such_run}}
+</div>

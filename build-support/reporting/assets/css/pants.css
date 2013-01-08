@@ -111,6 +111,7 @@ a {
 
 .scope-header {
   font-weight: bold;
+  overflow: hidden;
 }
 .scope-header-icon {
   float: left;
@@ -119,9 +120,7 @@ a {
 .scope-header-text {
   float: left;
 }
-.scope-header-after {
-  clear: left;
-}
+
 .scope-content {
   margin-left: 20px;
 }
@@ -171,4 +170,25 @@ a {
 
 .run-list .time-of-day-text {
   font-size: 14px;
+}
+
+.run .no-such-run {
+  font-size: 14px;
+  font-weight: bold;
+  color: red;
+}
+
+.run .run-info {
+  margin-bottom: 1em;
+}
+
+.run .run-info .timestamp-text {
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 0.5em;
+}
+
+.run .run-info .cmd-line-label {
+  font-size: 14px;
+  font-weight: bold;
 }

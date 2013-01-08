@@ -19,7 +19,8 @@ from twitter.pants.reporting.renderer import Renderer
 # Prettyprint plugin files.
 PPP_RE=re.compile("""^lang-.*\.js$""")
 
-Settings = namedtuple('Settings', ['info_dir', 'template_dir', 'assets_dir', 'root', 'allowed_clients'])
+Settings = namedtuple('Settings',
+  ['info_dir', 'reports_dir', 'template_dir', 'assets_dir', 'root', 'allowed_clients'])
 
 class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
   """A handler that serves regions of files under a given root:
@@ -35,6 +36,7 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self._client_address = client_address
     self._handlers = [
       ('/runs/', self._handle_runs),
+      ('/report/', self._handle_report),
       ('/browse/', self._handle_browse),
       ('/content/', self._handle_content),
       ('/assets/', self._handle_assets)
@@ -73,10 +75,33 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
   def _handle_runs(self, relpath, params):
     if relpath == '':
+      # Show a listing of all runs since the last clean-all.
       runs_by_day = self._partition_runs_by_day()
       args = self._default_template_args('run_list')
-      args.update({ 'runs_by_day': runs_by_day })
-      self._send_content(self._renderer.render('base', args), 'text/html')
+      args['runs_by_day'] = runs_by_day
+    else:
+      # Show the report for a specific run.
+      args = self._default_template_args('run')
+      run_id = relpath
+      run_info = self._get_run_info(run_id)
+      if run_info is None:
+        args['no_such_run'] = relpath
+      else:
+        run_info['timestamp_text'] = \
+          datetime.fromtimestamp(float(run_info['timestamp'])).strftime('%H:%M:%S on %A, %B %d %Y')
+        args.update({'run_info': run_info,
+                     'report_url': '/report/%s' % run_id })
+    self._send_content(self._renderer.render('base', args), 'text/html')
+
+  def _handle_report(self, relpath, params):
+    content = ''
+    run_id = relpath
+    run_info = self._get_run_info(run_id)
+    if run_info is not None:
+      default_report_path = os.path.join(run_info['default_report'])
+      if default_report_path is not None and os.path.exists(default_report_path):
+        content = self._get_raw_file_content(default_report_path, params)
+    self._send_content(content, 'text/html')
 
   def _handle_browse(self, relpath, params):
     abspath = os.path.normpath(os.path.join(self._root, relpath))
@@ -96,7 +121,7 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self._serve_asset(abspath)
 
   def _partition_runs_by_day(self):
-    run_infos = self._get_run_info()
+    run_infos = self._get_all_run_infos()
     for x in run_infos:
       ts = float(x['timestamp'])
       x['time_of_day_text'] = datetime.fromtimestamp(ts).strftime('%H:%M:%S.') + '%03d' % (int(ts * 1000) % 1000)
@@ -119,7 +144,15 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     return [ { 'date_text': date_text(dt), 'run_infos': [x for x in infos] }
              for dt, infos in itertools.groupby(sorted_run_infos, lambda x: keyfunc(x).date()) ]
 
-  def _get_run_info(self):
+  def _get_run_info(self, run_id):
+    run_info_path = os.path.join(self._settings.info_dir, run_id) + '.info'
+    if os.path.exists(run_info_path):
+      # We copy the RunInfo as a dict, so we can add stuff to it to pass to the template.
+      return RunInfo(run_info_path).get_as_dict()
+    else:
+      return None
+
+  def _get_all_run_infos(self):
     if not os.path.isdir(self._settings.info_dir):
       return []
     # We copy the RunInfo as a dict, so we can add stuff to it to pass to the template.
@@ -157,12 +190,7 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     return breadcrumbs
 
   def _serve_file_content(self, abspath, params):
-    start = int(params.get('s')[0]) if 's' in params else 0
-    end = int(params.get('e')[0]) if 'e' in params else None
-    with open(abspath, 'r') as infile:
-      if start:
-        infile.seek(start)
-      content = infile.read(end - start) if end else infile.read()
+    content = self._get_raw_file_content(abspath, params)
     content_type = mimetypes.guess_type(abspath)[0] or 'text/plain'
     if not content_type.startswith('text/'):
       content = repr(content)[1:-1]  # Will escape non-printables etc. We don't take the surrounding quotes.
@@ -178,6 +206,15 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     args = { 'prettify_extra_langs': prettify_extra_langs, 'content': content,
              'prettify': prettify, 'linenums': linenums }
     self._send_content(self._renderer.render('file_content', args), 'text/html')
+
+  def _get_raw_file_content(self, abspath, params):
+    start = int(params.get('s')[0]) if 's' in params else 0
+    end = int(params.get('e')[0]) if 'e' in params else None
+    with open(abspath, 'r') as infile:
+      if start:
+        infile.seek(start)
+      content = infile.read(end - start) if end else infile.read()
+    return content
 
   def _serve_asset(self, abspath):
     content_type = mimetypes.guess_type(abspath)[0] or 'text/plain'

@@ -4,7 +4,6 @@ import re
 
 from twitter.pants import get_buildroot
 from twitter.pants.base.build_file import BuildFile
-from twitter.pants.reporting.renderer import Renderer
 
 
 class Formatter(object):
@@ -31,7 +30,6 @@ class PlainTextFormatter(Formatter):
 
 class HTMLFormatter(Formatter):
   def __init__(self, template_dir):
-    self._renderer = Renderer(template_dir, require=['tailing'])
     self.buildroot = get_buildroot()
 
   def format(self, s):
@@ -46,8 +44,9 @@ class HTMLFormatter(Formatter):
       path = m.group(0)
       if m.group(1):
         return s  # It's an http(s) url.
-      if not path.startswith('/'):
-        path = os.path.join(self.buildroot, path)
+      if path.startswith('/'):
+        path = os.path.relpath(path, self.buildroot)
+      else:
         # See if it's a target reference. TODO: Deal with sibling BUILD files?
         parts = path.split(':')
         if len(parts) == 2:
@@ -56,13 +55,12 @@ class HTMLFormatter(Formatter):
           putative_dir = path
         if os.path.isdir(putative_dir):
           path = os.path.join(putative_dir, BuildFile._CANONICAL_NAME)
-      return 'file://%s' % path
+      return '/browse/%s' % path
 
-    return HTMLFormatter.path_re.sub(lambda m: '<a target="_blank" href="%s">%s</a>' % (to_url(m), m.group(0)), s)
+    return HTMLFormatter.path_re.sub(lambda m: '<a href="%s">%s</a>' % (to_url(m), m.group(0)), s)
 
   def header(self):
-    args = { 'content_id': 'main_build_output'}
-    return self._renderer.render('tailing', args)
+    return ''
 
   def footer(self):
     return ''
@@ -70,11 +68,10 @@ class HTMLFormatter(Formatter):
   def enter_scope(self, scopes):
     return """
 <div style="margin-left:%(indent)dpx">
-  <div class="scope-header" onclick="toggle_scope($(this))">
+  <div class="scope-header" onclick="toggleScope($(this))">
     <div class="scope-header-icon"><i class="visibility-icon icon-large icon-caret-down"></i></div>
     <div class="scope-header-text">[<span id="%(scope_id)s_header_text">%(header_text)s</span>]</div>
     <div id="%(scope_id)s_spinner" class="spinner"></div>
-    <div class="scope-header-after"></div>
   </div>
   <div class="scope-content">
 """ % { 'indent': len(scopes) * 30, 'scope_id': self._scope_id(scopes), 'header_text': ':'.join(scopes) }

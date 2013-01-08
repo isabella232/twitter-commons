@@ -16,7 +16,13 @@ function tail(path, targetSelector) {
       dataType: 'text',
       success: function(data, textStatus, jqXHR) {
         pos += data.length;
+        var isScrolledAllTheWayDown = (window.document.scrollTop == window.document.scrollHeight);
         $(targetSelector).append(data);
+        if (isScrolledAllTheWayDown) {
+          // If the reader has the scrollbar all the way down, she probably wants to scroll down
+          // further automatically when we have new data to add.
+          window.document.scrollTop = window.document.scrollHeight;
+        }
       },
       error: function(data, textStatus, jqXHR) {
         // Probably because pants has finished running, so there's no server.
