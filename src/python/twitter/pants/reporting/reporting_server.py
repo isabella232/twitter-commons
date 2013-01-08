@@ -124,7 +124,7 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     run_infos = self._get_all_run_infos()
     for x in run_infos:
       ts = float(x['timestamp'])
-      x['time_of_day_text'] = datetime.fromtimestamp(ts).strftime('%H:%M:%S.') + '%03d' % (int(ts * 1000) % 1000)
+      x['time_of_day_text'] = datetime.fromtimestamp(ts).strftime('%H:%M:%S')
 
     def date_text(dt):
       delta_days = (date.today() - dt).days
@@ -192,9 +192,10 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
   def _serve_file_content(self, abspath, params):
     content = self._get_raw_file_content(abspath, params)
     content_type = mimetypes.guess_type(abspath)[0] or 'text/plain'
-    if not content_type.startswith('text/'):
+    if not content_type.startswith('text/') and not content_type == 'application/xml':
+      # Binary file, split it into lines.
+      n = 120  # Display lines of this max size.
       content = repr(content)[1:-1]  # Will escape non-printables etc. We don't take the surrounding quotes.
-      n = 120  # Split into lines of this size.
       content = '\n'.join([content[i:i+n] for i in xrange(0, len(content), n)])
       prettify = False
       prettify_extra_langs = []

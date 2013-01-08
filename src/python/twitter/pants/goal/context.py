@@ -85,6 +85,42 @@ class Context(object):
     def info(self, msg): pass
     def warn(self, msg): pass
 
+  class Outcome:
+    # status must be one of these values. Status can only be set to a new value <= an old one.
+    FAILURE = 0
+    WARNING = 1
+    SUCCESS = 2
+    UNKNOWN = 3
+
+    @staticmethod
+    def _choose(status, failure_val, warning_val, success_val, unknown_val):
+      if status not in range(0, 4):
+        raise Exception, 'Invalid status: %s' % status
+      return (failure_val, warning_val, success_val, unknown_val)[status]
+
+    @staticmethod
+    def _str(status):
+      return Context.Outcome._choose(status, 'FAILURE', 'WARNING', 'SUCCESS', 'UNKNOWN')
+
+    def __init__(self):
+      self._status = Context.Outcome.UNKNOWN
+
+    def choose(self, failure_val, warning_val, success_val, unknown_val=None):
+      """Returns one of the 4 arguments, depending on our status."""
+      return Context.Outcome._choose(self._status, failure_val, warning_val, success_val, unknown_val)
+
+    def __str__(self):
+      return Context.Outcome._str(self._status)
+
+    def get_status(self):
+      return self._status
+
+    def set_status(self, status):
+      if status < self._status:  # Otherwise ignore.
+        self._status = status
+        self.choose(0, 0, 0, 0)  # Dummy call, to validate status.
+
+
   def __init__(self, config, options, target_roots, lock=Lock.unlocked(), log=None):
     run_timestamp = time.time()
     # run_id is safe for use in paths.
@@ -93,6 +129,8 @@ class Context(object):
     cmd_line = ' '.join(['pants'] + sys.argv[1:])
     self._run_info = RunInfo(os.path.join(config.getdefault('info_dir'), '%s.info' % run_id))
     self._run_info.add_infos([('id', run_id), ('timestamp', run_timestamp), ('cmd_line', cmd_line)])
+    self._outcome = Context.Outcome()
+
     self._config = config
     self._options = options
     self._lock = lock
@@ -109,6 +147,11 @@ class Context(object):
   def run_info(self):
     """Returns the info for this pants run."""
     return self._run_info
+
+  @property
+  def outcome(self):
+    """Returns the outcome of this pants run."""
+    return self._outcome
 
   @property
   def config(self):

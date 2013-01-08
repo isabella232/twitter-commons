@@ -416,9 +416,9 @@ class Goal(Command):
         unknown.append(phase)
 
     if unknown:
-        print('Unknown goal(s): %s' % ' '.join(phase.name for phase in unknown))
-        print('')
-        return Phase.execute(context, 'goals')
+      print('Unknown goal(s): %s' % ' '.join(phase.name for phase in unknown))
+      print('')
+      return Phase.execute(context, 'goals')
 
     if logger:
       logger.debug('Operating on targets: %s', self.targets)

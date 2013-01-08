@@ -99,14 +99,20 @@ a {
 }
 
 
-.success {
-  color: green;
+.failure {
+  color: red;
 }
+
 .warning {
   color: yellow;
 }
-.failure {
-  color: red;
+
+.success {
+  color: green;
+}
+
+.unknown {
+  color: black;
 }
 
 .scope-header {
@@ -153,7 +159,6 @@ a {
 .file-content-frame {
   margin: 0;
   padding: 0;
-  border: none;
   overflow: auto;
   width: 100%;
   height: 80%;

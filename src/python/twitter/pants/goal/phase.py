@@ -133,6 +133,7 @@ class Phase(PhaseBase):
         Group.execute(phase, tasks_by_goal, context, executed, timer=timer)
 
       emit_timings()
+      context.outcome.set_status(Context.Outcome.SUCCESS)  # Will do nothing if outcome already set.
       return 0
     except (TaskError, GoalError) as e:
       message = '%s' % e
@@ -141,6 +142,11 @@ class Phase(PhaseBase):
       else:
         print('\nFAILURE\n')
       emit_timings()
+      context.outcome.set_status(Context.Outcome.FAILURE)
+      try:
+        context.run_info.add_info('outcome', str(context.outcome))
+      except IOError:
+        pass  # If the goal clean-all then the run info dir no longer exists...
       return 1
 
   @staticmethod
