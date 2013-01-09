@@ -16,10 +16,10 @@ class Formatter(object):
   def footer(self):
     return ''
 
-  def enter_scope(self, scopes):
-    return '[%s]\n' % ':'.join(scopes)
+  def enter_scope(self, workunit):
+    return '[%s]\n' % ':'.join(reversed(workunit.get_name_hierarchy()))
 
-  def exit_scope(self, scopes, outcome):
+  def exit_scope(self, workunit):
     return ''
 
 
@@ -33,12 +33,22 @@ class HTMLFormatter(Formatter):
     self.buildroot = get_buildroot()
 
   def format(self, s):
-    return self._linkify(cgi.escape(s)).replace('\n', '</br>')
+    colored = self._handle_ansi_color_codes(cgi.escape(s))
+    return self._linkify(colored).replace('\n', '</br>')
+
+  ansi_color_code_re = re.compile(r'\033\[((?:\d|;)*)m')
+  def _handle_ansi_color_codes(self, s):
+    def ansi_code_to_css(code):
+      return ' '.join(['ansi-%s' % c for c in code.split(';')])
+    return '<span>' + \
+           HTMLFormatter.ansi_color_code_re.sub(
+             lambda m: '</span><span class="%s">' % ansi_code_to_css(m.group(1)), s) + \
+           '</span>'
 
   # Heuristics to find and linkify file and http references.
   # We require no trailing dots because some tools print an ellipsis after file names
   # (I'm looking at you, zinc). None of our files end in a dot in practice, so this is fine.
-  path_re = re.compile(r'(https?://)?/?(?:\w|[-:.])+(?:/(?:\w|[-:.])+)+\w')  # At least two path components.
+  path_re = re.compile(r'(https?://)?/?(?:\w|[-.])+(?:/(?:\w|[-.])+)+(:w|[-.]+)?\w')  # At least two path components.
   def _linkify(self, s):
     def to_url(m):
       path = m.group(0)
@@ -47,7 +57,8 @@ class HTMLFormatter(Formatter):
       if path.startswith('/'):
         path = os.path.relpath(path, self.buildroot)
       else:
-        # See if it's a target reference. TODO: Deal with sibling BUILD files?
+        # See if it's a reference to a target in a BUILD file.
+        # TODO: Deal with sibling BUILD files?
         parts = path.split(':')
         if len(parts) == 2:
           putative_dir = parts[0]
@@ -65,7 +76,8 @@ class HTMLFormatter(Formatter):
   def footer(self):
     return ''
 
-  def enter_scope(self, scopes):
+  def enter_scope(self, workunit):
+    scopes = [x for x in reversed(workunit.get_name_hierarchy())]
     return """
 <div style="margin-left:%(indent)dpx">
   <div class="scope-header" onclick="toggleScope($(this))">
@@ -74,16 +86,17 @@ class HTMLFormatter(Formatter):
     <div id="%(scope_id)s_spinner" class="spinner"></div>
   </div>
   <div class="scope-content">
-""" % { 'indent': len(scopes) * 30, 'scope_id': self._scope_id(scopes), 'header_text': ':'.join(scopes) }
+""" % { 'indent': len(scopes) * 10, 'scope_id': self._scope_id(scopes), 'header_text': ':'.join(scopes) }
 
-  _status_classes = ['failure', 'success', 'warning']
+  _status_classes = ['failure', 'warning', 'success', 'unknown']
 
-  def exit_scope(self, scopes, outcome):
+  def exit_scope(self, workunit):
+    scopes = [x for x in reversed(workunit.get_name_hierarchy())]
     return """
   <script>$("#%(scope_id)s_header_text").addClass("%(status)s"); $("#%(scope_id)s_spinner").hide()</script>
   </div>
 </div>
-""" % { 'scope_id': self._scope_id(scopes), 'status': HTMLFormatter._status_classes[outcome.status] }
+""" % { 'scope_id': self._scope_id(scopes), 'status': HTMLFormatter._status_classes[workunit.get_outcome()] }
 
   def _scope_id(self, scopes):
     return 'header_' + '_'.join(scopes)

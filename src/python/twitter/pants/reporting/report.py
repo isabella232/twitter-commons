@@ -1,7 +1,6 @@
 import os
 import threading
 
-from contextlib import contextmanager
 from twitter.common.dirutil import safe_rmtree, safe_mkdir
 
 from twitter.common.lang import Compatibility
@@ -42,14 +41,6 @@ def default_reporting(context):
   return report
 
 class Report(object):
-  class Outcome:
-    def __init__(self):
-      self.status = Report.FAILURE  # One of Report.{FAILURE,SUCCESS,WARNING}
-
-  FAILURE = 0
-  SUCCESS = 1
-  WARNING = 2
-
   def __init__(self):
     # We periodically emit newly reported data.
     self._emitter_thread = PeriodicThread(target=self._lock_and_notify, name='report-emitter', period_secs=0.1)
@@ -64,9 +55,6 @@ class Report(object):
     # We report to these reporters.
     self._reporters = []
 
-    # Nested report scopes.
-    self._scopes = []
-
   def open(self):
     with self._lock:
       for reporter in self._reporters:
@@ -77,26 +65,17 @@ class Report(object):
     with self._lock:
       self._reporters.append(reporter)
 
-  @contextmanager
-  def scope(self, scope):
-    self.enter_scope(scope)
-    outcome = Report.Outcome()  # Caller sets fields here to convey outcome.
-    yield outcome
-    self.exit_scope(outcome)
-
-  def enter_scope(self, scope):
-    self._scopes.append(scope)
+  def enter_scope(self, workunit):
     with self._lock:
       self._notify()  # Make sure we flush everything reported until now.
       for reporter in self._reporters:
-        reporter.enter_scope(self._scopes)
+        reporter.enter_scope(workunit)
 
-  def exit_scope(self, outcome):
+  def exit_scope(self, workunit):
     with self._lock:
       self._notify()  # Make sure we flush everything reported until now.
       for reporter in self._reporters:
-        reporter.exit_scope(self._scopes, outcome)
-    self._scopes.pop()
+        reporter.exit_scope(workunit)
 
   def write(self, s):
     with self._lock:

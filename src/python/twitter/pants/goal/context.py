@@ -2,7 +2,6 @@
 from __future__ import print_function
 
 import os
-import re
 import sys
 import time
 
@@ -11,16 +10,18 @@ from contextlib import contextmanager
 
 
 from twitter.common.collections import OrderedSet
-from twitter.common.dirutil import Lock, safe_mkdir_for
+from twitter.common.dirutil import Lock
 from twitter.common.process import ProcessProviderFactory
 
 from twitter.pants import get_buildroot
 from twitter.pants import SourceRoot
 from twitter.pants.base import ParseContext
-from twitter.pants.reporting import default_reporting
 from twitter.pants.base.target import Target
-from twitter.pants.targets import Pants
 from twitter.pants.goal.products import Products
+from twitter.pants.goal.run_info import RunInfo
+from twitter.pants.goal.work_unit import WorkUnit
+from twitter.pants.reporting import default_reporting
+from twitter.pants.targets import Pants
 
 
 # Utility definition for grabbing process info for locking.
@@ -30,44 +31,6 @@ def _process_info(pid):
   handle = ps.get_handle(pid)
   cmdline = handle.cmdline().replace('\0', ' ')
   return '%d (%s)' % (pid, cmdline)
-
-
-class RunInfo(object):
-  """A little plaintext file containing very basic info about a pants run.
-
-  Can only be appended to, never edited."""
-  def __init__(self, info_file):
-    self._info_file = info_file
-    safe_mkdir_for(self._info_file)
-    self._info = {}
-    if os.path.exists(self._info_file):
-      with open(self._info_file, 'r') as infile:
-        info = infile.read()
-      for m in re.finditer("""^([^:]+):(.*)$""", info, re.MULTILINE):
-        self._info[m.group(1).strip()] = m.group(2).strip()
-
-  def get_info(self, key):
-    return self._info.get(key, None)
-
-  def __getattr__(self, key):
-    ret = self.get_info(key)
-    if ret is None:
-      raise KeyError, key
-    return ret
-
-  def get_as_dict(self):
-    return self._info.copy()
-
-  def add_info(self, key, val):
-    self.add_infos([(key, val)])
-
-  def add_infos(self, keyvals):
-    with open(self._info_file, 'a') as outfile:
-      for key, val in keyvals:
-        if ':' in key:
-          raise Exception, 'info key must not contain a colon'
-        outfile.write('%s: %s\n' % (key, val))
-        self._info[key] = val
 
 
 class Context(object):
@@ -85,42 +48,6 @@ class Context(object):
     def info(self, msg): pass
     def warn(self, msg): pass
 
-  class Outcome:
-    # status must be one of these values. Status can only be set to a new value <= an old one.
-    FAILURE = 0
-    WARNING = 1
-    SUCCESS = 2
-    UNKNOWN = 3
-
-    @staticmethod
-    def _choose(status, failure_val, warning_val, success_val, unknown_val):
-      if status not in range(0, 4):
-        raise Exception, 'Invalid status: %s' % status
-      return (failure_val, warning_val, success_val, unknown_val)[status]
-
-    @staticmethod
-    def _str(status):
-      return Context.Outcome._choose(status, 'FAILURE', 'WARNING', 'SUCCESS', 'UNKNOWN')
-
-    def __init__(self):
-      self._status = Context.Outcome.UNKNOWN
-
-    def choose(self, failure_val, warning_val, success_val, unknown_val=None):
-      """Returns one of the 4 arguments, depending on our status."""
-      return Context.Outcome._choose(self._status, failure_val, warning_val, success_val, unknown_val)
-
-    def __str__(self):
-      return Context.Outcome._str(self._status)
-
-    def get_status(self):
-      return self._status
-
-    def set_status(self, status):
-      if status < self._status:  # Otherwise ignore.
-        self._status = status
-        self.choose(0, 0, 0, 0)  # Dummy call, to validate status.
-
-
   def __init__(self, config, options, target_roots, lock=Lock.unlocked(), log=None):
     run_timestamp = time.time()
     # run_id is safe for use in paths.
@@ -129,7 +56,7 @@ class Context(object):
     cmd_line = ' '.join(['pants'] + sys.argv[1:])
     self._run_info = RunInfo(os.path.join(config.getdefault('info_dir'), '%s.info' % run_id))
     self._run_info.add_infos([('id', run_id), ('timestamp', run_timestamp), ('cmd_line', cmd_line)])
-    self._outcome = Context.Outcome()
+    self._current_workunit = None
 
     self._config = config
     self._options = options
@@ -143,15 +70,29 @@ class Context(object):
     self.reporter = default_reporting(self)
     self.reporter.open()
 
+  @contextmanager
+  def new_work_scope(self, scope_name):
+    """Creates a (hierarchical) subunit of work in this pants run, for the purpose of timing and reporting.
+
+    Use like this:
+
+    with context.new_work_scope('scope_name') as workunit:
+      <do scoped work here>
+      <set the outcome on workunit>
+    """
+    self._current_workunit = WorkUnit(name=scope_name, parent=self._current_workunit)
+    try:
+      self.reporter.enter_scope(self._current_workunit)
+      yield self._current_workunit
+    finally:
+      self.reporter.exit_scope(self._current_workunit)
+      self._current_workunit = self._current_workunit.get_parent()
+
+
   @property
   def run_info(self):
     """Returns the info for this pants run."""
     return self._run_info
-
-  @property
-  def outcome(self):
-    """Returns the outcome of this pants run."""
-    return self._outcome
 
   @property
   def config(self):

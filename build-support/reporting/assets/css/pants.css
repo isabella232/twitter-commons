@@ -104,7 +104,7 @@ a {
 }
 
 .warning {
-  color: yellow;
+  color: orange;
 }
 
 .success {
@@ -196,4 +196,68 @@ a {
 .run .run-info .cmd-line-label {
   font-size: 14px;
   font-weight: bold;
+}
+
+.ansi-30 {
+  color: black;
+}
+
+.ansi-31 {
+  color: red;
+}
+
+.ansi-32 {
+  color: green;
+}
+
+.ansi-33 {
+  color: yellow;
+}
+
+.ansi-34 {
+  color: blue;
+}
+
+.ansi-35 {
+  color: magenta;
+}
+
+.ansi-36 {
+  background-color: cyan;
+}
+
+.ansi-37 {
+  background-color: white;
+}
+
+.ansi-40 {
+  background-color: black;
+}
+
+.ansi-41 {
+  background-color: red;
+}
+
+.ansi-42 {
+  background-color: green;
+}
+
+.ansi-43 {
+  background-color: yellow;
+}
+
+.ansi-44 {
+  background-color: blue;
+}
+
+.ansi-45 {
+  background-color: magenta;
+}
+
+.ansi-46 {
+  background-color: cyan;
+}
+
+.ansi-47 {
+  background-color: white;
 }

@@ -21,7 +21,6 @@ import os
 import re
 import signal
 import subprocess
-import sys
 import time
 
 from twitter.common import log
@@ -247,7 +246,7 @@ class NailgunTask(Task):
       with _safe_open(self._pidfile, 'w') as pidfile:
         pidfile.write('%d' % process.pid)
       log.debug('Spawned ng server @ %d' % process.pid)
-      sys.exit(0)
+      os._exit(0)  # Exit without running finally blocks etc.
 
 
 # Pick implementations for killall and _find. We don't use psutil, as it uses

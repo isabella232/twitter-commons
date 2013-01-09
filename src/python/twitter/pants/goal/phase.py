@@ -6,7 +6,7 @@ from optparse import OptionParser
 from twitter.common.collections import OrderedDict, OrderedSet
 from twitter.pants.goal import GoalError
 from twitter.pants.goal.group import Group
-from twitter.pants.goal.context import Context
+from twitter.pants.goal.context import Context, WorkUnit
 from twitter.pants.tasks import TaskError
 
 
@@ -97,57 +97,62 @@ class Phase(PhaseBase):
 
     # I'd rather do this in a finally block below, but some goals os.fork and each of these cause
     # finally to run, printing goal timings multiple times instead of once at the end.
+    # TODO: Not true any more - nailgun_task is the only thing that forks, and its child calls
+    # os._exit() to exit without calling finally blocks.
     def emit_timings():
       if timer:
         for phase, timings in executed.items():
           for goal, times in timings.items():
             timer.log('%s:%s' % (phase, goal), times)
 
-    try:
-      # Prepare tasks roots to leaves and allow for goals introducing new goals in existing phases.
-      tasks_by_goal = {}
-      expanded = OrderedSet()
-      prepared = set()
-      round = 0
-      while True:
-        goals = list(Phase.execution_order(phases))
-        if set(goals) == prepared:
-          break
-        else:
-          round += 1
-          context.log.debug('Preparing goals in round %d' % round)
-          for goal in reversed(goals):
-            if goal not in prepared:
-              phase = Phase.of(goal)
-              expanded.add(phase)
-              context.log.debug('preparing: %s:%s' % (phase, goal.name))
-              prepared.add(goal)
-              task = goal.prepare(context)
-              tasks_by_goal[goal] = task
-
-      # Execute phases leaves to roots
-      context.log.debug(
-        'Executing goals in phases %s' % ' -> '.join(map(str, reversed(expanded)))
-      )
-      for phase in phases:
-        Group.execute(phase, tasks_by_goal, context, executed, timer=timer)
-
-      emit_timings()
-      context.outcome.set_status(Context.Outcome.SUCCESS)  # Will do nothing if outcome already set.
-      return 0
-    except (TaskError, GoalError) as e:
-      message = '%s' % e
-      if message:
-        print('\nFAILURE: %s\n' % e)
-      else:
-        print('\nFAILURE\n')
-      emit_timings()
-      context.outcome.set_status(Context.Outcome.FAILURE)
+    with context.new_work_scope('all') as root_workunit:
       try:
-        context.run_info.add_info('outcome', str(context.outcome))
+        # Prepare tasks roots to leaves and allow for goals introducing new goals in existing phases.
+        tasks_by_goal = {}
+        expanded = OrderedSet()
+        prepared = set()
+        round = 0
+        while True:
+          goals = list(Phase.execution_order(phases))
+          if set(goals) == prepared:
+            break
+          else:
+            round += 1
+            context.log.debug('Preparing goals in round %d' % round)
+            for goal in reversed(goals):
+              if goal not in prepared:
+                phase = Phase.of(goal)
+                expanded.add(phase)
+                context.log.debug('preparing: %s:%s' % (phase, goal.name))
+                prepared.add(goal)
+                task = goal.prepare(context)
+                tasks_by_goal[goal] = task
+
+        # Execute phases leaves to roots
+        context.log.debug(
+          'Executing goals in phases %s' % ' -> '.join(map(str, reversed(expanded)))
+        )
+        for phase in phases:
+          Group.execute(phase, tasks_by_goal, context, executed, timer=timer)
+
+        emit_timings()
+        root_workunit.set_outcome(WorkUnit.SUCCESS)
+        ret = 0
+      except (TaskError, GoalError) as e:
+        message = '%s' % e
+        if message:
+          print('\nFAILURE: %s\n' % e)
+        else:
+          print('\nFAILURE\n')
+        emit_timings()
+        # In case the sub-workunit that raised didn't have its outcome set for some reason.
+        root_workunit.set_outcome(WorkUnit.FAILURE)
+        ret = 1
+      try:
+        context.run_info.add_info('outcome', root_workunit.outcome_string())
       except IOError:
         pass  # If the goal clean-all then the run info dir no longer exists...
-      return 1
+      return ret
 
   @staticmethod
   def execute(context, *names):

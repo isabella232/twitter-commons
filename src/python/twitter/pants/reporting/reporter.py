@@ -20,11 +20,11 @@ class Reporter(object):
   def handle_formatted_output(self, s):
     raise NotImplementedError('handle_formatted_output() not implemented')
 
-  def enter_scope(self, scopes):
-    self.handle_formatted_output(self.formatter.enter_scope(scopes))
+  def enter_scope(self, workunit):
+    self.handle_formatted_output(self.formatter.enter_scope(workunit))
 
-  def exit_scope(self, scopes, outcome):
-    self.handle_formatted_output(self.formatter.exit_scope(scopes, outcome))
+  def exit_scope(self, workunit):
+    self.handle_formatted_output(self.formatter.exit_scope(workunit))
 
 
 class ConsoleReporter(Reporter):
