@@ -43,7 +43,7 @@ class WorkUnit:
     """Returns the names from leaf to root. E.g., ['split', 'scalac', 'compile', 'all']"""
     return [self.get_name()] + ([] if self._parent is None else self._parent.get_name_hierarchy())
 
-  def get_reporting_names(self):
+  def get_reporting_scopes(self):
     """Returns the names from root to leaf, but omitting the root. E.g., ['compile', 'scalac', 'split'].
 
     This is useful in reporting, where we don't want to display the root level."""

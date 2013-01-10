@@ -127,6 +127,7 @@ class ThriftGen(CodeGen):
 
     processes = []
     for source in sources:
+      self.context.report('Generating thrift for %s\n' % source)
       cmd = args[:]
       cmd.append(source)
       log.debug('Executing: %s' % ' '.join(cmd))

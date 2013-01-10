@@ -2,6 +2,8 @@ import cgi
 import os
 import re
 
+from collections import defaultdict
+
 from twitter.pants import get_buildroot
 from twitter.pants.base.build_file import BuildFile
 from twitter.pants.reporting.renderer import Renderer
@@ -18,7 +20,7 @@ class Formatter(object):
     return ''
 
   def enter_scope(self, workunit):
-    scopes = workunit.get_reporting_names()
+    scopes = workunit.get_reporting_scopes()
     if len(scopes) == 0:
       return ''
     return '[%s]\n' % ':'.join(scopes)
@@ -36,6 +38,10 @@ class HTMLFormatter(Formatter):
   def __init__(self, template_dir):
     self._renderer = Renderer(template_dir)
     self.buildroot = get_buildroot()
+    # Map from dash-separated scope names to number of times we've enter a scope with those names.
+    # Necessary because we can enter the same scope (e.g., [compile, javac]) multiple times,
+    # and we need to generate different element ids each time.
+    self.scope_counts = defaultdict(int)
 
   def format(self, s):
     colored = self._handle_ansi_color_codes(cgi.escape(s))
@@ -83,9 +89,10 @@ class HTMLFormatter(Formatter):
     return ''
 
   def enter_scope(self, workunit):
-    scopes = workunit.get_reporting_names()
+    scopes = workunit.get_reporting_scopes()
     if len(scopes) == 0:  # We don't visualize the root of the tree.
       return ''
+    self.scope_counts['-'.join(scopes)] += 1
     parent_scopes = scopes[:-1]
     args = { 'indent':len(scopes) * 10,
              'scope_id': self._scope_id(scopes),
@@ -96,7 +103,7 @@ class HTMLFormatter(Formatter):
   _status_classes = ['failure', 'warning', 'success', 'unknown']
 
   def exit_scope(self, workunit):
-    scopes = workunit.get_reporting_names()
+    scopes = workunit.get_reporting_scopes()
     if len(scopes) == 0: # We don't visualize the root of the tree.
       return ''
     args = { 'scope_id': self._scope_id(scopes),
@@ -104,4 +111,5 @@ class HTMLFormatter(Formatter):
     return self._renderer.render('report_scope_end', args)
 
   def _scope_id(self, scopes):
-    return 'scope-' + '-'.join(scopes)
+    scope_name = '-'.join(scopes)
+    return 'scope-' + scope_name + '-%d' % self.scope_counts[scope_name]
