@@ -81,6 +81,7 @@ class Context(object):
       <set the outcome on workunit>
     """
     self._current_workunit = WorkUnit(name=scope_name, parent=self._current_workunit)
+    depth = len(self._current_workunit.get_name_hierarchy())
     try:
       self.reporter.enter_scope(self._current_workunit)
       yield self._current_workunit

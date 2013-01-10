@@ -41,6 +41,9 @@ def default_reporting(context):
   return report
 
 class Report(object):
+  """A report of a pants run.
+
+  Can be used as a file-like object, e.g., can redirect stdout/stderr to it when spawning subprocesses."""
   def __init__(self):
     # We periodically emit newly reported data.
     self._emitter_thread = PeriodicThread(target=self._lock_and_notify, name='report-emitter', period_secs=0.1)

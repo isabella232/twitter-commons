@@ -4,6 +4,7 @@ import re
 
 from twitter.pants import get_buildroot
 from twitter.pants.base.build_file import BuildFile
+from twitter.pants.reporting.renderer import Renderer
 
 
 class Formatter(object):
@@ -17,7 +18,10 @@ class Formatter(object):
     return ''
 
   def enter_scope(self, workunit):
-    return '[%s]\n' % ':'.join(reversed(workunit.get_name_hierarchy()))
+    scopes = workunit.get_reporting_names()
+    if len(scopes) == 0:
+      return ''
+    return '[%s]\n' % ':'.join(scopes)
 
   def exit_scope(self, workunit):
     return ''
@@ -30,12 +34,14 @@ class PlainTextFormatter(Formatter):
 
 class HTMLFormatter(Formatter):
   def __init__(self, template_dir):
+    self._renderer = Renderer(template_dir)
     self.buildroot = get_buildroot()
 
   def format(self, s):
     colored = self._handle_ansi_color_codes(cgi.escape(s))
     return self._linkify(colored).replace('\n', '</br>')
 
+  # Replace ansi color sequences with spans of appropriately named css classes.
   ansi_color_code_re = re.compile(r'\033\[((?:\d|;)*)m')
   def _handle_ansi_color_codes(self, s):
     def ansi_code_to_css(code):
@@ -77,26 +83,25 @@ class HTMLFormatter(Formatter):
     return ''
 
   def enter_scope(self, workunit):
-    scopes = [x for x in reversed(workunit.get_name_hierarchy())]
-    return """
-<div style="margin-left:%(indent)dpx">
-  <div class="scope-header" onclick="toggleScope($(this))">
-    <div class="scope-header-icon"><i class="visibility-icon icon-large icon-caret-down"></i></div>
-    <div class="scope-header-text">[<span id="%(scope_id)s_header_text">%(header_text)s</span>]</div>
-    <div id="%(scope_id)s_spinner" class="spinner"></div>
-  </div>
-  <div class="scope-content">
-""" % { 'indent': len(scopes) * 10, 'scope_id': self._scope_id(scopes), 'header_text': ':'.join(scopes) }
+    scopes = workunit.get_reporting_names()
+    if len(scopes) == 0:  # We don't visualize the root of the tree.
+      return ''
+    parent_scopes = scopes[:-1]
+    args = { 'indent':len(scopes) * 10,
+             'scope_id': self._scope_id(scopes),
+             'parent_scope_id': self._scope_id(parent_scopes),
+             'header_text': ':'.join(scopes)}
+    return self._renderer.render('report_scope_start', args)
 
   _status_classes = ['failure', 'warning', 'success', 'unknown']
 
   def exit_scope(self, workunit):
-    scopes = [x for x in reversed(workunit.get_name_hierarchy())]
-    return """
-  <script>$("#%(scope_id)s_header_text").addClass("%(status)s"); $("#%(scope_id)s_spinner").hide()</script>
-  </div>
-</div>
-""" % { 'scope_id': self._scope_id(scopes), 'status': HTMLFormatter._status_classes[workunit.get_outcome()] }
+    scopes = workunit.get_reporting_names()
+    if len(scopes) == 0: # We don't visualize the root of the tree.
+      return ''
+    args = { 'scope_id': self._scope_id(scopes),
+             'status': HTMLFormatter._status_classes[workunit.get_outcome()] }
+    return self._renderer.render('report_scope_end', args)
 
   def _scope_id(self, scopes):
-    return 'header_' + '_'.join(scopes)
+    return 'scope-' + '-'.join(scopes)
