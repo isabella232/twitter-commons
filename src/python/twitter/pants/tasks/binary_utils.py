@@ -126,9 +126,29 @@ def safe_classpath(logger=None):
     yield
 
 
-def runjava(jvmargs=None, classpath=None, main=None, args=None,
-            stdout=None, stderr=None, only_write_cmd_line_to=None):
+def runjava(jvmargs=None, classpath=None, main=None, args=None, stdout=None, stderr=None):
   """Spawns a java process with the supplied configuration and returns its exit code."""
+  cmd = build_java_cmd(jvmargs, classpath, main, args)
+  return run_java_cmd(cmd, stdout=stdout, stderr=stderr)
+
+def run_java_cmd(cmd, stdout=None, stderr=None):
+  """Spawns a process to run the specified java cmd (an array of tokens) and returns its exit code.
+
+  Technically this will run any command, but it is especially useful for java as it scrubs CLASSPATH
+  to ensure hermeticity.
+  """
+  log.debug('Executing: %s' % ' '.join(cmd))
+  with safe_classpath():
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    (stdout_data, stderr_data) = proc.communicate()
+    if stdout:
+      stdout.write(stdout_data)
+    if stderr:
+      stderr.write(stderr_data)
+    return proc.returncode
+
+def build_java_cmd(jvmargs=None, classpath=None, main=None, args=None):
+  """Generates a jvm execution command-line as a list of tokens."""
   cmd = ['java']
   if jvmargs:
     cmd.extend(jvmargs)
@@ -138,21 +158,7 @@ def runjava(jvmargs=None, classpath=None, main=None, args=None,
     cmd.append(main)
   if args:
     cmd.extend(args)
-
-  if only_write_cmd_line_to is not None:
-    only_write_cmd_line_to.write(' '.join(cmd))
-    return 0
-  else:
-    log.debug('Executing: %s' % ' '.join(cmd))
-    with safe_classpath():
-      proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-      (stdout_data, stderr_data) = proc.communicate()
-      if stdout:
-        stdout.write(stdout_data)
-      if stderr:
-        stderr.write(stderr_data)
-      return proc.returncode
-
+  return cmd
 
 def nailgun_profile_classpath(nailgun_task, profile, ivy_jar=None, ivy_settings=None):
   return profile_classpath(

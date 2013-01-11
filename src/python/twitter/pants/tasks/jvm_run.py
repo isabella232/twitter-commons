@@ -21,7 +21,7 @@ import shlex
 from twitter.common.dirutil import safe_open
 from twitter.pants.targets import JvmBinary
 from twitter.pants.tasks import Task, TaskError
-from twitter.pants.tasks.binary_utils import runjava
+from twitter.pants.tasks.binary_utils import build_java_cmd, run_java_cmd
 from twitter.pants.tasks.jvm_task import JvmTask
 
 
@@ -67,20 +67,13 @@ class JvmRun(JvmTask):
     binaries = filter(is_binary, targets)
     if len(binaries) > 0:  # We only run the first one.
       main = binaries[0].main
-
-      def run_binary(only_write_cmd_line_to):
-        result = runjava(
-          jvmargs=self.jvm_args,
-          classpath=(self.classpath(confs=self.confs)),
-          main=main,
-          args=self.args,
-          only_write_cmd_line_to=only_write_cmd_line_to
-        )
-        if result != 0:
+      cmd = build_java_cmd(jvmargs=self.jvm_args, classpath=(self.classpath(confs=self.confs)),
+        main=main, args=self.args)
+      if self.only_write_cmd_line:
+        with safe_open(self.only_write_cmd_line, 'w') as fd:
+          fd.write(' '.join(cmd))
+      else:
+        res = run_java_cmd(cmd=cmd)
+        if res != 0:
           raise TaskError()
 
-      if self.only_write_cmd_line is None:
-        run_binary(None)
-      else:
-        with safe_open(self.only_write_cmd_line, 'w') as fd:
-          run_binary(fd)

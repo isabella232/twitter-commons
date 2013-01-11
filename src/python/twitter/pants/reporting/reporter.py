@@ -15,16 +15,16 @@ class Reporter(object):
     self.handle_formatted_output(None, self.formatter.footer())
 
   def handle_output(self, workunit, s):
-    self.handle_formatted_output(workunit, self.formatter.format(s))
+    self.handle_formatted_output(workunit, self.formatter.format(workunit, s))
 
   def handle_formatted_output(self, workunit, s):
     raise NotImplementedError('handle_formatted_output() not implemented')
 
   def start_workunit(self, workunit):
-    self.handle_formatted_output(self.formatter.start_workunit(workunit))
+    self.handle_formatted_output(workunit, self.formatter.start_workunit(workunit))
 
   def end_workunit(self, workunit):
-    self.handle_formatted_output(self.formatter.end_workunit(workunit))
+    self.handle_formatted_output(workunit, self.formatter.end_workunit(workunit))
 
 
 class ConsoleReporter(Reporter):

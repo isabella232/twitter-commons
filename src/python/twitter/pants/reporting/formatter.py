@@ -7,11 +7,20 @@ from twitter.pants import get_buildroot
 from twitter.pants.base.build_file import BuildFile
 from twitter.pants.reporting.renderer import Renderer
 
-def get_scopes(workunit):
-  return list(reversed(workunit.get_name_hierarchy()))[1:]
+
+def _get_workunit_hierarchy(workunit):
+  """Returns a list of this workunit and those enclosing it, up to but NOT including the root."""
+  ret = []
+  while workunit.parent() is not None:  # Skip the root scope.
+    ret.append(workunit)
+    workunit = workunit.parent()
+  return list(reversed(ret))
+
+def _get_scope_names(workunit):
+  return [w.name() for w in _get_workunit_hierarchy(workunit)]
 
 class Formatter(object):
-  def format(self, s):
+  def format(self, workunit, s):
     raise NotImplementedError('format() not implemented')
 
   def header(self):
@@ -21,7 +30,7 @@ class Formatter(object):
     return ''
 
   def start_workunit(self, workunit):
-    scopes = get_scopes(workunit)
+    scopes = _get_scope_names(workunit)
     if len(scopes) == 0:
       return ''
     return '[%s]\n' % ':'.join(scopes)
@@ -31,7 +40,7 @@ class Formatter(object):
 
 
 class PlainTextFormatter(Formatter):
-  def format(self, s):
+  def format(self, workunit, s):
     return s
 
 
@@ -40,7 +49,7 @@ class HTMLFormatter(Formatter):
     self._renderer = Renderer(template_dir)
     self._buildroot = get_buildroot()
 
-  def format(self, s):
+  def format(self, workunit, s):
     colored = self._handle_ansi_color_codes(cgi.escape(s))
     return self._linkify(colored).replace('\n', '</br>')
 
@@ -82,20 +91,29 @@ class HTMLFormatter(Formatter):
   def start_workunit(self, workunit):
     if workunit.parent() is None:  # We don't visualize the root of the tree.
       return ''
-    scopes = get_scopes(workunit)
+    scopes = _get_scope_names(workunit)
     args = { 'indent':len(scopes) * 10,
              'scope_id': workunit.id(),
-             'parent_scope_id': workunit.parent().id(),
-             'header_text': ':'.join(scopes)}
-    return self._renderer.render('report_scope_start', args)
+             'parent_scope_id': workunit.parent().id()}
+    if workunit.type().endswith('_tool'):
+      args.update({'header_text': workunit.name()})
+      return self._renderer.render('tool_invocation_start', args)
+    else:
+      args.update({'header_text': ':'.join(scopes)})
+      return self._renderer.render('report_scope_start', args)
 
   _status_classes = ['failure', 'warning', 'success', 'unknown']
 
   def end_workunit(self, workunit):
-    scopes = get_scopes(workunit)
-    if len(scopes) == 0: # We don't visualize the root of the tree.
+    if workunit.parent() is None:  # We don't visualize the root of the tree.
       return ''
     args = { 'scope_id': workunit.id(),
              'status': HTMLFormatter._status_classes[workunit.get_outcome()] }
-    return self._renderer.render('report_scope_end', args)
+    if workunit.type().endswith('_tool'):
+      return self._renderer.render('tool_invocation_end', args)
+    else:
+      scopes = _get_scope_names(workunit)
+      if len(scopes) == 0: # We don't visualize the root of the tree.
+        return ''
+      return self._renderer.render('report_scope_end', args)
 

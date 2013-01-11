@@ -16,7 +16,6 @@
 
 __author__ = 'John Sirois'
 
-import StringIO
 import os
 import re
 import signal
@@ -28,6 +27,7 @@ from twitter.common.dirutil import safe_open
 from twitter.common.python.platforms import Platform
 
 from twitter.pants import get_buildroot
+from twitter.pants.goal.work_unit import WorkUnit
 from twitter.pants.java import NailgunClient, NailgunError
 from twitter.pants.tasks import binary_utils, Task
 
@@ -78,16 +78,12 @@ class NailgunTask(Task):
                                      help="[%default] Use nailgun daemons to execute java tasks.")
       NailgunTask._DAEMON_OPTION_PRESENT = True
 
-  def __init__(self, context, classpath=None, workdir=None, nailgun_jar=None, args=None,
-               stdin=None, stderr=None, stdout=None):
+  def __init__(self, context, classpath=None, workdir=None, nailgun_jar=None, args=None):
     Task.__init__(self, context)
 
     self._classpath = classpath
     self._nailgun_jar = nailgun_jar or context.config.get('nailgun', 'jar')
     self._ng_server_args = args or context.config.getlist('nailgun', 'args')
-    self._stdin = stdin
-    self._stderr = stderr if stderr else context.reporter
-    self._stdout = stdout if stdout else context.reporter
     self._daemon = context.options.nailgun_daemon
 
     workdir = workdir or context.config.get('nailgun', 'workdir')
@@ -104,31 +100,36 @@ class NailgunTask(Task):
 
     cp = (self._classpath or []) + (classpath or [])
     if self._daemon:
-      nailgun = self._get_nailgun_client()
+      with self.context.new_work_scope(type='ng_tool', name=main, cmd='NAILGUN CMD HERE') as workunit:
+        nailgun = self._get_nailgun_client(stdin=None, stdout=workunit.stdout(), stderr=workunit.stderr())
 
-      def call_nailgun(main_class, *args):
-        if self.dry_run:
-          self.context.report('********** NailgunClient dry run: %s %s' % (main_class, ' '.join(args)))
-          return 0
-        else:
-          return nailgun(main_class, *args)
+        def call_nailgun(main_class, *args):
+          if self.dry_run:
+            self.context.report('********** NailgunClient dry run')
+            return 0
+          else:
+            return nailgun(main_class, *args)
 
-      try:
-        if cp:
-          call_nailgun('ng-cp', *[os.path.relpath(jar, get_buildroot()) for jar in cp])
-        return call_nailgun(main, *args)
-      except NailgunError as e:
-        self._ng_shutdown()
-        raise e
+        try:
+          if cp:
+            call_nailgun('ng-cp', *[os.path.relpath(jar, get_buildroot()) for jar in cp])
+          ret = call_nailgun(main, *args)
+          if not self.dry_run:
+            workunit.set_outcome(WorkUnit.FAILURE if ret else WorkUnit.SUCCESS)
+          return ret
+        except NailgunError as e:
+          self._ng_shutdown()
+          workunit.set_outcome(WorkUnit.FAILURE)
+          raise e
     else:
-      only_write_cmd_line_to = StringIO.StringIO() if self.dry_run else None
-      ret = binary_utils.runjava(main=main, classpath=cp, args=args, jvmargs=jvmargs,
-        stdout=self.context.reporter, stderr=self.context.reporter,
-        only_write_cmd_line_to=only_write_cmd_line_to)
-      if only_write_cmd_line_to:
-        self.context.report('********** Direct Java dry run: %s' % only_write_cmd_line_to.getvalue())
-        only_write_cmd_line_to.close()
-      return ret
+      cmd = binary_utils.build_java_cmd(main=main, classpath=cp, args=args, jvmargs=jvmargs)
+      with self.context.new_work_scope(type='jvm_tool', name=main, cmd=' '.join(cmd)) as workunit:
+        if self.dry_run:
+          self.context.report('********** Direct Java dry run')
+          return 0
+        ret = binary_utils.run_java_cmd(cmd=cmd, stdout=workunit.stdout(), stderr=workunit.stderr())
+        workunit.set_outcome(WorkUnit.FAILURE if ret else WorkUnit.SUCCESS)
+        return ret
 
   def _ng_shutdown(self):
     endpoint = self._get_nailgun_endpoint()
@@ -166,12 +167,12 @@ class NailgunTask(Task):
       return pid_port
     return None
 
-  def _get_nailgun_client(self):
+  def _get_nailgun_client(self, stdin, stdout, stderr):
     endpoint = self._get_nailgun_endpoint()
     if endpoint and _check_pid(endpoint[0]):
-      return self._create_ngclient(port=endpoint[1])
+      return self._create_ngclient(port=endpoint[1], stdin=stdin, stdout=stdout, stderr=stderr)
     else:
-      return self._spawn_nailgun_server()
+      return self._spawn_nailgun_server(client_stdin=stdin, client_stdout=stdout, client_stderr=stderr)
 
   # 'NGServer started on 127.0.0.1, port 53785.'
   _PARSE_NG_PORT = re.compile('.*\s+port\s+(\d+)\.$')
@@ -182,7 +183,7 @@ class NailgunTask(Task):
       raise NailgunError('Failed to determine spawned ng port from response line: %s' % line)
     return int(match.group(1))
 
-  def _await_nailgun_server(self):
+  def _await_nailgun_server(self, client_stdin, client_stdout, client_stderr):
     nailgun = None
     with _safe_open(self._ng_out, 'r') as ng_out:
       while True:
@@ -191,7 +192,7 @@ class NailgunTask(Task):
           port = self._parse_nailgun_port(started)
           with open(self._pidfile, 'a') as pidfile:
             pidfile.write(':%d\n' % port)
-          nailgun = self._create_ngclient(port)
+          nailgun = self._create_ngclient(port, stdin=client_stdin, stdout=client_stdout, stderr=client_stderr)
           log.debug('Detected ng server up on port %d' % port)
           break
 
@@ -206,11 +207,10 @@ class NailgunTask(Task):
       log.debug('Failed to connect on attempt %d' % attempt)
       time.sleep(0.1)
 
-  def _create_ngclient(self, port):
-    return NailgunClient(port=port, work_dir=get_buildroot(), ins=self._stdin, out=self._stdout,
-                         err=self._stderr)
+  def _create_ngclient(self, port, stdin, stdout, stderr):
+    return NailgunClient(port=port, work_dir=get_buildroot(), ins=stdin, out=stdout, err=stderr)
 
-  def _spawn_nailgun_server(self):
+  def _spawn_nailgun_server(self, client_stdin, client_stdout, client_stderr):
     log.info('No ng server found, spawning...')
 
     with _safe_open(self._ng_out, 'w'):
@@ -219,7 +219,7 @@ class NailgunTask(Task):
     pid = os.fork()
     if pid != 0:
       # In the parent tine - block on ng being up for connections
-      return self._await_nailgun_server()
+      return self._await_nailgun_server(client_stdin, client_stdout, client_stderr)
 
     os.setsid()
     in_fd = open('/dev/null', 'w')

@@ -6,7 +6,6 @@ from twitter.common.dirutil import safe_rmtree, safe_mkdir
 from twitter.common.lang import Compatibility
 from twitter.common.threading import PeriodicThread
 from twitter.pants.reporting.formatter import HTMLFormatter, PlainTextFormatter
-from twitter.pants.reporting.read_write_buffer import ReadWriteBuffer
 from twitter.pants.reporting.reporter import ConsoleReporter, FileReporter
 
 StringIO = Compatibility.StringIO
@@ -53,12 +52,6 @@ class Report(object):
     # Map from workunit id to workunit.
     self._workunits = {}
 
-    # Map from workunit id to buffer into which that workunit writes output by default.
-    self._rwbufs = {}
-
-    # Buffer for the current workunit. We write into this by default.
-    self._current_workunit_rwbuf = None
-
     # We report to these reporters.
     self._reporters = []
 
@@ -78,8 +71,7 @@ class Report(object):
   def start_workunit(self, workunit):
     with self._lock:
       self._notify()  # Make sure we flush everything reported until now.
-      self._current_workunit_rwbuf = ReadWriteBuffer()
-      self._rwbufs[workunit.id()] = self._current_workunit_rwbuf
+      self._workunits[workunit.id()] = workunit
       for reporter in self._reporters:
         reporter.start_workunit(workunit)
 
@@ -88,19 +80,16 @@ class Report(object):
       self._notify()  # Make sure we flush everything reported until now.
       for reporter in self._reporters:
         reporter.end_workunit(workunit)
-      self._current_workunit_rwbuf = None if workunit.parent() is None else self._rwbufs[workunit.parent().id()]
-      del self._rwbufs[workunit.id()]
+      del self._workunits[workunit.id()]
 
-  def write(self, s):
-    self._current_workunit_rwbuf.write(s)
+  def write(self, workunit, s):
+    workunit.stdout().write(s)
 
-  def write_targets(self, prefix, targets):
-    indent = '\n' + ' ' * (len(prefix) + 1)
-    s = '%s %s\n' % (prefix, indent.join([t.address.reference() for t in targets]))
-    self.write(s)
+#  def write_targets(self, workunit, prefix, targets):
+#    indent = '\n' + ' ' * (len(prefix) + 1)
+#    s = '%s %s\n' % (prefix, indent.join([t.address.reference() for t in targets]))
+#    self.write(workunit, s)
 
-  def flush(self):
-    self._current_workunit_rwbuf.flush()
 
   def close(self):
     self._emitter_thread.stop()
@@ -113,9 +102,10 @@ class Report(object):
       self._notify()
 
   def _notify(self):
-    for id, rwbuf in self._rwbufs.items():
-      workunit = self._workunits[id]
-      s = rwbuf._read()
+    # Notify for output in all workunits. Note that output may be coming in from workunits other
+    # than the current one, if work is happening in parallel.
+    for workunit in self._workunits.values():
+      s = workunit.stdout().read()
       if len(s) > 0:
         for reporter in self._reporters:
           reporter.handle_output(workunit, s)

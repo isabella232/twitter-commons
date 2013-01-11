@@ -71,23 +71,28 @@ class Context(object):
     self.reporter.open()
 
   @contextmanager
-  def new_work_scope(self, type, scope_name):
+  def new_work_scope(self, type, name, cmd=None):
     """Creates a (hierarchical) subunit of work in this pants run, for the purpose of timing and reporting.
+
+    - type: A string that the report formatters can use to decide how to display information
+            about this work. E.g., 'phase', 'goal', 'tool'.
+    - name: A short name for this work. E.g., 'resolve', 'compile', 'scala', 'zinc'.
+    - cmd: An optional longer string representing this work. E.g., the cmd line of a
+           compiler invocation. Used only for display.
 
     Use like this:
 
-    with context.new_work_scope('scope_name') as workunit:
+    with context.new_work_scope('goal', 'compile', None) as workunit:
       <do scoped work here>
       <set the outcome on workunit>
     """
-    self._current_workunit = WorkUnit(name=scope_name, type=type, parent=self._current_workunit)
-    depth = len(self._current_workunit.get_name_hierarchy())
+    self._current_workunit = WorkUnit(parent=self._current_workunit, type=type, name=name, cmd=cmd)
     try:
       self.reporter.start_workunit(self._current_workunit)
       yield self._current_workunit
     finally:
       self.reporter.end_workunit(self._current_workunit)
-      self._current_workunit = self._current_workunit.get_parent()
+      self._current_workunit = self._current_workunit.parent()
 
 
   @property
@@ -234,7 +239,7 @@ class Context(object):
       return Pants(spec).resolve()
 
   def report(self, str):
-    self.reporter.write(str)
+    self.reporter.write(self._current_workunit, str)
 
   @contextmanager
   def state(self, key, default=None):

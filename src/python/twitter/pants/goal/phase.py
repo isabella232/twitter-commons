@@ -105,7 +105,7 @@ class Phase(PhaseBase):
           for goal, times in timings.items():
             timer.log('%s:%s' % (phase, goal), times)
 
-    with context.new_work_scope('all', 'root') as root_workunit:
+    with context.new_work_scope(type='root', name='all') as root_workunit:
       try:
         # Prepare tasks roots to leaves and allow for goals introducing new goals in existing phases.
         tasks_by_goal = {}
