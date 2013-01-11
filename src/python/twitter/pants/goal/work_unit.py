@@ -1,8 +1,11 @@
+import uuid
 
 class WorkUnit:
   """A hierarchical unit of work, for the purpose of timing and reporting.
 
-  A WorkUnit can be subdivided into further WorkUnits, e.g., there might be one WorkUnit representing an
+  A WorkUnit can be subdivided into further WorkUnits. The WorkUnit concept is deliberately decoupled from the
+  phase/task hierarchy, although it will typically be used to represent it in reports. This allows some
+  flexibility in having, say, sub-units inside a task. E.g., there might be one WorkUnit representing an
   entire pants run, and that can be subdivided into WorkUnits for each phase. Each of those can be subdivided
   into WorkUnits for each task, and a task can subdivide that into further work units, if finer-grained
   timing and reporting is needed.
@@ -14,10 +17,12 @@ class WorkUnit:
   SUCCESS = 2
   UNKNOWN = 3
 
-  def __init__(self, name, parent=None):
+  def __init__(self, name, type='', parent=None):
     self._outcome = WorkUnit.UNKNOWN
     self._name = name
+    self._type = type
     self._parent = parent
+    self._id = uuid.uuid4()
 
   def get_outcome(self):
     return self._outcome
@@ -34,20 +39,26 @@ class WorkUnit:
       if self._parent: self._parent.set_outcome(self._outcome)
 
   def get_parent(self):
+    """The enclosing workunit, or None of this is the root workunit."""
     return self._parent
 
   def get_name(self):
+    """The name of this workunit."""
     return self._name
+
+  def get_type(self):
+    """The type of this workunit.
+
+    A string that a reporter can use to decide how to format output for this workunit."""
+    return self._type
+
+  def get_id(self):
+    """The unique id of this workunit."""
+    return self._id
 
   def get_name_hierarchy(self):
     """Returns the names from leaf to root. E.g., ['split', 'scalac', 'compile', 'all']"""
     return [self.get_name()] + ([] if self._parent is None else self._parent.get_name_hierarchy())
-
-  def get_reporting_scopes(self):
-    """Returns the names from root to leaf, but omitting the root. E.g., ['compile', 'scalac', 'split'].
-
-    This is useful in reporting, where we don't want to display the root level."""
-    return list(reversed(self.get_name_hierarchy()))[1:]
 
   def choose(self, failure_val, warning_val, success_val, unknown_val):
     """Returns one of the 4 arguments, depending on our outcome."""

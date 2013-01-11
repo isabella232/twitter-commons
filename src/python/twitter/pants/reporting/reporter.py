@@ -9,29 +9,29 @@ class Reporter(object):
     self.formatter = formatter
 
   def open(self):
-    self.handle_formatted_output(self.formatter.header())
+    self.handle_formatted_output(None, self.formatter.header())
 
   def close(self):
-    self.handle_formatted_output(self.formatter.footer())
+    self.handle_formatted_output(None, self.formatter.footer())
 
-  def handle_output(self, s):
-    self.handle_formatted_output(self.formatter.format(s))
+  def handle_output(self, workunit, s):
+    self.handle_formatted_output(workunit, self.formatter.format(s))
 
-  def handle_formatted_output(self, s):
+  def handle_formatted_output(self, workunit, s):
     raise NotImplementedError('handle_formatted_output() not implemented')
 
-  def enter_scope(self, workunit):
-    self.handle_formatted_output(self.formatter.enter_scope(workunit))
+  def start_workunit(self, workunit):
+    self.handle_formatted_output(self.formatter.start_workunit(workunit))
 
-  def exit_scope(self, workunit):
-    self.handle_formatted_output(self.formatter.exit_scope(workunit))
+  def end_workunit(self, workunit):
+    self.handle_formatted_output(self.formatter.end_workunit(workunit))
 
 
 class ConsoleReporter(Reporter):
   def __init__(self, formatter):
     Reporter.__init__(self, formatter)
 
-  def handle_formatted_output(self, s):
+  def handle_formatted_output(self, workunit, s):
     sys.stdout.write(s)
 
 
@@ -51,7 +51,7 @@ class FileReporter(Reporter):
     self._file.close()
     self._file = None
 
-  def handle_formatted_output(self, s):
+  def handle_formatted_output(self, workunit, s):
     self._file.write(s)
     # Not sure why, but it's important to flush in the same thread as the write, so we must flush here.
     self._file.flush()

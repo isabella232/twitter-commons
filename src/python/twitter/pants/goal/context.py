@@ -71,7 +71,7 @@ class Context(object):
     self.reporter.open()
 
   @contextmanager
-  def new_work_scope(self, scope_name):
+  def new_work_scope(self, type, scope_name):
     """Creates a (hierarchical) subunit of work in this pants run, for the purpose of timing and reporting.
 
     Use like this:
@@ -80,13 +80,13 @@ class Context(object):
       <do scoped work here>
       <set the outcome on workunit>
     """
-    self._current_workunit = WorkUnit(name=scope_name, parent=self._current_workunit)
+    self._current_workunit = WorkUnit(name=scope_name, type=type, parent=self._current_workunit)
     depth = len(self._current_workunit.get_name_hierarchy())
     try:
-      self.reporter.enter_scope(self._current_workunit)
+      self.reporter.start_workunit(self._current_workunit)
       yield self._current_workunit
     finally:
-      self.reporter.exit_scope(self._current_workunit)
+      self.reporter.end_workunit(self._current_workunit)
       self._current_workunit = self._current_workunit.get_parent()
 
 

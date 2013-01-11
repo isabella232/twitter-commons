@@ -57,13 +57,13 @@ class Group(object):
         else:
           runqueue.append((None, [goal]))
 
-      with context.new_work_scope(phase.name):
+      with context.new_work_scope(phase.name, 'phase'):
         # Note that we don't explicitly set the outcome at the phase level. We just take
         # the outcomes that propagate up from the goal workunits.
         for group_name, goals in runqueue:
           if not group_name:
             goal = goals[0]
-            with context.new_work_scope(goal.name) as goal_workunit:
+            with context.new_work_scope(goal.name, 'goal') as goal_workunit:
               try:
                 context.log.info('[%s:%s]' % (phase, goal.name))
                 execute_task(goal.name, tasks_by_goal[goal], context.targets())
@@ -72,18 +72,19 @@ class Group(object):
                 goal_workunit.set_outcome(WorkUnit.FAILURE)
                 raise e
           else:
-            for chunk in Group.create_chunks(context, goals):
-              for goal in goals:
-                goal_chunk = filter(goal.group.predicate, chunk)
-                if len(goal_chunk) > 0:
-                  with context.new_work_scope(goal.name) as goal_workunit:
-                    try:
-                      context.log.info('[%s:%s:%s]' % (phase, group_name, goal.name))
-                      execute_task(goal.name, tasks_by_goal[goal], goal_chunk)
-                      goal_workunit.set_outcome(WorkUnit.SUCCESS)
-                    except (TaskError, GoalError) as e:
-                      goal_workunit.set_outcome(WorkUnit.FAILURE)
-                      raise e
+            with context.new_work_scope(group_name, 'group'):
+              for chunk in Group.create_chunks(context, goals):
+                for goal in goals:
+                  goal_chunk = filter(goal.group.predicate, chunk)
+                  if len(goal_chunk) > 0:
+                    with context.new_work_scope(goal.name, 'goal') as goal_workunit:
+                      try:
+                        context.log.info('[%s:%s:%s]' % (phase, group_name, goal.name))
+                        execute_task(goal.name, tasks_by_goal[goal], goal_chunk)
+                        goal_workunit.set_outcome(WorkUnit.SUCCESS)
+                      except (TaskError, GoalError) as e:
+                        goal_workunit.set_outcome(WorkUnit.FAILURE)
+                        raise e
 
       # Can't put this in a finally block because some tasks fork, and the forked processes would
       # execute this block as well.

@@ -6,6 +6,7 @@ from twitter.common.dirutil import safe_rmtree, safe_mkdir
 from twitter.common.lang import Compatibility
 from twitter.common.threading import PeriodicThread
 from twitter.pants.reporting.formatter import HTMLFormatter, PlainTextFormatter
+from twitter.pants.reporting.read_write_buffer import ReadWriteBuffer
 from twitter.pants.reporting.reporter import ConsoleReporter, FileReporter
 
 StringIO = Compatibility.StringIO
@@ -49,14 +50,20 @@ class Report(object):
     self._emitter_thread = PeriodicThread(target=self._lock_and_notify, name='report-emitter', period_secs=0.1)
     self._emitter_thread.daemon = True
 
-    # Our read-write buffer.
-    self._lock = threading.Lock()
-    self._io = StringIO()
-    self._readpos = 0
-    self._writepos = 0
+    # Map from workunit id to workunit.
+    self._workunits = {}
+
+    # Map from workunit id to buffer into which that workunit writes output by default.
+    self._rwbufs = {}
+
+    # Buffer for the current workunit. We write into this by default.
+    self._current_workunit_rwbuf = None
 
     # We report to these reporters.
     self._reporters = []
+
+    # We synchronize our state on this.
+    self._lock = threading.Lock()
 
   def open(self):
     with self._lock:
@@ -68,24 +75,24 @@ class Report(object):
     with self._lock:
       self._reporters.append(reporter)
 
-  def enter_scope(self, workunit):
+  def start_workunit(self, workunit):
     with self._lock:
       self._notify()  # Make sure we flush everything reported until now.
+      self._current_workunit_rwbuf = ReadWriteBuffer()
+      self._rwbufs[workunit.id()] = self._current_workunit_rwbuf
       for reporter in self._reporters:
-        reporter.enter_scope(workunit)
+        reporter.start_workunit(workunit)
 
-  def exit_scope(self, workunit):
+  def end_workunit(self, workunit):
     with self._lock:
       self._notify()  # Make sure we flush everything reported until now.
       for reporter in self._reporters:
-        reporter.exit_scope(workunit)
+        reporter.end_workunit(workunit)
+      self._current_workunit_rwbuf = None if workunit.parent() is None else self._rwbufs[workunit.parent().id()]
+      del self._rwbufs[workunit.id()]
 
   def write(self, s):
-    with self._lock:
-      self._io.seek(self._writepos)
-      self._io.write(str(s))
-      self._io.flush()
-      self._writepos = self._io.tell()
+    self._current_workunit_rwbuf.write(s)
 
   def write_targets(self, prefix, targets):
     indent = '\n' + ' ' * (len(prefix) + 1)
@@ -93,7 +100,7 @@ class Report(object):
     self.write(s)
 
   def flush(self):
-    pass
+    self._current_workunit_rwbuf.flush()
 
   def close(self):
     self._emitter_thread.stop()
@@ -101,18 +108,14 @@ class Report(object):
       for reporter in self._reporters:
         reporter.close()
 
-  def _read(self):
-    self._io.seek(self._readpos)
-    ret = self._io.read()
-    self._readpos = self._io.tell()
-    return ret
-
   def _lock_and_notify(self):
     with self._lock:
       self._notify()
 
   def _notify(self):
-    s = self._read()
-    if len(s) > 0:
-      for reporter in self._reporters:
-        reporter.handle_output(s)
+    for id, rwbuf in self._rwbufs.items():
+      workunit = self._workunits[id]
+      s = rwbuf._read()
+      if len(s) > 0:
+        for reporter in self._reporters:
+          reporter.handle_output(workunit, s)

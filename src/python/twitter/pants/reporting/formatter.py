@@ -2,12 +2,13 @@ import cgi
 import os
 import re
 
-from collections import defaultdict
 
 from twitter.pants import get_buildroot
 from twitter.pants.base.build_file import BuildFile
 from twitter.pants.reporting.renderer import Renderer
 
+def get_scopes(workunit):
+  return list(reversed(workunit.get_name_hierarchy()))[1:]
 
 class Formatter(object):
   def format(self, s):
@@ -19,13 +20,13 @@ class Formatter(object):
   def footer(self):
     return ''
 
-  def enter_scope(self, workunit):
-    scopes = workunit.get_reporting_scopes()
+  def start_workunit(self, workunit):
+    scopes = get_scopes(workunit)
     if len(scopes) == 0:
       return ''
     return '[%s]\n' % ':'.join(scopes)
 
-  def exit_scope(self, workunit):
+  def end_workunit(self, workunit):
     return ''
 
 
@@ -37,11 +38,7 @@ class PlainTextFormatter(Formatter):
 class HTMLFormatter(Formatter):
   def __init__(self, template_dir):
     self._renderer = Renderer(template_dir)
-    self.buildroot = get_buildroot()
-    # Map from dash-separated scope names to number of times we've enter a scope with those names.
-    # Necessary because we can enter the same scope (e.g., [compile, javac]) multiple times,
-    # and we need to generate different element ids each time.
-    self.scope_counts = defaultdict(int)
+    self._buildroot = get_buildroot()
 
   def format(self, s):
     colored = self._handle_ansi_color_codes(cgi.escape(s))
@@ -67,7 +64,7 @@ class HTMLFormatter(Formatter):
       if m.group(1):
         return s  # It's an http(s) url.
       if path.startswith('/'):
-        path = os.path.relpath(path, self.buildroot)
+        path = os.path.relpath(path, self._buildroot)
       else:
         # See if it's a reference to a target in a BUILD file.
         # TODO: Deal with sibling BUILD files?
@@ -82,34 +79,23 @@ class HTMLFormatter(Formatter):
 
     return HTMLFormatter.path_re.sub(lambda m: '<a href="%s">%s</a>' % (to_url(m), m.group(0)), s)
 
-  def header(self):
-    return ''
-
-  def footer(self):
-    return ''
-
-  def enter_scope(self, workunit):
-    scopes = workunit.get_reporting_scopes()
-    if len(scopes) == 0:  # We don't visualize the root of the tree.
+  def start_workunit(self, workunit):
+    if workunit.parent() is None:  # We don't visualize the root of the tree.
       return ''
-    self.scope_counts['-'.join(scopes)] += 1
-    parent_scopes = scopes[:-1]
+    scopes = get_scopes(workunit)
     args = { 'indent':len(scopes) * 10,
-             'scope_id': self._scope_id(scopes),
-             'parent_scope_id': self._scope_id(parent_scopes),
+             'scope_id': workunit.id(),
+             'parent_scope_id': workunit.parent().id(),
              'header_text': ':'.join(scopes)}
     return self._renderer.render('report_scope_start', args)
 
   _status_classes = ['failure', 'warning', 'success', 'unknown']
 
-  def exit_scope(self, workunit):
-    scopes = workunit.get_reporting_scopes()
+  def end_workunit(self, workunit):
+    scopes = get_scopes(workunit)
     if len(scopes) == 0: # We don't visualize the root of the tree.
       return ''
-    args = { 'scope_id': self._scope_id(scopes),
+    args = { 'scope_id': workunit.id(),
              'status': HTMLFormatter._status_classes[workunit.get_outcome()] }
     return self._renderer.render('report_scope_end', args)
 
-  def _scope_id(self, scopes):
-    scope_name = '-'.join(scopes)
-    return 'scope-' + scope_name + '-%d' % self.scope_counts[scope_name]
