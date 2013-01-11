@@ -198,36 +198,36 @@ a {
   font-weight: bold;
 }
 
-.ansi-30 {
+.ansi-30, .ansi-30 a {
   color: black;
 }
 
-.ansi-31 {
+.ansi-31, .ansi-31 a {
   color: red;
 }
 
-.ansi-32 {
+.ansi-32, .ansi-32 a {
   color: green;
 }
 
-.ansi-33 {
+.ansi-33, .ansi-33 a {
   color: orange;
 }
 
-.ansi-34 {
+.ansi-34, .ansi-34 a {
   color: blue;
 }
 
-.ansi-35 {
+.ansi-35, .ansi-35 a {
   color: magenta;
 }
 
-.ansi-36 {
-  background-color: cyan;
+.ansi-36, .ansi-36 a {
+  color: cyan;
 }
 
-.ansi-37 {
-  background-color: white;
+.ansi-37, .ansi-37 a {
+  color: white;
 }
 
 .ansi-40 {
