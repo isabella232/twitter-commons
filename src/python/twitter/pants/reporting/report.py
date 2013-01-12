@@ -71,7 +71,7 @@ class Report(object):
   def start_workunit(self, workunit):
     with self._lock:
       self._notify()  # Make sure we flush everything reported until now.
-      self._workunits[workunit.id()] = workunit
+      self._workunits[workunit.id] = workunit
       for reporter in self._reporters:
         reporter.start_workunit(workunit)
 
@@ -80,7 +80,7 @@ class Report(object):
       self._notify()  # Make sure we flush everything reported until now.
       for reporter in self._reporters:
         reporter.end_workunit(workunit)
-      del self._workunits[workunit.id()]
+      del self._workunits[workunit.id]
 
   def write(self, workunit, s):
     workunit.stdout().write(s)

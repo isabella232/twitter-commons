@@ -29,11 +29,11 @@ class WorkUnit:
            compiler invocation. Used only for display.
     """
     self._outcome = WorkUnit.UNKNOWN
-    self._parent = parent
-    self._type = type
-    self._name = name
-    self._cmd = cmd
-    self._id = uuid.uuid4()
+    self.parent = parent
+    self.type = type
+    self.name = name
+    self.cmd = cmd
+    self.id = uuid.uuid4()
     self._stdout = ReadWriteBuffer()  # Output for this work unit (but not its children) goes here.
     self._stderr = ReadWriteBuffer()  # Do we need this? Let's see.
 
@@ -49,29 +49,7 @@ class WorkUnit:
     if outcome < self._outcome:
       self._outcome = outcome
       self.choose(0, 0, 0, 0)  # Dummy call, to validate.
-      if self._parent: self._parent.set_outcome(self._outcome)
-
-  def parent(self):
-    """The enclosing workunit, or None of this is the root workunit."""
-    return self._parent
-
-  def type(self):
-    """The type of this workunit.
-
-    A string that a reporter can use to decide how to format output for this workunit."""
-    return self._type
-
-  def name(self):
-    """The short name of this workunit."""
-    return self._name
-
-  def cmd(self):
-    """A long string representing the work done by this workunit, e.g., a cmd-line."""
-    return self._cmd
-
-  def id(self):
-    """The unique id of this workunit."""
-    return self._id
+      if self.parent: self.parent.set_outcome(self._outcome)
 
   def stdout(self):
     """Write output from execution of this workunit here."""

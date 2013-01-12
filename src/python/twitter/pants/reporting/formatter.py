@@ -11,13 +11,13 @@ from twitter.pants.reporting.renderer import Renderer
 def _get_workunit_hierarchy(workunit):
   """Returns a list of this workunit and those enclosing it, up to but NOT including the root."""
   ret = []
-  while workunit.parent() is not None:  # Skip the root scope.
+  while workunit.parent is not None:  # Skip the root scope.
     ret.append(workunit)
-    workunit = workunit.parent()
+    workunit = workunit.parent
   return list(reversed(ret))
 
 def _get_scope_names(workunit):
-  return [w.name() for w in _get_workunit_hierarchy(workunit)]
+  return [w.name for w in _get_workunit_hierarchy(workunit)]
 
 class Formatter(object):
   def format(self, workunit, s):
@@ -89,14 +89,12 @@ class HTMLFormatter(Formatter):
     return HTMLFormatter.path_re.sub(lambda m: '<a href="%s">%s</a>' % (to_url(m), m.group(0)), s)
 
   def start_workunit(self, workunit):
-    if workunit.parent() is None:  # We don't visualize the root of the tree.
+    if workunit.parent is None:  # We don't visualize the root of the tree.
       return ''
     scopes = _get_scope_names(workunit)
     args = { 'indent':len(scopes) * 10,
-             'scope_id': workunit.id(),
-             'parent_scope_id': workunit.parent().id()}
-    if workunit.type().endswith('_tool'):
-      args.update({'header_text': workunit.name()})
+             'workunit': workunit_to_dict(workunit) }
+    if workunit.type.endswith('_tool'):
       return self._renderer.render('tool_invocation_start', args)
     else:
       args.update({'header_text': ':'.join(scopes)})
@@ -105,15 +103,18 @@ class HTMLFormatter(Formatter):
   _status_classes = ['failure', 'warning', 'success', 'unknown']
 
   def end_workunit(self, workunit):
-    if workunit.parent() is None:  # We don't visualize the root of the tree.
+    if workunit.parent is None:  # We don't visualize the root of the tree.
       return ''
-    args = { 'scope_id': workunit.id(),
+    args = { 'workunit': workunit_to_dict(workunit),
              'status': HTMLFormatter._status_classes[workunit.get_outcome()] }
-    if workunit.type().endswith('_tool'):
+    if workunit.type.endswith('_tool'):
       return self._renderer.render('tool_invocation_end', args)
     else:
-      scopes = _get_scope_names(workunit)
-      if len(scopes) == 0: # We don't visualize the root of the tree.
-        return ''
       return self._renderer.render('report_scope_end', args)
 
+def workunit_to_dict(workunit):
+  """Because mustache doesn't seem to play nicely with objects."""
+  ret = {}
+  for key in ['parent', 'type', 'name', 'cmd', 'id']:
+    ret[key] = getattr(workunit, key)
+  return ret

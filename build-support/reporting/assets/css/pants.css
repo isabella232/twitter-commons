@@ -131,6 +131,39 @@ a {
   margin-left: 20px;
 }
 
+.tool-invocation .cmd-header {
+  font-weight: bold;
+  overflow: hidden;
+}
+.tool-invocation .cmd-header-icon {
+  float: left;
+  width: 16px;
+}
+
+.tool-invocation .cmd-header-text {
+  float: left;
+}
+
+.tool-invocation .cmd {
+  color: purple;
+}
+
+.tool-invocation .stdout-header {
+  font-weight: bold;
+  overflow: hidden;
+}
+.tool-invocation .stdout-header-icon {
+  float: left;
+  width: 16px;
+}
+
+.tool-invocation .stdout-header-text {
+  float: left;
+}
+
+.tool-invocation .stdout {
+}
+
 .spinner {
   background-image:url("../img/spinner.gif");
   background-repeat: no-repeat;

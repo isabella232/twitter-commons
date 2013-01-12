@@ -1,7 +1,9 @@
-<div style="margin-left:{{indent}}px" id="{{scope_id}}">
-  <div class="scope-header" id="{{scope_id}}-header" onclick="toggleScope($('#{{scope_id}}'))">
-    <div class="scope-header-icon"><i class="visibility-icon icon-large icon-caret-down"></i></div>
-    <div class="scope-header-text">[<span id="{{scope_id}}-header-text">{{header_text}}</span>]</div>
-    <div id="{{scope_id}}-spinner" class="spinner"></div>
+{{#workunit}}
+<div style="margin-left:{{indent}}px" id="{{id}}">
+  <div class="scope-header" id="{{id}}-header" onclick="toggleScope('{{id}}')">
+    <div class="scope-header-icon"><i id="{{id}}-icon" class="visibility-icon icon-large icon-caret-down"></i></div>
+    <div class="scope-header-text">[<span id="{{id}}-header-text">{{header_text}}</span>]</div>
+    <div id="{{id}}-spinner" class="spinner"></div>
   </div>
-  <div class="scope-content" id="{{scope_id}}-content">
+  <div class="scope-content" id="{{id}}-content">
+{{/workunit}}

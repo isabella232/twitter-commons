@@ -61,7 +61,10 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       params = urlparse.parse_qs(query)
       for prefix, handler in self._handlers:
         if self._maybe_handle(prefix, handler, path, params):
-          break
+          return
+      if path == '/':  # Show runs by default.
+        self._handle_runs('', {})
+      self._send_content('Invalid request %s' % self.path, 'text/html')
     except (IOError, ValueError):
       sys.stderr.write('Invalid request %s' % self.path)
 

@@ -92,7 +92,7 @@ class Context(object):
       yield self._current_workunit
     finally:
       self.reporter.end_workunit(self._current_workunit)
-      self._current_workunit = self._current_workunit.parent()
+      self._current_workunit = self._current_workunit.parent
 
 
   @property
