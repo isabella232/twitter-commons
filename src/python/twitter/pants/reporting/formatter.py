@@ -2,10 +2,10 @@ import cgi
 import os
 import re
 
+from pystache import Renderer
 
 from twitter.pants import get_buildroot
 from twitter.pants.base.build_file import BuildFile
-from twitter.pants.reporting.renderer import Renderer
 
 
 def _get_workunit_hierarchy(workunit):
@@ -46,7 +46,7 @@ class PlainTextFormatter(Formatter):
 
 class HTMLFormatter(Formatter):
   def __init__(self, template_dir):
-    self._renderer = Renderer(template_dir)
+    self._renderer = Renderer(search_dirs=template_dir)
     self._buildroot = get_buildroot()
 
   def format(self, workunit, s):
@@ -95,10 +95,10 @@ class HTMLFormatter(Formatter):
     args = { 'indent':len(scopes) * 10,
              'workunit': workunit_to_dict(workunit) }
     if workunit.type.endswith('_tool'):
-      return self._renderer.render('tool_invocation_start', args)
+      return self._renderer.render_name('tool_invocation_start', args)
     else:
       args.update({'header_text': ':'.join(scopes)})
-      return self._renderer.render('report_scope_start', args)
+      return self._renderer.render_name('report_scope_start', args)
 
   _status_classes = ['failure', 'warning', 'success', 'unknown']
 
@@ -108,9 +108,9 @@ class HTMLFormatter(Formatter):
     args = { 'workunit': workunit_to_dict(workunit),
              'status': HTMLFormatter._status_classes[workunit.get_outcome()] }
     if workunit.type.endswith('_tool'):
-      return self._renderer.render('tool_invocation_end', args)
+      return self._renderer.render_name('tool_invocation_end', args)
     else:
-      return self._renderer.render('report_scope_end', args)
+      return self._renderer.render_name('report_scope_end', args)
 
 def workunit_to_dict(workunit):
   """Because mustache doesn't seem to play nicely with objects."""

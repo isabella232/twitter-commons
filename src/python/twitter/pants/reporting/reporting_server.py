@@ -12,8 +12,9 @@ import BaseHTTPServer
 from collections import namedtuple
 from datetime import date, datetime
 
+from pystache import Renderer
+
 from twitter.pants.goal.context import RunInfo
-from twitter.pants.reporting.renderer import Renderer
 
 
 # Prettyprint plugin files.
@@ -94,7 +95,7 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
           datetime.fromtimestamp(float(run_info['timestamp'])).strftime('%H:%M:%S on %A, %B %d %Y')
         args.update({'run_info': run_info,
                      'report_url': '/report/%s' % run_id })
-    self._send_content(self._renderer.render('base', args), 'text/html')
+    self._send_content(self._renderer.render_name('base', args), 'text/html')
 
   def _handle_report(self, relpath, params):
     content = ''
@@ -171,7 +172,7 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                   'breadcrumbs': breadcrumbs,
                   'entries': entries,
                   'params': params })
-    self._send_content(self._renderer.render('base', args), 'text/html')
+    self._send_content(self._renderer.render_name('base', args), 'text/html')
 
   def _serve_file(self, abspath, params):
     relpath = os.path.relpath(abspath, self._root)
@@ -181,7 +182,7 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     args.update({ 'root_parent': os.path.dirname(self._root),
                   'breadcrumbs': breadcrumbs,
                   'link_path': link_path })
-    self._send_content(self._renderer.render('base', args), 'text/html')
+    self._send_content(self._renderer.render_name('base', args), 'text/html')
 
   def _create_breadcrumbs(self, relpath):
     if relpath == '.':
@@ -209,7 +210,7 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     linenums = True
     args = { 'prettify_extra_langs': prettify_extra_langs, 'content': content,
              'prettify': prettify, 'linenums': linenums }
-    self._send_content(self._renderer.render('file_content', args), 'text/html')
+    self._send_content(self._renderer.render_name('file_content', args), 'text/html')
 
   def _get_raw_file_content(self, abspath, params):
     start = int(params.get('s')[0]) if 's' in params else 0
@@ -229,7 +230,7 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
   def _default_template_args(self, content_template):
     def include(text, args):
       template_name = pystache.render(text, args)
-      return self._renderer.render(template_name, args)
+      return self._renderer.render_name(template_name, args)
     ret = { 'content_template': content_template }
     ret['include'] = lambda text: include(text, ret)
     return ret
@@ -239,7 +240,7 @@ class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
 class ReportingServer(object):
   def __init__(self, port, settings):
-    renderer = Renderer(settings.template_dir, require=['base'])
+    renderer = Renderer(search_dirs=settings.template_dir)
 
     class MyHandler(FileRegionHandler):
       def __init__(self, request, client_address, server):
