@@ -75,14 +75,13 @@ class Context(object):
     """Creates a (hierarchical) subunit of work in this pants run, for the purpose of timing and reporting.
 
     - type: A string that the report formatters can use to decide how to display information
-            about this work. E.g., 'phase', 'goal', 'tool'.
-    - name: A short name for this work. E.g., 'resolve', 'compile', 'scala', 'zinc'.
-    - cmd: An optional longer string representing this work. E.g., the cmd line of a
-           compiler invocation. Used only for display.
+            about this work. E.g., 'phase', 'goal'.
+    - name: A short name for this work. E.g., 'resolve', 'compile', 'scala'.
+     - cmd: An optional longer description, e.g., the cmd line of a tool invocation. Used only for display.
 
     Use like this:
 
-    with context.new_work_scope('goal', 'compile', None) as workunit:
+    with context.new_work_scope('goal', 'compile') as workunit:
       <do scoped work here>
       <set the outcome on workunit>
     """
@@ -93,7 +92,6 @@ class Context(object):
     finally:
       self.reporter.end_workunit(self._current_workunit)
       self._current_workunit = self._current_workunit.parent
-
 
   @property
   def run_info(self):

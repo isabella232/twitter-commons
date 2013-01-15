@@ -101,7 +101,8 @@ class NailgunTask(Task):
     cp = (self._classpath or []) + (classpath or [])
     if self._daemon:
       with self.context.new_work_scope(type='ng_tool', name=main, cmd='NAILGUN CMD HERE') as workunit:
-        nailgun = self._get_nailgun_client(stdin=None, stdout=workunit.stdout(), stderr=workunit.stderr())
+        nailgun = self._get_nailgun_client(stdin=None,
+          stdout=workunit.output('stdout'), stderr=workunit.output('stderr'))
 
         def call_nailgun(main_class, *args):
           if self.dry_run:
@@ -127,7 +128,8 @@ class NailgunTask(Task):
         if self.dry_run:
           self.context.report('********** Direct Java dry run')
           return 0
-        ret = binary_utils.run_java_cmd(cmd=cmd, stdout=workunit.stdout(), stderr=workunit.stderr())
+        ret = binary_utils.run_java_cmd(cmd=cmd,
+          stdout=workunit.output('stdout'), stderr=workunit.output('stderr'))
         workunit.set_outcome(WorkUnit.FAILURE if ret else WorkUnit.SUCCESS)
         return ret
 

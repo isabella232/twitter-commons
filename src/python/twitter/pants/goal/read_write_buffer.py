@@ -24,10 +24,12 @@ class ReadWriteBuffer(object):
       self._writepos = self._io.tell()
 
   def read(self, size=-1):
-    self._io.seek(self._readpos)
-    ret = self._io.read() if size == -1 else self._io.read(size)
-    self._readpos = self._io.tell()
-    return ret
+    with self._lock:
+      self._io.seek(self._readpos)
+      ret = self._io.read() if size == -1 else self._io.read(size)
+      self._readpos = self._io.tell()
+      return ret
 
   def flush(self):
     pass
+

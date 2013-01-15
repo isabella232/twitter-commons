@@ -23,7 +23,7 @@ PPP_RE=re.compile("""^lang-.*\.js$""")
 Settings = namedtuple('Settings',
   ['info_dir', 'reports_dir', 'template_dir', 'assets_dir', 'root', 'allowed_clients'])
 
-class FileRegionHandler(BaseHTTPServer.BaseHTTPRequestHandler):
+class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
   """A handler that serves regions of files under a given root:
 
   /browse/path/to/file?s=x&e=y serves from position x (inclusive) to position y (exclusive).
@@ -242,9 +242,9 @@ class ReportingServer(object):
   def __init__(self, port, settings):
     renderer = Renderer(search_dirs=settings.template_dir)
 
-    class MyHandler(FileRegionHandler):
+    class MyHandler(PantsHandler):
       def __init__(self, request, client_address, server):
-        FileRegionHandler.__init__(self, settings, renderer, request, client_address, server)
+        PantsHandler.__init__(self, settings, renderer, request, client_address, server)
 
     self._httpd = BaseHTTPServer.HTTPServer(('', port), MyHandler)
     self._httpd.timeout = 0.1  # Not the network timeout, but how often handle_request yields.

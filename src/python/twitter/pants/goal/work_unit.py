@@ -1,7 +1,10 @@
+
 import uuid
+from collections import defaultdict
+
 from twitter.pants.goal.read_write_buffer import ReadWriteBuffer
 
-class WorkUnit:
+class WorkUnit(object):
   """A hierarchical unit of work, for the purpose of timing and reporting.
 
   A WorkUnit can be subdivided into further WorkUnits. The WorkUnit concept is deliberately decoupled from the
@@ -34,8 +37,10 @@ class WorkUnit:
     self.name = name
     self.cmd = cmd
     self.id = uuid.uuid4()
-    self._stdout = ReadWriteBuffer()  # Output for this work unit (but not its children) goes here.
-    self._stderr = ReadWriteBuffer()  # Do we need this? Let's see.
+
+    # A workunit may have multiple outputs, which we identify by a label.
+    # E.g., a tool invocation may have 'stdout', 'stderr', 'debug_log' etc.
+    self._outputs = defaultdict(ReadWriteBuffer)  # label -> output buffer.
 
   def get_outcome(self):
     return self._outcome
@@ -51,13 +56,12 @@ class WorkUnit:
       self.choose(0, 0, 0, 0)  # Dummy call, to validate.
       if self.parent: self.parent.set_outcome(self._outcome)
 
-  def stdout(self):
-    """Write output from execution of this workunit here."""
-    return self._stdout
+  DEFAULT_OUTPUT_LABEL = 'default'
+  def output(self, label=DEFAULT_OUTPUT_LABEL):
+    return self._outputs[label]
 
-  def stderr(self):
-    """Write errors from execution of this workunit here."""
-    return self._stderr
+  def outputs(self):
+    return self._outputs
 
   def choose(self, failure_val, warning_val, success_val, unknown_val):
     """Returns one of the 4 arguments, depending on our outcome."""
@@ -67,3 +71,5 @@ class WorkUnit:
 
   def outcome_string(self):
     return self.choose('FAILURE', 'WARNING', 'SUCCESS', 'UNKNOWN')
+
+

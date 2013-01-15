@@ -20,7 +20,7 @@ def _get_scope_names(workunit):
   return [w.name for w in _get_workunit_hierarchy(workunit)]
 
 class Formatter(object):
-  def format(self, workunit, s):
+  def format(self, workunit, label, s):
     raise NotImplementedError('format() not implemented')
 
   def header(self):
@@ -40,7 +40,7 @@ class Formatter(object):
 
 
 class PlainTextFormatter(Formatter):
-  def format(self, workunit, s):
+  def format(self, workunit, label, s):
     return s
 
 
@@ -49,7 +49,7 @@ class HTMLFormatter(Formatter):
     self._renderer = Renderer(search_dirs=template_dir)
     self._buildroot = get_buildroot()
 
-  def format(self, workunit, s):
+  def format(self, workunit, label, s):
     colored = self._handle_ansi_color_codes(cgi.escape(s))
     return self._linkify(colored).replace('\n', '</br>')
 

@@ -6,7 +6,7 @@ from twitter.common.dirutil import safe_rmtree, safe_mkdir
 from twitter.common.lang import Compatibility
 from twitter.common.threading import PeriodicThread
 from twitter.pants.reporting.formatter import HTMLFormatter, PlainTextFormatter
-from twitter.pants.reporting.reporter import ConsoleReporter, FileReporter
+from twitter.pants.reporting.reporter import ConsoleReporter, MultiFileReporter
 
 StringIO = Compatibility.StringIO
 
@@ -37,13 +37,12 @@ def default_reporting(context):
   report = Report()
   report.add_reporter(ConsoleReporter(PlainTextFormatter()))
   template_dir = context.config.get('reporting', 'reports_template_dir')
-  report.add_reporter(FileReporter(HTMLFormatter(template_dir), html_output_path))
+  report.add_reporter(MultiFileReporter(HTMLFormatter(template_dir), this_run_html_dir))
   return report
 
 class Report(object):
-  """A report of a pants run.
+  """A report of a pants run."""
 
-  Can be used as a file-like object, e.g., can redirect stdout/stderr to it when spawning subprocesses."""
   def __init__(self):
     # We periodically emit newly reported data.
     self._emitter_thread = PeriodicThread(target=self._lock_and_notify, name='report-emitter', period_secs=0.1)
@@ -83,7 +82,7 @@ class Report(object):
       del self._workunits[workunit.id]
 
   def write(self, workunit, s):
-    workunit.stdout().write(s)
+    workunit.output().write(s)
 
 #  def write_targets(self, workunit, prefix, targets):
 #    indent = '\n' + ' ' * (len(prefix) + 1)
@@ -105,7 +104,8 @@ class Report(object):
     # Notify for output in all workunits. Note that output may be coming in from workunits other
     # than the current one, if work is happening in parallel.
     for workunit in self._workunits.values():
-      s = workunit.stdout().read()
-      if len(s) > 0:
-        for reporter in self._reporters:
-          reporter.handle_output(workunit, s)
+      for label, output in workunit.outputs().items():
+        s = output.read()
+        if len(s) > 0:
+          for reporter in self._reporters:
+            reporter.handle_output(workunit, label, s)
