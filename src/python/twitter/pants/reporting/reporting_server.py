@@ -42,6 +42,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       ('/content/', self._handle_content),
       ('/assets/', self._handle_assets),
       ('/tail', self._handle_tail),
+      ('/latestrunid', self._handle_latest_runid)
     ]
     BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, request, client_address, server)
 
@@ -99,13 +100,17 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       run_info = self._get_run_info_dict(run_id)
       if run_info is None:
         args['no_such_run'] = relpath
+        if run_id == 'latest':
+          args['is_latest'] = run_id
       else:
         report_abspath = os.path.join(run_info['default_report'])
         report_relpath = os.path.relpath(report_abspath, self._root)
         run_info['timestamp_text'] = \
           datetime.fromtimestamp(float(run_info['timestamp'])).strftime('%H:%M:%S on %A, %B %d %Y')
         args.update({'run_info': run_info,
-                     'report_path': report_relpath })
+                     'report_path': report_relpath})
+        if run_id == 'latest':
+          args['is_latest'] = run_info['id']
     self._send_content(self._renderer.render_name('base', args), 'text/html')
 
   def _handle_browse(self, relpath, params):
@@ -168,6 +173,13 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             ret[id] = content
     self._send_content(json.dumps(ret), 'application/json')
 
+  def _handle_latest_runid(self, relpath, params):
+    latest_runinfo = self._get_run_info_dict('latest')
+    if latest_runinfo is None:
+      self._send_content('none', 'text/plain')
+    else:
+      self._send_content(latest_runinfo['id'], 'text/plain')
+
   def _partition_runs_by_day(self):
     run_infos = self._get_all_run_infos()
     for x in run_infos:
@@ -201,11 +213,13 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       return None
 
   def _get_all_run_infos(self):
-    if not os.path.isdir(self._settings.info_dir):
+    info_dir = self._settings.info_dir
+    if not os.path.isdir(info_dir):
       return []
     # We copy the RunInfo as a dict, so we can add stuff to it to pass to the template.
-    return [RunInfo(os.path.join(self._settings.info_dir, x)).get_as_dict()
-            for x in os.listdir(self._settings.info_dir) if x.endswith('.info')]
+    return [RunInfo(os.path.join(info_dir, x)).get_as_dict()
+            for x in os.listdir(info_dir)
+            if x.endswith('.info') and not os.path.islink(os.path.join(info_dir, x))]
 
   def _serve_dir(self, abspath, params):
     relpath = os.path.relpath(abspath, self._root)

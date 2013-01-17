@@ -17,4 +17,21 @@
 </script>
 {{/run_info}}
 {{/no_such_run}}
+{{#is_latest}}
+<script>
+  $(function() {
+    // We want to view whatever the latest run is, so reload the page if that changes.
+    window.setInterval(function() {
+      $.ajax({
+        url: '/latestrunid',
+        success: function(data, textStatus, jqXHR) {
+          if (data != '{{.}}') {
+            document.location.reload();
+          }
+        }
+      });
+    }, 500);
+  });
+</script>
+{{/is_latest}}
 </div>

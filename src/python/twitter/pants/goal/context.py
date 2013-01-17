@@ -54,8 +54,14 @@ class Context(object):
     millis = (run_timestamp * 1000) % 1000
     run_id = 'pants_run_%s_%d' % (time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(run_timestamp)), millis)
     cmd_line = ' '.join(['pants'] + sys.argv[1:])
-    self._run_info = RunInfo(os.path.join(config.getdefault('info_dir'), '%s.info' % run_id))
+    info_dir = config.getdefault('info_dir')
+    self._run_info = RunInfo(os.path.join(info_dir, '%s.info' % run_id))
     self._run_info.add_infos([('id', run_id), ('timestamp', run_timestamp), ('cmd_line', cmd_line)])
+    # Create a 'latest' symlink, after we add_infos, so we're guaranteed that the file exists.
+    link_to_latest = os.path.join(info_dir, 'latest.info')
+    if os.path.exists(link_to_latest):
+      os.unlink(link_to_latest)
+    os.symlink(self._run_info.path(), link_to_latest)
     self._current_workunit = None
 
     self._config = config

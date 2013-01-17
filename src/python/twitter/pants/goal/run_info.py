@@ -19,6 +19,9 @@ class RunInfo(object):
       for m in re.finditer("""^([^:]+):(.*)$""", info, re.MULTILINE):
         self._info[m.group(1).strip()] = m.group(2).strip()
 
+  def path(self):
+    return self._info_file
+
   def get_info(self, key):
     return self._info.get(key, None)
 

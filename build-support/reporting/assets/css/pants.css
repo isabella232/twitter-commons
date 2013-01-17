@@ -202,6 +202,12 @@ a {
   font-weight: bold;
   margin-bottom: 1em;
 }
+
+.run-list .latest {
+  font-weight: bold;
+  margin-bottom: 1em;
+}
+
 .run-list .date-text {
   font-weight: bold;
 }
