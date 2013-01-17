@@ -12,7 +12,7 @@
 <div id="report_{{id}}"></div>
 <script>
   $(function() {
-    startTailing('run_{{id}}_root', '{{report_path}}', '#report_{{id}}');
+    pants.tailer.startTailing('run_{{id}}_root', '{{report_path}}', '#report_{{id}}');
   });
 </script>
 {{/run_info}}

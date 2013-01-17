@@ -38,13 +38,9 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self._client_address = client_address
     self._GET_handlers = [
       ('/runs/', self._handle_runs),
-      ('/report/', self._handle_report),
       ('/browse/', self._handle_browse),
       ('/content/', self._handle_content),
       ('/assets/', self._handle_assets),
-      ('/tail', self._handle_tail),
-    ]
-    self._POST_handlers = [
       ('/tail', self._handle_tail),
     ]
     BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, request, client_address, server)
@@ -71,21 +67,6 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       self._send_content('Invalid GET request %s' % self.path, 'text/html')
     except (IOError, ValueError):
       sys.stderr.write('Invalid GET request %s' % self.path)
-
-  def do_POST(self):
-    if not self._client_allowed():
-      return
-
-    try:
-      (_, _, path, query, _) = urlparse.urlsplit(self.path)
-      params = urlparse.parse_qs(query)
-      data = self.rfile.read()
-      for prefix, handler in self._POST_handlers:
-        if self._maybe_handle(prefix, handler, path, params, data):
-          return
-      self._send_content('Invalid POST request %s' % self.path, 'text/html')
-    except (IOError, ValueError):
-      sys.stderr.write('Invalid POST request %s' % self.path)
 
   def _client_allowed(self):
     client_ip = self._client_address[0]
@@ -127,16 +108,6 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                      'report_path': report_relpath })
     self._send_content(self._renderer.render_name('base', args), 'text/html')
 
-  def _handle_report(self, relpath, params):
-    content = ''
-    run_id = relpath
-    run_info = self._get_run_info_dict(run_id)
-    if run_info is not None:
-      default_report_path = os.path.join(run_info['default_report'])
-      if default_report_path is not None and os.path.exists(default_report_path):
-        content = self._get_raw_file_content(default_report_path, params)
-    self._send_content(content, 'text/html')
-
   def _handle_browse(self, relpath, params):
     abspath = os.path.normpath(os.path.join(self._root, relpath))
     if not abspath.startswith(self._root):
@@ -148,16 +119,42 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
   def _handle_content(self, relpath, params):
     abspath = os.path.normpath(os.path.join(self._root, relpath))
-    self._serve_file_content(abspath, params)
+    if os.path.isfile(abspath):
+      with open(abspath, 'r') as infile:
+        content = infile.read()
+    else:
+      content = 'No file found at %s' % abspath
+    content_type = mimetypes.guess_type(abspath)[0] or 'text/plain'
+    if not content_type.startswith('text/') and not content_type == 'application/xml':
+      # Binary file, split it into lines.
+      n = 120  # Display lines of this max size.
+      content = repr(content)[1:-1]  # Will escape non-printables etc. We don't take the surrounding quotes.
+      content = '\n'.join([content[i:i+n] for i in xrange(0, len(content), n)])
+      prettify = False
+      prettify_extra_langs = []
+    else:
+      prettify = True
+      prettify_extra_langs =\
+      [ {'name': x} for x in os.listdir(os.path.join(self._settings.assets_dir, 'js', 'prettify_extra_langs')) ]
+    linenums = True
+    args = { 'prettify_extra_langs': prettify_extra_langs, 'content': content,
+             'prettify': prettify, 'linenums': linenums }
+    self._send_content(self._renderer.render_name('file_content', args), 'text/html')
 
   def _handle_assets(self, relpath, params):
     abspath = os.path.normpath(os.path.join(self._settings.assets_dir, relpath))
-    self._serve_asset(abspath)
+    content_type = mimetypes.guess_type(abspath)[0] or 'text/plain'
+    with open(abspath, 'r') as infile:
+      content = infile.read()
+    self._send_content(content, content_type)
 
-  def _handle_tail(self, relpath, params, data=None):
-    if data is None:
-      data = json.loads(params.get('q')[0])
+  def _handle_tail(self, relpath, params):
+    data = json.loads(params.get('q')[0])
     ret = {}
+    # data is a tailing request for multiple files. For each request:
+    #  - id is some identifier assigned by the client, used to differentiate the results.
+    #  - path is the file to tail.
+    #  - pos is the last byte position in that file seen by the client.
     for id, state in data.items():
       path = state.get('path', None)
       pos = state.get('pos', 0)
@@ -239,42 +236,6 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       path_links = ['/'.join(path_parts[1:i+1]) for i, name in enumerate(path_parts)]
       breadcrumbs = [{'link_path': link_path, 'name': name } for link_path, name in zip(path_links, path_parts)]
     return breadcrumbs
-
-  def _serve_file_content(self, abspath, params):
-    content = self._get_raw_file_content(abspath, params)
-    content_type = mimetypes.guess_type(abspath)[0] or 'text/plain'
-    if not content_type.startswith('text/') and not content_type == 'application/xml':
-      # Binary file, split it into lines.
-      n = 120  # Display lines of this max size.
-      content = repr(content)[1:-1]  # Will escape non-printables etc. We don't take the surrounding quotes.
-      content = '\n'.join([content[i:i+n] for i in xrange(0, len(content), n)])
-      prettify = False
-      prettify_extra_langs = []
-    else:
-      prettify = True
-      prettify_extra_langs = \
-        [ {'name': x} for x in os.listdir(os.path.join(self._settings.assets_dir, 'js', 'prettify_extra_langs')) ]
-    linenums = True
-    args = { 'prettify_extra_langs': prettify_extra_langs, 'content': content,
-             'prettify': prettify, 'linenums': linenums }
-    self._send_content(self._renderer.render_name('file_content', args), 'text/html')
-
-  def _get_raw_file_content(self, abspath, params):
-    if not os.path.isfile(abspath):
-      return 'No file found at %s' % abspath
-    start = int(params.get('s')[0]) if 's' in params else 0
-    end = int(params.get('e')[0]) if 'e' in params else None
-    with open(abspath, 'r') as infile:
-      if start:
-        infile.seek(start)
-      content = infile.read(end - start) if end else infile.read()
-    return content
-
-  def _serve_asset(self, abspath):
-    content_type = mimetypes.guess_type(abspath)[0] or 'text/plain'
-    with open(abspath, 'r') as infile:
-      content = infile.read()
-    self._send_content(content, content_type)
 
   def _default_template_args(self, content_template):
     def include(text, args):
