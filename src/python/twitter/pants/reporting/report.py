@@ -28,16 +28,13 @@ def default_reporting(context):
   safe_mkdir(this_run_html_dir)
   os.symlink(this_run_dir, link_to_latest)
 
-  assets_dir = context.config.get('reporting', 'reports_assets_dir')
-  os.symlink(assets_dir, os.path.join(this_run_dir, 'assets'))
-
   html_output_path = os.path.join(this_run_html_dir, 'build.html')
   context.run_info.add_info('default_report', html_output_path)
 
   report = Report()
   report.add_reporter(ConsoleReporter(PlainTextFormatter()))
   template_dir = context.config.get('reporting', 'reports_template_dir')
-  report.add_reporter(MultiFileReporter(HTMLFormatter(template_dir), this_run_html_dir))
+  report.add_reporter(MultiFileReporter(HTMLFormatter(template_dir, this_run_html_dir), this_run_html_dir))
   return report
 
 class Report(object):

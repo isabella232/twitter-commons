@@ -19,4 +19,20 @@
         <div class="stdout-header-text">[stdout]</div>
       </div>
       <div class="stdout" id="{{id}}-stdout-content" style="display:none;">
+      </div>
+    </div>
+    <div id="{{id}}-stderr">
+      <div class="stdout-header" id="{{id}}-stderr-header" onclick="toggleScope('{{id}}-stderr')">
+        <div class="stdout-header-icon"><i id="{{id}}-stderr-icon" class="visibility-icon icon-large icon-caret-right"></i></div>
+        <div class="stdout-header-text">[stderr]</div>
+      </div>
+      <div class="stdout" id="{{id}}-stderr-content" style="display:none;">
+      </div>
+    </div>
+    <script>
+      $(function(){
+        startTailing('{{id}}_stdout', '{{html_path_base}}/{{id}}.stdout', '#{{id}}-stdout-content');
+        startTailing('{{id}}_stderr', '{{html_path_base}/{{id}}.stderr', '#{{id}}-stderr-content');
+      });
+    </script>
 {{/workunit}}

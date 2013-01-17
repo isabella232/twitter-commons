@@ -45,9 +45,10 @@ class PlainTextFormatter(Formatter):
 
 
 class HTMLFormatter(Formatter):
-  def __init__(self, template_dir):
+  def __init__(self, template_dir, html_dir):
     self._renderer = Renderer(search_dirs=template_dir)
     self._buildroot = get_buildroot()
+    self._html_path_base = os.path.relpath(html_dir, self._buildroot)
 
   def format(self, workunit, label, s):
     colored = self._handle_ansi_color_codes(cgi.escape(s))
@@ -92,7 +93,8 @@ class HTMLFormatter(Formatter):
     if workunit.parent is None:  # We don't visualize the root of the tree.
       return ''
     scopes = _get_scope_names(workunit)
-    args = { 'indent':len(scopes) * 10,
+    args = { 'indent': len(scopes) * 10,
+             'html_path_base': self._html_path_base,
              'workunit': workunit_to_dict(workunit) }
     if workunit.type.endswith('_tool'):
       return self._renderer.render_name('tool_invocation_start', args)

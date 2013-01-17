@@ -1,8 +1,9 @@
-</div>
-</div>
-
 {{#workunit}}
-<script>$("#{{id}}-header-text").addClass("{{status}}"); $("#{{id}}-spinner").hide()</script>
+<script>
+  $('#{{id}}-header-text').addClass('{{status}}'); $('#{{id}}-spinner').hide()
+  stopTailing('{{id}}_stdout');
+  stopTailing('{{id}}_stderr');
+</script>
 </div>
 </div>
 {{/workunit}}

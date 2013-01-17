@@ -1,4 +1,5 @@
 import itertools
+import json
 import mimetypes
 import os
 import pystache
@@ -35,12 +36,16 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self._root = self._settings.root
     self._renderer = renderer
     self._client_address = client_address
-    self._handlers = [
+    self._GET_handlers = [
       ('/runs/', self._handle_runs),
       ('/report/', self._handle_report),
       ('/browse/', self._handle_browse),
       ('/content/', self._handle_content),
-      ('/assets/', self._handle_assets)
+      ('/assets/', self._handle_assets),
+      ('/tail', self._handle_tail),
+    ]
+    self._POST_handlers = [
+      ('/tail', self._handle_tail),
     ]
     BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, request, client_address, server)
 
@@ -52,27 +57,50 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self.wfile.write(content)
 
   def do_GET(self):
-    client_ip = self._client_address[0]
-    if not client_ip in self._settings.allowed_clients and not 'ALL' in self._settings.allowed_clients:
-      self._send_content('Access from host %s forbidden.' % client_ip, 'text/html')
+    if not self._client_allowed():
       return
 
     try:
       (_, _, path, query, _) = urlparse.urlsplit(self.path)
       params = urlparse.parse_qs(query)
-      for prefix, handler in self._handlers:
+      for prefix, handler in self._GET_handlers:
         if self._maybe_handle(prefix, handler, path, params):
           return
       if path == '/':  # Show runs by default.
         self._handle_runs('', {})
-      self._send_content('Invalid request %s' % self.path, 'text/html')
+      self._send_content('Invalid GET request %s' % self.path, 'text/html')
     except (IOError, ValueError):
-      sys.stderr.write('Invalid request %s' % self.path)
+      sys.stderr.write('Invalid GET request %s' % self.path)
 
-  def _maybe_handle(self, prefix, handler, path, params):
+  def do_POST(self):
+    if not self._client_allowed():
+      return
+
+    try:
+      (_, _, path, query, _) = urlparse.urlsplit(self.path)
+      params = urlparse.parse_qs(query)
+      data = self.rfile.read()
+      for prefix, handler in self._POST_handlers:
+        if self._maybe_handle(prefix, handler, path, params, data):
+          return
+      self._send_content('Invalid POST request %s' % self.path, 'text/html')
+    except (IOError, ValueError):
+      sys.stderr.write('Invalid POST request %s' % self.path)
+
+  def _client_allowed(self):
+    client_ip = self._client_address[0]
+    if not client_ip in self._settings.allowed_clients and not 'ALL' in self._settings.allowed_clients:
+      self._send_content('Access from host %s forbidden.' % client_ip, 'text/html')
+      return False
+    return True
+
+  def _maybe_handle(self, prefix, handler, path, params, data=None):
     if path.startswith(prefix):
       relpath = path[len(prefix):]
-      handler(relpath, params)
+      if data:
+        handler(relpath, params, data)
+      else:
+        handler(relpath, params)
       return True
     else:
       return False
@@ -87,20 +115,22 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       # Show the report for a specific run.
       args = self._default_template_args('run')
       run_id = relpath
-      run_info = self._get_run_info(run_id)
+      run_info = self._get_run_info_dict(run_id)
       if run_info is None:
         args['no_such_run'] = relpath
       else:
+        report_abspath = os.path.join(run_info['default_report'])
+        report_relpath = os.path.relpath(report_abspath, self._root)
         run_info['timestamp_text'] = \
           datetime.fromtimestamp(float(run_info['timestamp'])).strftime('%H:%M:%S on %A, %B %d %Y')
         args.update({'run_info': run_info,
-                     'report_url': '/report/%s' % run_id })
+                     'report_path': report_relpath })
     self._send_content(self._renderer.render_name('base', args), 'text/html')
 
   def _handle_report(self, relpath, params):
     content = ''
     run_id = relpath
-    run_info = self._get_run_info(run_id)
+    run_info = self._get_run_info_dict(run_id)
     if run_info is not None:
       default_report_path = os.path.join(run_info['default_report'])
       if default_report_path is not None and os.path.exists(default_report_path):
@@ -123,6 +153,23 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
   def _handle_assets(self, relpath, params):
     abspath = os.path.normpath(os.path.join(self._settings.assets_dir, relpath))
     self._serve_asset(abspath)
+
+  def _handle_tail(self, relpath, params, data=None):
+    if data is None:
+      data = json.loads(params.get('q')[0])
+    ret = {}
+    for id, state in data.items():
+      path = state.get('path', None)
+      pos = state.get('pos', 0)
+      if path:
+        abspath = os.path.normpath(os.path.join(self._root, path))
+        if os.path.isfile(abspath):
+          with open(abspath, 'r') as infile:
+            if pos:
+              infile.seek(pos)
+            content = infile.read()
+            ret[id] = content
+    self._send_content(json.dumps(ret), 'application/json')
 
   def _partition_runs_by_day(self):
     run_infos = self._get_all_run_infos()
@@ -148,7 +195,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     return [ { 'date_text': date_text(dt), 'run_infos': [x for x in infos] }
              for dt, infos in itertools.groupby(sorted_run_infos, lambda x: keyfunc(x).date()) ]
 
-  def _get_run_info(self, run_id):
+  def _get_run_info_dict(self, run_id):
     run_info_path = os.path.join(self._settings.info_dir, run_id) + '.info'
     if os.path.exists(run_info_path):
       # We copy the RunInfo as a dict, so we can add stuff to it to pass to the template.
@@ -213,6 +260,8 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self._send_content(self._renderer.render_name('file_content', args), 'text/html')
 
   def _get_raw_file_content(self, abspath, params):
+    if not os.path.isfile(abspath):
+      return 'No file found at %s' % abspath
     start = int(params.get('s')[0]) if 's' in params else 0
     end = int(params.get('e')[0]) if 'e' in params else None
     with open(abspath, 'r') as infile:

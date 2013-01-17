@@ -99,8 +99,10 @@ class NailgunTask(Task):
     """
 
     cp = (self._classpath or []) + (classpath or [])
+    # If running through nailgun, we only use this cmd for display purposes.
+    cmd = binary_utils.build_java_cmd(main=main, classpath=cp, args=args, jvmargs=jvmargs)
     if self._daemon:
-      with self.context.new_work_scope(type='ng_tool', name=main, cmd='NAILGUN CMD HERE') as workunit:
+      with self.context.new_work_scope(type='ng_tool', name='nailgun:%s' % main, cmd=' '.join(cmd)) as workunit:
         nailgun = self._get_nailgun_client(stdin=None,
           stdout=workunit.output('stdout'), stderr=workunit.output('stderr'))
 
@@ -123,8 +125,7 @@ class NailgunTask(Task):
           workunit.set_outcome(WorkUnit.FAILURE)
           raise e
     else:
-      cmd = binary_utils.build_java_cmd(main=main, classpath=cp, args=args, jvmargs=jvmargs)
-      with self.context.new_work_scope(type='jvm_tool', name=main, cmd=' '.join(cmd)) as workunit:
+      with self.context.new_work_scope(type='jvm_tool', name='jvm:%s' % main, cmd=' '.join(cmd)) as workunit:
         if self.dry_run:
           self.context.report('********** Direct Java dry run')
           return 0
