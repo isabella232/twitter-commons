@@ -88,7 +88,7 @@ class Phase(PhaseBase):
           yield goal
 
   @staticmethod
-  def attempt(context, phases, timer=None):
+  def attempt(context, phases):
     """
       Attempts to reach the goals for the supplied phases, optionally recording phase timings and
       then logging then when all specified phases have completed.
@@ -100,10 +100,10 @@ class Phase(PhaseBase):
     # TODO: Not true any more - nailgun_task is the only thing that forks, and its child calls
     # os._exit() to exit without calling finally blocks.
     def emit_timings():
-      if timer:
+      if context.timer:
         for phase, timings in executed.items():
           for goal, times in timings.items():
-            timer.log('%s:%s' % (phase, goal), times)
+            context.timer.log('%s:%s' % (phase, goal), times)
 
     with context.new_work_scope(type='root', name='all') as root_workunit:
       try:
@@ -133,7 +133,7 @@ class Phase(PhaseBase):
           'Executing goals in phases %s' % ' -> '.join(map(str, reversed(expanded)))
         )
         for phase in phases:
-          Group.execute(phase, tasks_by_goal, context, executed, timer=timer)
+          Group.execute(phase, tasks_by_goal, context, executed)
 
         emit_timings()
         root_workunit.set_outcome(WorkUnit.SUCCESS)
@@ -188,7 +188,7 @@ class Phase(PhaseBase):
       after: Places the goal after the named goal in the execution list
     """
 
-    if (first or replace or before or after) and not (first ^ replace ^ bool(before) ^ bool(after)):
+    if int(first) + int(replace) + int(bool(before)) + int(bool(after)) > 1:
       raise GoalError('Can only specify one of first, replace, before or after')
 
     Phase._phase_by_goal[goal] = self

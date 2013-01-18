@@ -142,7 +142,7 @@ class IvyResolve(NailgunTask):
     classpath_targets = filter(is_classpath, targets)
     target_workdir = os.path.join(self._work_dir, dirname_for_requested_targets(targets))
     target_classpath_file = os.path.join(target_workdir, 'classpath')
-    with self.invalidated(classpath_targets, only_buildfiles=True, invalidate_dependants=True) as invalidation_check:
+    with self.invalidated(classpath_targets, only_buildfiles=True, invalidate_dependents=True) as invalidation_check:
       # Note that it's possible for all targets to be valid but for no classpath file to exist at
       # target_classpath_file, e.g., if we previously build a superset of targets.
       if len(invalidation_check.invalid_vts) > 0 or not os.path.exists(target_classpath_file):
@@ -176,6 +176,9 @@ class IvyResolve(NailgunTask):
 
     if self._report:
       self._generate_ivy_report()
+      
+    if self.context.products.isrequired("ivy_jar_products"):
+      self._populate_ivy_jar_products()
 
     create_jardeps_for = self.context.products.isrequired('jar_dependencies')
     if create_jardeps_for:
@@ -200,6 +203,22 @@ class IvyResolve(NailgunTask):
         root_dir = get_buildroot(),
         lib = template_data)
       generator.write(output)
+
+  def _populate_ivy_jar_products(self):
+    """
+    Populate the build products with an IvyInfo object for each
+    generated ivy report.
+    For each configuration used to run ivy, a build product entry
+    is generated for the tuple ("ivy", configuration, ivyinfo)
+    """
+    genmap = self.context.products.get('ivy_jar_products')
+    # For each of the ivy reports:
+    for conf in self._confs:
+      # parse the report file, and put it into the build products.
+      # This is sort-of an abuse of the build-products. But build products
+      # are already so abused, and this really does make sense.
+      ivyinfo = self._ivy_utils.parse_xml_report(conf)
+      genmap.add("ivy", conf, [ivyinfo])
 
   def _generate_ivy_report(self):
     classpath = binary_utils.nailgun_profile_classpath(self, self._profile)
