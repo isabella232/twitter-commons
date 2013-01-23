@@ -1,9 +1,1 @@
-{{#workunit}}
-<div style="margin-left:{{indent}}px" id="{{id}}">
-  <div class="scope-header" id="{{id}}-header" onclick="pants.toggleScope('{{id}}')">
-    <div class="scope-header-icon"><i id="{{id}}-icon" class="visibility-icon icon-large icon-caret-down"></i></div>
-    <div class="scope-header-text">[<span id="{{id}}-header-text">{{header_text}}</span>]</div>
-    <div id="{{id}}-spinner" class="spinner"></div>
-  </div>
-  <div class="scope-content" id="{{id}}-content">
-{{/workunit}}
+{{#toggle_start}}{{workunit.id}}&&{{header_text}}&&{{open_or_closed}}&&spinner{{/toggle_start}}

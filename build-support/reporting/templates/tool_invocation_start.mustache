@@ -1,18 +1,9 @@
-{{#workunit}}
-<div style="margin-left:{{indent}}px" id="{{id}}">
-  <div class="scope-header" id="{{id}}-header" onclick="pants.toggleScope('{{id}}')">
-    <div class="scope-header-icon"><i id="{{id}}-icon" class="visibility-icon icon-large icon-caret-down"></i></div>
-    <div class="scope-header-text">[<span id="{{id}}-header-text">{{name}}</span>]</div>
-    <div id="{{id}}-spinner" class="spinner"></div>
-  </div>
-  <div class="scope-content tool-invocation" id="{{id}}-content">
-    {{#initially_closed_toggle}}{{workunit.id}}-cmd&&command line&&cmd&&{{workunit.cmd}}{{/initially_closed_toggle}}
-    {{#initially_closed_toggle}}{{workunit.id}}-stdout&&stdout{{/initially_closed_toggle}}
-    {{#initially_closed_toggle}}{{workunit.id}}-stderr&&stderr{{/initially_closed_toggle}}
-    <script>
-      $(function(){
-        pants.tailer.startTailing('{{id}}_stdout', '{{html_path_base}}/{{id}}.stdout', '#{{id}}-stdout-content');
-        pants.tailer.startTailing('{{id}}_stderr', '{{html_path_base}/{{id}}.stderr', '#{{id}}-stderr-content');
-      });
-    </script>
-{{/workunit}}
+{{#toggle_start}}{{workunit.id}}-cmd&&command line&&closed&&nospinner&&cmd{{/toggle_start}}{{workunit.cmd}}{{#toggle_end}}{{/toggle_end}}
+{{#toggle_start}}{{workunit.id}}-stdout&&stdout&&closed&&nospinner{{/toggle_start}}{{#toggle_end}}{{/toggle_end}}
+{{#toggle_start}}{{workunit.id}}-stderr&&stderr&&closed&&nospinner{{/toggle_start}}{{#toggle_end}}{{/toggle_end}}
+<script>
+  $(function(){
+    pants.tailer.startTailing('{{workunit.id}}_stdout', '{{html_path_base}}/{{workunit.id}}.stdout', '#{{workunit.id}}-stdout-content');
+    pants.tailer.startTailing('{{workunit.id}}_stderr', '{{html_path_base}/{{workunit.id}}.stderr', '#{{workunit.id}}-stderr-content');
+  });
+</script>

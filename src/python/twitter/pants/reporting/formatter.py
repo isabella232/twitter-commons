@@ -97,18 +97,20 @@ class HTMLFormatter(Formatter):
   def start_workunit(self, workunit):
     if workunit.parent is None:  # We don't visualize the root of the tree.
       return ''
+    is_tool = workunit.type.endswith('_tool')
     scopes = _get_scope_names(workunit)
     args = { 'indent': len(scopes) * 10,
              'html_path_base': self._html_path_base,
              'workunit': workunit_to_dict(workunit),
-             'header_text': ':'.join(scopes) }
-    args.update({ 'initially_open_toggle': lambda x: self._render_toggle(x, args, True),
-                  'initially_closed_toggle': lambda x: self._render_toggle(x, args, False) })
+             'header_text': scopes[-1] if is_tool else ':'.join(scopes),
+             'open_or_closed': 'closed' if is_tool else 'open' }
+    args.update({ 'toggle_start': lambda x: self._render_toggle_start(x, args),
+                  'toggle_end': lambda x: self._render_toggle_end() })
 
-    if workunit.type.endswith('_tool'):
-      return self._renderer.render_name('tool_invocation_start', args)
-    else:
-      return self._renderer.render_name('report_scope_start', args)
+    ret = self._renderer.render_name('report_scope_start', args)
+    if is_tool:
+      ret += self._renderer.render_name('tool_invocation_start', args)
+    return ret
 
   _status_css_classes = ['failure', 'warning', 'success', 'unknown']
 
@@ -116,23 +118,28 @@ class HTMLFormatter(Formatter):
     if workunit.parent is None:  # We don't visualize the root of the tree.
       return ''
     args = { 'workunit': workunit_to_dict(workunit),
-             'status': HTMLFormatter._status_css_classes[workunit.get_outcome()] }
-    if workunit.type.endswith('_tool'):
-      return self._renderer.render_name('tool_invocation_end', args)
-    else:
-      return self._renderer.render_name('report_scope_end', args)
+             'status': HTMLFormatter._status_css_classes[workunit.get_outcome()],
+             'toggle_end': lambda x: self._render_toggle_end() }
 
-  def _render_toggle(self, arg_string, outer_args, initially_open):
+    ret = ''
+    if workunit.type.endswith('_tool'):
+      ret += self._renderer.render_name('tool_invocation_end', args)
+    return ret + self._renderer.render_name('report_scope_end', args)
+
+  def _render_toggle_start(self, arg_string, outer_args):
     rendered_arg_string = self._renderer.render(arg_string, outer_args)
-    id, title, class_prefix, content = (rendered_arg_string.split('&&') + [None, None, None])[0:4]
+    id, title, initially_open, spinner, class_prefix = (rendered_arg_string.split('&&') + [None, None, None])[0:5]
     inner_args = {
       'id': id,
       'title': title,
-      'class_prefix': class_prefix,
-      'content': content,
-      'initially_open': initially_open
+      'initially_open': (initially_open == 'open'),
+      'spinner': (spinner == 'spinner'),
+      'class_prefix': class_prefix
     }
-    return self._renderer.render_name('toggle', inner_args)
+    return self._renderer.render_name('toggle_start', inner_args)
+
+  def _render_toggle_end(self):
+    return self._renderer.render_name('toggle_end', {})
 
 def workunit_to_dict(workunit):
   """Because mustache doesn't seem to play nicely with objects."""

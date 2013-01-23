@@ -1,9 +1,6 @@
-{{#workunit}}
 <script>
-  $('#{{id}}-header-text').addClass('{{status}}'); $('#{{id}}-spinner').hide()
-  pants.tailer.stopTailing('{{id}}_stdout');
-  pants.tailer.stopTailing('{{id}}_stderr');
+  $('#{{workunit.id}}-header-text').addClass('{{status}}'); $('#{{workunit.id}}-spinner').hide()
+  pants.tailer.stopTailing('{{workunit.id}}_stdout');
+  pants.tailer.stopTailing('{{workunit.id}}_stderr');
 </script>
-</div>
-</div>
-{{/workunit}}
+

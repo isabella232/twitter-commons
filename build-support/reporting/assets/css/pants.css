@@ -131,40 +131,8 @@ a {
   margin-left: 20px;
 }
 
-.scope-header {
-  font-weight: bold;
-  overflow: hidden;
-}
-.scope-header-icon {
-  float: left;
-  width: 16px;
-}
-.scope-header-text {
-  float: left;
-}
-
-.scope-content {
-  margin-left: 20px;
-}
-
-.tool-invocation .cmd-content {
+.cmd-content {
   color: purple;
-}
-
-.tool-invocation .stdout-header {
-  font-weight: bold;
-  overflow: hidden;
-}
-.tool-invocation .stdout-header-icon {
-  float: left;
-  width: 16px;
-}
-
-.tool-invocation .stdout-header-text {
-  float: left;
-}
-
-.tool-invocation .stdout {
 }
 
 .spinner {
