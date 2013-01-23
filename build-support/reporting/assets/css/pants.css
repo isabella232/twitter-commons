@@ -115,6 +115,22 @@ a {
   color: black;
 }
 
+.toggle-header {
+  font-weight: bold;
+  overflow: hidden;
+}
+.toggle-header-icon {
+  float: left;
+  width: 16px;
+}
+.toggle-header-text {
+  float: left;
+}
+
+.toggle-content {
+  margin-left: 20px;
+}
+
 .scope-header {
   font-weight: bold;
   overflow: hidden;
@@ -131,20 +147,7 @@ a {
   margin-left: 20px;
 }
 
-.tool-invocation .cmd-header {
-  font-weight: bold;
-  overflow: hidden;
-}
-.tool-invocation .cmd-header-icon {
-  float: left;
-  width: 16px;
-}
-
-.tool-invocation .cmd-header-text {
-  float: left;
-}
-
-.tool-invocation .cmd {
+.tool-invocation .cmd-content {
   color: purple;
 }
 
@@ -214,6 +217,11 @@ a {
 
 .run-list .time-of-day-text {
   font-size: 14px;
+}
+
+.run .no-runs {
+  font-size: 14px;
+  font-weight: bold;
 }
 
 .run .no-such-run {

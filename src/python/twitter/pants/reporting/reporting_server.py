@@ -101,7 +101,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       if run_info is None:
         args['no_such_run'] = relpath
         if run_id == 'latest':
-          args['is_latest'] = run_id
+          args['is_latest'] = 'none'
       else:
         report_abspath = os.path.join(run_info['default_report'])
         report_relpath = os.path.relpath(report_abspath, self._root)

@@ -70,9 +70,9 @@ class HTMLFormatter(Formatter):
   path_re = re.compile(r'(https?://)?/?(?:\w|[-.])+(?:/(?:\w|[-.])+)+(:w|[-.]+)?\w')  # At least two path components.
   def _linkify(self, s):
     def to_url(m):
-      path = m.group(0)
       if m.group(1):
-        return s  # It's an http(s) url.
+        return m.group(0)  # It's an http(s) url.
+      path = m.group(0)
       if path.startswith('/'):
         path = os.path.relpath(path, self._buildroot)
       else:
@@ -85,9 +85,14 @@ class HTMLFormatter(Formatter):
           putative_dir = path
         if os.path.isdir(putative_dir):
           path = os.path.join(putative_dir, BuildFile._CANONICAL_NAME)
-      return '/browse/%s' % path
+      if os.path.exists(os.path.join(self._buildroot, path)):
+        return '/browse/%s' % path
+      else:
+        return None
 
-    return HTMLFormatter.path_re.sub(lambda m: '<a href="%s">%s</a>' % (to_url(m), m.group(0)), s)
+    def maybe_add_link(url, text):
+      return '<a href="%s">%s</a>' % (url, text) if url else None
+    return HTMLFormatter.path_re.sub(lambda m: maybe_add_link(to_url(m), m.group(0)), s)
 
   def start_workunit(self, workunit):
     if workunit.parent is None:  # We don't visualize the root of the tree.
@@ -95,24 +100,39 @@ class HTMLFormatter(Formatter):
     scopes = _get_scope_names(workunit)
     args = { 'indent': len(scopes) * 10,
              'html_path_base': self._html_path_base,
-             'workunit': workunit_to_dict(workunit) }
+             'workunit': workunit_to_dict(workunit),
+             'header_text': ':'.join(scopes) }
+    args.update({ 'initially_open_toggle': lambda x: self._render_toggle(x, args, True),
+                  'initially_closed_toggle': lambda x: self._render_toggle(x, args, False) })
+
     if workunit.type.endswith('_tool'):
       return self._renderer.render_name('tool_invocation_start', args)
     else:
-      args.update({'header_text': ':'.join(scopes)})
       return self._renderer.render_name('report_scope_start', args)
 
-  _status_classes = ['failure', 'warning', 'success', 'unknown']
+  _status_css_classes = ['failure', 'warning', 'success', 'unknown']
 
   def end_workunit(self, workunit):
     if workunit.parent is None:  # We don't visualize the root of the tree.
       return ''
     args = { 'workunit': workunit_to_dict(workunit),
-             'status': HTMLFormatter._status_classes[workunit.get_outcome()] }
+             'status': HTMLFormatter._status_css_classes[workunit.get_outcome()] }
     if workunit.type.endswith('_tool'):
       return self._renderer.render_name('tool_invocation_end', args)
     else:
       return self._renderer.render_name('report_scope_end', args)
+
+  def _render_toggle(self, arg_string, outer_args, initially_open):
+    rendered_arg_string = self._renderer.render(arg_string, outer_args)
+    id, title, class_prefix, content = (rendered_arg_string.split('&&') + [None, None, None])[0:4]
+    inner_args = {
+      'id': id,
+      'title': title,
+      'class_prefix': class_prefix,
+      'content': content,
+      'initially_open': initially_open
+    }
+    return self._renderer.render_name('toggle', inner_args)
 
 def workunit_to_dict(workunit):
   """Because mustache doesn't seem to play nicely with objects."""

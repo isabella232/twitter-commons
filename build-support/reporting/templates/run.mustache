@@ -1,6 +1,7 @@
 <div class="run">
 {{#no_such_run}}
-<div class="no-such-run">No run found with id {{.}}</div>
+{{#is_latest}}<div class="no-runs">No runs found since last clean-all.<p>Latest run will display here automatically.</div>{{/is_latest}}
+{{^is_latest}}<div class="no-such-run">No run found with id {{.}}</div>{{/is_latest}}
 {{/no_such_run}}
 {{^no_such_run}}
 <div class="run-info">

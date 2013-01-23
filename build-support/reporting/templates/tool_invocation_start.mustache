@@ -6,29 +6,9 @@
     <div id="{{id}}-spinner" class="spinner"></div>
   </div>
   <div class="scope-content tool-invocation" id="{{id}}-content">
-    <div id="{{id}}-cmd">
-      <div class="cmd-header" id="{{id}}-cmd-header" onclick="pants.toggleScope('{{id}}-cmd')">
-        <div class="cmd-header-icon"><i id="{{id}}-cmd-icon" class="visibility-icon icon-large icon-caret-right"></i></div>
-        <div class="cmd-header-text">[command line]</div>
-      </div>
-      <div class="cmd" id="{{id}}-cmd-content" style="display:none;">{{cmd}}</div>
-    </div>
-    <div id="{{id}}-stdout">
-      <div class="stdout-header" id="{{id}}-stdout-header" onclick="pants.toggleScope('{{id}}-stdout')">
-        <div class="stdout-header-icon"><i id="{{id}}-stdout-icon" class="visibility-icon icon-large icon-caret-right"></i></div>
-        <div class="stdout-header-text">[stdout]</div>
-      </div>
-      <div class="stdout" id="{{id}}-stdout-content" style="display:none;">
-      </div>
-    </div>
-    <div id="{{id}}-stderr">
-      <div class="stdout-header" id="{{id}}-stderr-header" onclick="pants.toggleScope('{{id}}-stderr')">
-        <div class="stdout-header-icon"><i id="{{id}}-stderr-icon" class="visibility-icon icon-large icon-caret-right"></i></div>
-        <div class="stdout-header-text">[stderr]</div>
-      </div>
-      <div class="stdout" id="{{id}}-stderr-content" style="display:none;">
-      </div>
-    </div>
+    {{#initially_closed_toggle}}{{workunit.id}}-cmd&&command line&&cmd&&{{workunit.cmd}}{{/initially_closed_toggle}}
+    {{#initially_closed_toggle}}{{workunit.id}}-stdout&&stdout{{/initially_closed_toggle}}
+    {{#initially_closed_toggle}}{{workunit.id}}-stderr&&stderr{{/initially_closed_toggle}}
     <script>
       $(function(){
         pants.tailer.startTailing('{{id}}_stdout', '{{html_path_base}}/{{id}}.stdout', '#{{id}}-stdout-content');
