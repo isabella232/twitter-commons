@@ -117,7 +117,7 @@ class HTMLFormatter(Formatter):
   def end_workunit(self, workunit):
     if workunit.parent is None:  # We don't visualize the root of the tree.
       return ''
-    timing = '%.3f' % workunit.timing
+    timing = '%.3f' % (workunit.end_time - workunit.start_time)
     args = { 'workunit': workunit_to_dict(workunit),
              'status': HTMLFormatter._status_css_classes[workunit.get_outcome()],
              'timing': timing,
@@ -146,6 +146,6 @@ class HTMLFormatter(Formatter):
 def workunit_to_dict(workunit):
   """Because mustache doesn't seem to play nicely with objects."""
   ret = {}
-  for key in ['parent', 'type', 'name', 'cmd', 'id']:
+  for key in ['parent', 'type', 'name', 'cmd', 'id', 'start_time', 'end_time']:
     ret[key] = getattr(workunit, key)
   return ret

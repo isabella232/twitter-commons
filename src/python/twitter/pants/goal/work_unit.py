@@ -38,13 +38,13 @@ class WorkUnit(object):
     self.name = name
     self.cmd = cmd
     self.id = uuid.uuid4()
-    self.timing = None  # In seconds. A double, to account for fractional seconds.
+    # In seconds since the epoch. Doubles, to account for fractional seconds.
+    self.start_time = 0
+    self.end_time = 0
 
     # A workunit may have multiple outputs, which we identify by a label.
     # E.g., a tool invocation may have 'stdout', 'stderr', 'debug_log' etc.
     self._outputs = defaultdict(ReadWriteBuffer)  # label -> output buffer.
-
-    self._timing = None
 
   def get_outcome(self):
     return self._outcome

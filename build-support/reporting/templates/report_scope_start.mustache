@@ -1,6 +1,6 @@
 {{#toggle_start}}{{workunit.id}}&&{{header_text}}&&{{open_or_closed}}&&spinner{{/toggle_start}}
 <script>
   $(function(){
-    pants.timerManager.startTimer('{{workunit.id}}', '#{{workunit.id}}-timer');
+    pants.timerManager.startTimer('{{workunit.id}}', '#{{workunit.id}}-timer', 1000 * {{workunit.start_time}});
   });
 </script>

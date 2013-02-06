@@ -93,13 +93,12 @@ class Context(object):
       <set the outcome on workunit>
     """
     self._current_workunit = WorkUnit(parent=self._current_workunit, type=type, name=name, cmd=cmd)
-    start = time.time()
+    self._current_workunit.start_time = time.time()
     try:
       self.reporter.start_workunit(self._current_workunit)
       yield self._current_workunit
     finally:
-      end = time.time()
-      self._current_workunit.timing = end - start
+      self._current_workunit.end_time = time.time()
       self.reporter.end_workunit(self._current_workunit)
       self._current_workunit = self._current_workunit.parent
 

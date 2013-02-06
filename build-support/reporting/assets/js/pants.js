@@ -29,18 +29,20 @@ pants = {
       var now = $.now();
       var secs = undefined;
       var timeStr = undefined;
+      var i = undefined;
       $.each(timers, function(id, timer) {
         secs = '' + (now - timer.startTime) / 1000 + '000';
-        timeStr = secs.substr(0, secs.indexOf('.') + 4) + 's';
+        i = secs.indexOf('.');
+        timeStr = ((i == -1) ? secs + '.000' : secs.substr(0, i + 4)) + 's';
         $(timer.selector).html(timeStr)
       });
     }
 
     return {
-      startTimer: function(id, selector) {
-        timers[id] = { 'startTime': $.now(), 'selector': selector };
+      startTimer: function(id, selector, init) {
+        timers[id] = { 'startTime': init ? init : $.now(), 'selector': selector };
         if (!timingEvent) {
-          timingEvent = window.setInterval(updateTimers, 373 /* prime. */);
+          timingEvent = window.setInterval(updateTimers, 100);
         }
       },
 
