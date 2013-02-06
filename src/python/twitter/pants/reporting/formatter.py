@@ -117,8 +117,10 @@ class HTMLFormatter(Formatter):
   def end_workunit(self, workunit):
     if workunit.parent is None:  # We don't visualize the root of the tree.
       return ''
+    timing = '%.3f' % workunit.timing
     args = { 'workunit': workunit_to_dict(workunit),
              'status': HTMLFormatter._status_css_classes[workunit.get_outcome()],
+             'timing': timing,
              'toggle_end': lambda x: self._render_toggle_end() }
 
     ret = ''

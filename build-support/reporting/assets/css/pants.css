@@ -131,6 +131,11 @@ a {
   margin-left: 20px;
 }
 
+.timer {
+  margin-left: 4px;
+  color: brown;
+}
+
 .cmd-content {
   color: purple;
 }

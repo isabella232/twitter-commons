@@ -32,15 +32,19 @@ class WorkUnit(object):
            compiler invocation. Used only for display.
     """
     self._outcome = WorkUnit.UNKNOWN
+
     self.parent = parent
     self.type = type
     self.name = name
     self.cmd = cmd
     self.id = uuid.uuid4()
+    self.timing = None  # In seconds. A double, to account for fractional seconds.
 
     # A workunit may have multiple outputs, which we identify by a label.
     # E.g., a tool invocation may have 'stdout', 'stderr', 'debug_log' etc.
     self._outputs = defaultdict(ReadWriteBuffer)  # label -> output buffer.
+
+    self._timing = None
 
   def get_outcome(self):
     return self._outcome
