@@ -31,10 +31,10 @@ pants = {
       var timeStr = undefined;
       var i = undefined;
       $.each(timers, function(id, timer) {
-        secs = '' + (now - timer.startTime) / 1000 + '000';
-        i = secs.indexOf('.');
-        timeStr = ((i == -1) ? secs + '.000' : secs.substr(0, i + 4)) + 's';
-        $(timer.selector).html(timeStr)
+        //secs = '' + (now - timer.startTime) / 1000 + '000';
+        //i = secs.indexOf('.');
+        //timeStr = ((i == -1) ? secs + '.000' : secs.substr(0, i + 4)) + 's';
+        $(timer.selector).html('' + Math.round((now - timer.startTime) / 1000 - 0.5) + 's');
       });
     }
 
@@ -42,7 +42,7 @@ pants = {
       startTimer: function(id, selector, init) {
         timers[id] = { 'startTime': init ? init : $.now(), 'selector': selector };
         if (!timingEvent) {
-          timingEvent = window.setInterval(updateTimers, 100);
+          timingEvent = window.setInterval(updateTimers, 1000);
         }
       },
 
