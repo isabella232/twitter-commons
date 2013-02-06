@@ -15,6 +15,47 @@ pants = {
     $("#" + id + "-icon").removeClass("icon-caret-down").addClass("icon-caret-right")
   },
 
+  // Creates an object that knows how to manage multiple timers, and periodically emit them.
+  createTimerManager: function() {
+    // The start time (in ms since the epoch) of each timer.
+    // We emit each timer to the element(s) selected by the appropriate selector.
+    // id -> {startTime: ..., selector: ...}
+    var timers = {};
+
+    // A handle to the polling event, so we can cancel it if needed.
+    var timingEvent = undefined;
+
+    function updateTimers() {
+      var now = $.now();
+      var secs = undefined;
+      var timeStr = undefined;
+      $.each(timers, function(id, timer) {
+        secs = '' + (now - timer.startTime) / 1000 + '000';
+        timeStr = secs.substr(0, secs.indexOf('.') + 4) + 's';
+        $(timer.selector).html(timeStr)
+      });
+    }
+
+    return {
+      startTimer: function(id, selector) {
+        timers[id] = { 'startTime': $.now(), 'selector': selector };
+        if (!timingEvent) {
+          timingEvent = window.setInterval(updateTimers, 373 /* prime. */);
+        }
+      },
+
+      stopTimer: function(id) {
+        delete timers[id];
+        var numTimers = 0;
+        $.each(timers, function(k,v) { numTimers++ });
+        if (numTimers == 0) {
+          window.clearInterval(timingEvent);
+          timingEvent = undefined;
+        }
+      }
+    }
+  },
+
   // Creates an object that knows how to tail multiple files by periodically polling the server.
   // Each polled file is associated with an id, so we can multiplex multiple tailings on
   // on a single server request.
@@ -63,17 +104,15 @@ pants = {
         dataType: 'json',
         success: function(data, textStatus, jqXHR) {
           function appendNewData() {
-            for (var id in data) {
-              if (data.hasOwnProperty(id)) {
-                if (id in tailedFileTargetSelectors) {
-                  $(tailedFileTargetSelectors[id]).append(data[id]);
-                }
-                if (id in tailedFileStates) {
-                  tailedFileStates[id].pos += data[id].length;
-                }
-                hasBeenTailed[id] = true;
+            $.each(data, function(id, val) {
+              if (id in tailedFileTargetSelectors) {
+                $(tailedFileTargetSelectors[id]).append(val);
               }
-            }
+              if (id in tailedFileStates) {
+                tailedFileStates[id].pos += val.length;
+              }
+              hasBeenTailed[id] = true;
+            });
           }
           function checkForStopped() {
             for (var id in toBeStopped) {
@@ -114,5 +153,6 @@ pants = {
   }
 };
 
-// We really only need one global one of these. So here it is.
+// We really only need one global one of each of these. So here they are.
+pants.timerManager = pants.createTimerManager();
 pants.tailer = pants.createTailer();

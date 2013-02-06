@@ -1,1 +1,6 @@
 {{#toggle_start}}{{workunit.id}}&&{{header_text}}&&{{open_or_closed}}&&spinner{{/toggle_start}}
+<script>
+  $(function(){
+    pants.timerManager.startTimer('{{workunit.id}}', '#{{workunit.id}}-timer');
+  });
+</script>
