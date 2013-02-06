@@ -51,28 +51,29 @@ class ZincMergedAnalysisCache(object):
     # Map from scala sources to the classes that they depend on. (Not class files, source files, but just classes.
     self.external_deps = defaultdict(set)
     # Map from scala sources to the classes that they provide. (Again, not class files, fully-qualified class names.)
-    self.class_names = defaultdict(set) 
+    self.class_names = defaultdict(set)
     for c in self.caches:
       self.parse(c)
 
   def parse(self, cachepath):
+    zincfile = "%s.relations" % cachepath
     try:
-      zincfile = open("%s.relations" % cachepath, "r")
+      zincfile = open(zincfile, "r")
     except IOError:
-      print "Warning: analysis cache file %s not found" % zincfile
+      print "Warning: analysis cache file %s not found" % cachepath
       return
     mode = None
     for line in zincfile:
       if line.startswith("products:"):
-          mode = "products"
+        mode = "products"
       elif line.startswith("binary dependencies:"):
-          mode = "binary"
+        mode = "binary"
       elif line.startswith("source dependencies:"):
-          mode = "source"
+        mode = "source"
       elif line.startswith("external dependencies:"):
-          mode = "external"
+        mode = "external"
       elif line.startswith("class names:"):
-          mode = "class"
+        mode = "class"
       else:
         (src, sep, dep) = line.partition("->")
         src = src.strip()
@@ -82,9 +83,9 @@ class ZincMergedAnalysisCache(object):
                     line)
             continue
         if mode == "products":
-            self.products[src].add(dep)
+          self.products[src].add(dep)
         elif mode == "binary":
-            self.binary_deps[src].add(dep)
+          self.binary_deps[src].add(dep)
         elif mode == "source":
           self.source_deps[src].add(dep)
         elif mode == "external":

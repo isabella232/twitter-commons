@@ -249,7 +249,9 @@ class NailgunTask(Task):
       with _safe_open(self._pidfile, 'w') as pidfile:
         pidfile.write('%d' % process.pid)
       log.debug('Spawned ng server @ %d' % process.pid)
-      os._exit(0)  # Exit without running finally blocks etc.
+      # Prevents finally blocks being executed, unlike sys.exit(). We don't want to execute finally
+      # blocks because we might, e.g., clean up tempfiles that the parent still needs.
+      os._exit(0)
 
 
 # Pick implementations for killall and _find. We don't use psutil, as it uses
