@@ -24,7 +24,7 @@ import subprocess
 from contextlib import contextmanager
 
 from twitter.common import log
-from twitter.common.contextutil import environment_as, open_zip, temporary_file
+from twitter.common.contextutil import environment_as, open_zip, temporary_file, temporary_dir
 from twitter.common.dirutil import safe_mkdir, safe_open, touch
 
 from twitter.pants.base import Config
@@ -159,6 +159,25 @@ def build_java_cmd(jvmargs=None, classpath=None, main=None, args=None):
   if args:
     cmd.extend(args)
   return cmd
+
+def find_java_home():
+  # A kind-of-insane hack to find the effective java home. On some platforms there are so
+  # many hard and symbolic links into the JRE dirs that it's actually quite hard to
+  # establish what path to use as the java home, e.g., for the purpose of rebasing.
+  # In practice, this seems to work fine.
+  #
+  # TODO: In the future we should probably hermeticize the Java enivronment rather than relying
+  # on whatever's on the shell's PATH. E.g., you either specify a path to the Java home via a
+  # cmd-line flag or .pantsrc, or we infer one with this method but verify that it's of a
+  # supported version.
+  with temporary_dir() as tmpdir:
+    with safe_open(os.path.join(tmpdir, 'X.java'), 'w') as srcfile:
+      srcfile.write('class X { public static void main(String[] argv) { '
+                    'System.out.println(System.getProperty("java.home")); } }')
+    subprocess.Popen(['javac', '-d', tmpdir, srcfile.name],
+      stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    return subprocess.Popen(['java', '-cp', tmpdir, 'X'],
+      stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0]
 
 def nailgun_profile_classpath(nailgun_task, profile, ivy_jar=None, ivy_settings=None):
   return profile_classpath(
