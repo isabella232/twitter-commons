@@ -136,6 +136,11 @@ a {
   color: brown;
 }
 
+.unaccounted-time {
+  margin-left: 4px;
+  color: red;
+}
+
 .cmd-content {
   color: purple;
 }
@@ -216,6 +221,10 @@ a {
 .run .run-info .cmd-line-label {
   font-size: 14px;
   font-weight: bold;
+}
+
+.nodisplay {
+  display: none;
 }
 
 .ansi-30, .ansi-30 a {

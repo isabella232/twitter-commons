@@ -34,6 +34,7 @@ class WorkUnit(object):
     self._outcome = WorkUnit.UNKNOWN
 
     self.parent = parent
+    self.children = []
     self.type = type
     self.name = name
     self.cmd = cmd
@@ -45,6 +46,17 @@ class WorkUnit(object):
     # A workunit may have multiple outputs, which we identify by a label.
     # E.g., a tool invocation may have 'stdout', 'stderr', 'debug_log' etc.
     self._outputs = defaultdict(ReadWriteBuffer)  # label -> output buffer.
+
+    if self.parent:
+      self.parent.children.append(self)
+
+  def to_dict(self):
+    """Useful for providing arguments to templates."""
+    ret = {}
+    for key in ['type', 'name', 'cmd', 'id', 'start_time', 'end_time']:
+      ret[key] = getattr(self, key)
+      ret['parent'] = self.parent.to_dict() if self.parent else None
+    return ret
 
   def get_outcome(self):
     return self._outcome
@@ -76,4 +88,15 @@ class WorkUnit(object):
   def outcome_string(self):
     return self.choose('FAILURE', 'WARNING', 'SUCCESS', 'UNKNOWN')
 
+  def duration(self):
+    return self.end_time - self.start_time
 
+  def unaccounted_time(self):
+    """Returns the difference between the time spent in our children and own time."""
+    if len(self.children) == 0:
+      return 0
+
+    time_in_children = 0
+    for child in self.children:
+      time_in_children += child.duration()
+    return self.duration() - time_in_children

@@ -15,6 +15,10 @@ pants = {
     $("#" + id + "-icon").removeClass("icon-caret-down").addClass("icon-caret-right")
   },
 
+  append: function(fromSelector, toSelector) {
+    $(fromSelector).appendTo($(toSelector)).show();
+  },
+
   // Creates an object that knows how to manage multiple timers, and periodically emit them.
   createTimerManager: function() {
     // The start time (in ms since the epoch) of each timer.

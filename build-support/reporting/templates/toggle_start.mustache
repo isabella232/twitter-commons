@@ -3,7 +3,7 @@
     <div class="{{#class_prefix}}{{.}}-header-icon {{/class_prefix}}toggle-header-icon">
       <i id="{{id}}-icon" class="visibility-icon icon-large {{#initially_open}}icon-caret-down{{/initially_open}}{{^initially_open}}icon-caret-right{{/initially_open}}"></i>
     </div>
-    <div class="{{#class_prefix}}{{.}}-header-text {{/class_prefix}}toggle-header-text">[<span id="{{id}}-header-text">{{title}}</span>]<span class="timer" id="{{id}}-timer"></span></div>
+    <div class="{{#class_prefix}}{{.}}-header-text {{/class_prefix}}toggle-header-text">[<span id="{{id}}-header-text">{{title}}</span>]<span class="timer" id="{{id}}-timer"></span><span class="unaccounted-time nodisplay" id="{{id}}-unaccounted-time"></span></div>
     {{#spinner}}<div id="{{id}}-spinner" class="spinner"></div>{{/spinner}}
   </div>
-  <div class="{{#class_prefix}}{{.}}-content {{/class_prefix}}toggle-content" id="{{id}}-content" {{^initially_open}}style="display:none;"{{/initially_open}}>
+  <div class="{{#class_prefix}}{{.}}-content {{/class_prefix}}toggle-content {{^initially_open}}nodisplay{{/initially_open}}" id="{{id}}-content">

@@ -1,6 +1,9 @@
-<script>$('#{{workunit.id}}-header-text').addClass('{{status}}'); $('#{{workunit.id}}-spinner').hide(); $('#{{workunit.id}}-timer').html('{{timing}}s')</script>
-{{#toggle_end}}{{/toggle_end}}
 <script>
+  $('#{{workunit.id}}-header-text').addClass('{{status}}');
+  $('#{{workunit.id}}-spinner').hide();
+  $('#{{workunit.id}}-timer').html('{{timing}}s');
+  {{#unaccounted_time}}$('#{{workunit.id}}-unaccounted-time').html('(Unaccounted: {{.}}s)').show();{{/unaccounted_time}}
+
   $(function(){
     pants.timerManager.stopTimer('{{workunit.id}}');
   });

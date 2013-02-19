@@ -95,14 +95,16 @@ class HTMLFormatter(Formatter):
     return HTMLFormatter.path_re.sub(lambda m: maybe_add_link(to_url(m), m.group(0)), s)
 
   def start_workunit(self, workunit):
-    if workunit.parent is None:  # We don't visualize the root of the tree.
-      return ''
     is_tool = workunit.type.endswith('_tool')
     scopes = _get_scope_names(workunit)
+    if workunit.parent is None:
+      header_text = 'all'
+    else:
+      header_text = scopes[-1] if is_tool else ':'.join(scopes)
     args = { 'indent': len(scopes) * 10,
              'html_path_base': self._html_path_base,
-             'workunit': workunit_to_dict(workunit),
-             'header_text': scopes[-1] if is_tool else ':'.join(scopes),
+             'workunit': workunit.to_dict(),
+             'header_text': header_text,
              'open_or_closed': 'closed' if is_tool else 'open' }
     args.update({ 'toggle_start': lambda x: self._render_toggle_start(x, args),
                   'toggle_end': lambda x: self._render_toggle_end() })
@@ -115,12 +117,13 @@ class HTMLFormatter(Formatter):
   _status_css_classes = ['failure', 'warning', 'success', 'unknown']
 
   def end_workunit(self, workunit):
-    if workunit.parent is None:  # We don't visualize the root of the tree.
-      return ''
     timing = '%.3f' % (workunit.end_time - workunit.start_time)
-    args = { 'workunit': workunit_to_dict(workunit),
+    unaccounted_time_secs = workunit.unaccounted_time()
+    unaccounted_time = '%.3f' % unaccounted_time_secs if unaccounted_time_secs >= 1 else None
+    args = { 'workunit': workunit.to_dict(),
              'status': HTMLFormatter._status_css_classes[workunit.get_outcome()],
              'timing': timing,
+             'unaccounted_time': unaccounted_time,
              'toggle_end': lambda x: self._render_toggle_end() }
 
     ret = ''
@@ -142,10 +145,3 @@ class HTMLFormatter(Formatter):
 
   def _render_toggle_end(self):
     return self._renderer.render_name('toggle_end', {})
-
-def workunit_to_dict(workunit):
-  """Because mustache doesn't seem to play nicely with objects."""
-  ret = {}
-  for key in ['parent', 'type', 'name', 'cmd', 'id', 'start_time', 'end_time']:
-    ret[key] = getattr(workunit, key)
-  return ret
