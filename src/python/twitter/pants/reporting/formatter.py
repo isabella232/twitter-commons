@@ -105,7 +105,8 @@ class HTMLFormatter(Formatter):
              'html_path_base': self._html_path_base,
              'workunit': workunit.to_dict(),
              'header_text': header_text,
-             'open_or_closed': 'closed' if is_tool else 'open' }
+             'open_or_closed': 'closed',
+             'is_tool': is_tool }
     args.update({ 'collapsible': lambda x: self._render_collapsible(x, args) })
 
     ret = self._renderer.render_name('workunit_start', args)
