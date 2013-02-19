@@ -1,0 +1,7 @@
+<div id="__{{workunit.id}}__content">{{#collapsible}}{{workunit.id}}&&{{header_text}}&&{{open_or_closed}}&&spinner{{/collapsible}}</div>
+<script>
+  $(function(){
+    pants.append('#__{{workunit.id}}__content', '#{{workunit.parent.id}}-content');
+    pants.timerManager.startTimer('{{workunit.id}}', '#{{workunit.id}}-timer', 1000 * {{workunit.start_time}});
+  });
+</script>

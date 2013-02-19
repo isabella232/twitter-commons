@@ -1,7 +1,0 @@
-<div id="__{{workunit.id}}__content">{{#toggle_start}}{{workunit.id}}&&{{header_text}}&&{{open_or_closed}}&&spinner{{/toggle_start}}<div id="__{{workunit.id}}__interior"></div>{{#toggle_end}}{{/toggle_end}}</div>
-<script>
-  $(function(){
-    pants.append('#__{{workunit.id}}__content', '#__{{workunit.parent.id}}__interior');
-    pants.timerManager.startTimer('{{workunit.id}}', '#{{workunit.id}}-timer', 1000 * {{workunit.start_time}});
-  });
-</script>

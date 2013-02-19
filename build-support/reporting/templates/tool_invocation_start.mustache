@@ -1,11 +1,13 @@
 <div id="__{{workunit.id}}__tool_invocation">
-{{#toggle_start}}{{workunit.id}}-cmd&&command line&&closed&&nospinner&&cmd{{/toggle_start}}{{workunit.cmd}}{{#toggle_end}}{{/toggle_end}}
-{{#toggle_start}}{{workunit.id}}-stdout&&stdout&&closed&&nospinner{{/toggle_start}}{{#toggle_end}}{{/toggle_end}}
-{{#toggle_start}}{{workunit.id}}-stderr&&stderr&&closed&&nospinner{{/toggle_start}}{{#toggle_end}}{{/toggle_end}}
+{{#collapsible}}{{workunit.id}}-cmd&&command line&&closed&&nospinner&&cmd{{/collapsible}}
+{{#collapsible}}{{workunit.id}}-stdout&&stdout&&closed&&nospinner{{/collapsible}}
+{{#collapsible}}{{workunit.id}}-stderr&&stderr&&closed&&nospinner{{/collapsible}}
 </div>
+<div id="__{{workunit.id}}__tool_invocation_cmd">{{workunit.cmd}}</div>
 <script>
   $(function(){
-    pants.append('#__{{workunit.id}}__tool_invocation', '#__{{workunit.id}}__interior');
+    pants.append('#__{{workunit.id}}__tool_invocation', '#{{workunit.id}}-content');
+    pants.append('#__{{workunit.id}}__tool_invocation_cmd', '#{{workunit.id}}-cmd-content');
     pants.tailer.startTailing('{{workunit.id}}_stdout', '{{html_path_base}}/{{workunit.id}}.stdout', '#{{workunit.id}}-stdout-content');
     pants.tailer.startTailing('{{workunit.id}}_stderr', '{{html_path_base}/{{workunit.id}}.stderr', '#{{workunit.id}}-stderr-content');
   });

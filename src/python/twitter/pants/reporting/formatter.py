@@ -106,10 +106,9 @@ class HTMLFormatter(Formatter):
              'workunit': workunit.to_dict(),
              'header_text': header_text,
              'open_or_closed': 'closed' if is_tool else 'open' }
-    args.update({ 'toggle_start': lambda x: self._render_toggle_start(x, args),
-                  'toggle_end': lambda x: self._render_toggle_end() })
+    args.update({ 'collapsible': lambda x: self._render_collapsible(x, args) })
 
-    ret = self._renderer.render_name('report_scope_start', args)
+    ret = self._renderer.render_name('workunit_start', args)
     if is_tool:
       ret += self._renderer.render_name('tool_invocation_start', args)
     return ret
@@ -123,15 +122,14 @@ class HTMLFormatter(Formatter):
     args = { 'workunit': workunit.to_dict(),
              'status': HTMLFormatter._status_css_classes[workunit.get_outcome()],
              'timing': timing,
-             'unaccounted_time': unaccounted_time,
-             'toggle_end': lambda x: self._render_toggle_end() }
+             'unaccounted_time': unaccounted_time }
 
     ret = ''
     if workunit.type.endswith('_tool'):
       ret += self._renderer.render_name('tool_invocation_end', args)
-    return ret + self._renderer.render_name('report_scope_end', args)
+    return ret + self._renderer.render_name('workunit_end', args)
 
-  def _render_toggle_start(self, arg_string, outer_args):
+  def _render_collapsible(self, arg_string, outer_args):
     rendered_arg_string = self._renderer.render(arg_string, outer_args)
     id, title, initially_open, spinner, class_prefix = (rendered_arg_string.split('&&') + [None, None, None])[0:5]
     inner_args = {
@@ -141,7 +139,5 @@ class HTMLFormatter(Formatter):
       'spinner': (spinner == 'spinner'),
       'class_prefix': class_prefix
     }
-    return self._renderer.render_name('toggle_start', inner_args)
+    return self._renderer.render_name('collapsible', inner_args)
 
-  def _render_toggle_end(self):
-    return self._renderer.render_name('toggle_end', {})
