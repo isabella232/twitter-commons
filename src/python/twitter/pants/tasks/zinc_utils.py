@@ -103,7 +103,7 @@ class ZincUtils(object):
     zinc_args.extend(args)
     return self._java_runner(self._main, classpath=self._zinc_classpath, args=zinc_args, jvmargs=self._jvm_args)
 
-  def compile(self, classpath, sources, output_dir, analysis_file, upstream_analysis_files, depfile):
+  def compile(self, classpath, sources, output_dir, analysis_file, upstream_analysis_files):
     # To pass options to scalac simply prefix with -S.
     args = ['-S' + x for x in self._scalac_args]
 
@@ -113,7 +113,6 @@ class ZincUtils(object):
     args.extend([
       '-analysis-cache', analysis_file,
       '-classpath', ':'.join(self._zinc_classpath + classpath),
-      '-output-products', depfile,
       '-d', output_dir
     ])
     args.extend(sources)

@@ -21,9 +21,11 @@ import os
 import shutil
 import tarfile
 import tempfile
+import time
 import sys
 import zipfile
 
+from collections import defaultdict
 from contextlib import closing, contextmanager
 
 
@@ -186,3 +188,31 @@ def open_tar(path_or_file, *args, **kwargs):
   (path, fileobj) = (path_or_file, None) if isinstance(path_or_file, basestring) else (None, path_or_file)
   with closing(tarfile.open(path, *args, fileobj=fileobj, **kwargs)) as tar:
     yield tar
+
+
+_timings = defaultdict(float)
+
+class Timing(object):
+  def __init__(self):
+    self._start = time.time()
+    self._end = 0
+
+  def stop(self):
+    if not self._end:
+      self._end = time.time()
+
+  def start(self): return self._start
+  def end(self): return self._end
+  def duration(self): return self._end - self._start
+
+@contextmanager
+def timing(key):
+  global _timings
+  timing = Timing()
+  yield timing
+  timing.stop()
+  _timings[key] += timing.duration()
+
+def get_timings():
+  global _timings
+  return sorted(_timings.items(), key=lambda kv: kv[1], reverse=True)

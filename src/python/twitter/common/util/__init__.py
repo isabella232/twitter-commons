@@ -16,8 +16,9 @@
 
 __author__ = 'Brian Wickman'
 
-import sys
 import copy
+import os
+
 from collections import defaultdict
 from functools import reduce
 
@@ -101,3 +102,34 @@ def topological_sort(data, priors=[], require_fully_specified=False):
   remaining_deps = reduce(set.union, data.values(), set())
   if remaining_deps:
     raise DependencyCycle('Data contained a cycle! Unsatisfied deps: %s' % remaining_deps)
+
+def find_common_path_prefix(paths):
+  """Return the common path prefix of the given paths.
+
+  Works on path segments, so result is guaranteed to be a valid path, unlike the incorrect
+  os.path.commonprefix, which operates on characters.
+
+  Lifted from this recipe:
+  http://code.activestate.com/recipes/577016-path-entire-split-commonprefix/
+  """
+  def isplit(path):
+    dirname, basename = os.path.split(path)
+    if path == dirname:
+      yield path
+    elif dirname:
+      for i in isplit(dirname): yield i
+    if basename: yield basename
+
+  def join(iterable):
+    items = tuple(iterable)
+    if not items: return ''
+    return os.path.join(*items)
+
+  paths = map(lambda x: tuple(isplit(x)), paths)
+  if not paths: return ''
+  p1 = min(paths)
+  p2 = max(paths)
+  for i, c in enumerate(p1):
+    if c != p2[i]:
+      return join(p1[:i])
+  return join(p1)
