@@ -18,7 +18,6 @@ __author__ = 'Benjy Weinberger'
 
 import os
 
-from twitter.common.contextutil import  timing, get_timings
 from twitter.common.dirutil import safe_mkdir
 
 from twitter.pants import  is_scalac_plugin, get_buildroot
@@ -146,8 +145,6 @@ class ScalaCompile(NailgunTask):
     deps_cache = JvmDependencyCache(self.context, scala_targets, all_analysis_files)
     deps_cache.check_undeclared_dependencies()
 
-    print(get_timings())
-
   def _add_globally_required_classpath_entries(self, cp):
     # Add classpath entries necessary both for our compiler calls and for downstream JVM tasks.
     for conf in self._confs:
@@ -193,10 +190,9 @@ class ScalaCompile(NailgunTask):
         old_state = current_state
         classpath = [entry for conf, entry in cp if conf in self._confs]
         self.context.log.info('Compiling targets %s' % vts.targets)
-        with timing('zinc_compile'):
-          if self._zinc_utils.compile(classpath, merged_artifact.sources, merged_artifact.classes_dir,
-                                      merged_artifact.analysis_file, upstream_analysis_map):
-            raise TaskError('Compile failed.')
+        if self._zinc_utils.compile(classpath, merged_artifact.sources, merged_artifact.classes_dir,
+                                    merged_artifact.analysis_file, upstream_analysis_map):
+          raise TaskError('Compile failed.')
 
         write_to_artifact_cache = self._artifact_cache and self.context.options.write_to_artifact_cache
         current_state = merged_artifact.split(old_state, portable=write_to_artifact_cache)
@@ -211,8 +207,7 @@ class ScalaCompile(NailgunTask):
       # Register the products, if needed. TODO: Make sure this is safe to call concurrently.
       # In practice the GIL will make it fine, but relying on that is insanitary.
       if self.context.products.isrequired('classes'):
-        with timing('update_genmap'):
-          self._add_products_to_genmap(merged_artifact, current_state)
+        self._add_products_to_genmap(merged_artifact, current_state)
     return merged_artifact
 
   def _add_products_to_genmap(self, artifact, state):

@@ -99,14 +99,14 @@ class ZincArtifact(object):
   def current_state(self):
     return ZincArtifactState(self)
 
-  def find_all_class_files(self):
-    """Returns a list of the classfiles under classes_dir, relative to that dir."""
-    classes = []
-    for dir, _, fs in os.walk(self.classes_dir):
-      for f in fs:
-        if f.endswith('.class'):
-          classes.append(os.path.relpath(os.path.join(dir, f), self.classes_dir))
-    return classes
+#  def find_all_class_files(self):
+#    """Returns a list of the classfiles under classes_dir, relative to that dir."""
+#    classes = []
+#    for dir, _, fs in os.walk(self.classes_dir):
+#      for f in fs:
+#        if f.endswith('.class'):
+#          classes.append(os.path.relpath(os.path.join(dir, f), self.classes_dir))
+#    return classes
 
   def __eq__(self, other):
     return self.artifact_id == other.artifact_id
@@ -123,10 +123,18 @@ class MergedZincArtifact(ZincArtifact):
     self.underlying_artifacts = underlying_artifacts
 
   def merge(self):
+    # Note that if the merged analysis file already exists we don't re-merge it.
+    # Ditto re the merged classes dir. In some unlikely corner cases they may
+    # be less up to date than the artifact we could create by re-merging, but this
+    # heuristic is worth it so that in the common case we don't spend a lot of time
+    # copying files around.
+
     # Must merge analysis before computing current state.
-    self._merge_analysis()
+    if not os.path.exists(self.analysis_file):
+      self._merge_analysis()
     current_state = self.current_state()
-    self._merge_classes_dir(current_state)
+    if not os.path.exists(self.classes_dir):
+      self._merge_classes_dir(current_state)
     return current_state
 
   def _merge_analysis(self):
@@ -163,7 +171,7 @@ class MergedZincArtifact(ZincArtifact):
       for cls in state.classes_by_target.get(artifact.targets[0], []):
         classnames_by_package[os.path.dirname(cls)].append(os.path.basename(cls))
 
-      for package, classnames in classnames_by_package:
+      for package, classnames in classnames_by_package.items():
         artifact_package_dir = os.path.join(artifact.classes_dir, package)
         merged_package_dir = os.path.join(self.classes_dir, package)
 
@@ -234,13 +242,24 @@ class MergedZincArtifact(ZincArtifact):
   def _split_classes_dir(self, state, diff):
     if len(self.underlying_artifacts) <= 1:
       return
-    for artifact in self.underlying_artifacts:
-      classnames_by_package = defaultdict(list)
-      for cls in state.classes_by_target.get(artifact.targets[0], []):
-        classnames_by_package[os.path.dirname(cls)].append(os.path.basename(cls))
 
-      # TODO: Use diff to cut down on copying?
-      for package, classnames in classnames_by_package.items():
+    def map_classes_by_package(classes):
+      ret = defaultdict(list)
+      for cls in classes:
+        ret[os.path.dirname(cls)].append(os.path.basename(cls))
+      return ret
+
+    new_or_changed_classnames_by_package = map_classes_by_package(diff.new_or_changed_classes)
+    deleted_classnames_by_package = map_classes_by_package(diff.deleted_classes)
+
+    for artifact in self.underlying_artifacts:
+      classnames_by_package = map_classes_by_package(state.classes_by_target.get(artifact.targets[0], []))
+
+      # We iterate from longest to shortest package name, so that we see child packages
+      # before parent packages, and therefore that we only symlink leaf packages.
+      package_classnames_pairs = sorted(classnames_by_package.items(), key=lambda kv: len(kv[0]), reverse=True)
+
+      for package, classnames in package_classnames_pairs:
         artifact_package_dir = os.path.join(artifact.classes_dir, package)
         merged_package_dir = os.path.join(self.classes_dir, package)
 
@@ -267,10 +286,16 @@ class MergedZincArtifact(ZincArtifact):
           shutil.move(merged_package_dir, artifact_package_dir)
           os.symlink(artifact_package_dir, merged_package_dir)
         else:
+          new_or_changed_classnames = set(new_or_changed_classnames_by_package.get(package, []))
           for classname in classnames:
-            src = os.path.join(merged_package_dir, classname)
-            dst = os.path.join(artifact_package_dir, classname)
-            shutil.copyfile(src, dst)
+            if classname in new_or_changed_classnames:
+              src = os.path.join(merged_package_dir, classname)
+              dst = os.path.join(artifact_package_dir, classname)
+              shutil.copyfile(src, dst)
+          for classname in deleted_classnames_by_package.get(package, []):
+            path = os.path.join(artifact_package_dir, classname)
+            if os.path.exists(path):
+              os.unlink(path)
 
   @staticmethod
   def find_ancestor_package_symlink(base, dir):
@@ -287,9 +312,9 @@ class ZincArtifactStateDiff(object):
     if old_state.artifact != new_state.artifact:
       raise TaskError, 'Cannot diff state of two different artifacts.'
     self.artifact = old_state.artifact
-    self.new_or_changed_classes = filter(
+    self.new_or_changed_classes = set(filter(
       lambda f: os.path.getmtime(os.path.join(self.artifact.classes_dir, f)) > old_state.timestamp,
-      new_state.classes)
+      new_state.classes))
     self.deleted_classes = old_state.classes - new_state.classes
     self.analysis_changed = old_state.analysis_fprint != new_state.analysis_fprint
 
