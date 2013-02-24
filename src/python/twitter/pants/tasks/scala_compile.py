@@ -161,9 +161,9 @@ class ScalaCompile(NailgunTask):
                               'Incremental rebuild of that target may not be possible.' % analysis_file)
 
   def check_artifact_cache(self, vts):
-    cached_vts = Task.check_artifact_cache(self, vts)
+    cached_vts, uncached_vts = Task.check_artifact_cache(self, vts)
     self._localize_portable_artifact_files(cached_vts)
-    return cached_vts
+    return cached_vts, uncached_vts
 
   def _process_target_partition(self, vts, cp, upstream_analysis_map):
     """Must run on all target partitions, not just invalid ones.
@@ -174,7 +174,6 @@ class ScalaCompile(NailgunTask):
     """
     artifacts = [self._artifact_factory.artifact_for_target(target) for target in vts.targets]
     merged_artifact = self._artifact_factory.merged_artifact(artifacts)
-    safe_mkdir(merged_artifact.classes_dir)
 
     if not merged_artifact.sources:
       self.context.log.warn('Skipping scala compile for targets with no sources:\n  %s' % merged_artifact.targets)
