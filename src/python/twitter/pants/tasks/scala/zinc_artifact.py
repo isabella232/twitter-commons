@@ -33,7 +33,7 @@ from twitter.pants.targets import resolve_target_sources
 from twitter.pants.targets.scala_library import ScalaLibrary
 from twitter.pants.targets.scala_tests import ScalaTests
 from twitter.pants.tasks import TaskError
-from twitter.pants.tasks.zinc_analysis_file import ZincAnalysisCollection
+from twitter.pants.tasks.scala.zinc_analysis_file import ZincAnalysisCollection
 
 
 class ZincArtifactFactory(object):
@@ -41,6 +41,11 @@ class ZincArtifactFactory(object):
     self._workdir = workdir
     self.context = context
     self.zinc_utils = zinc_utils
+
+    self._classes_dirs_base = os.path.join(self._workdir, 'classes')
+    self._analysis_files_base = os.path.join(self._workdir, 'analysis')
+    safe_mkdir(self._classes_dirs_base)
+    safe_mkdir(self._analysis_files_base)
 
   def artifact_for_target(self, target):
     targets = [target]
@@ -54,13 +59,17 @@ class ZincArtifactFactory(object):
     factory = self
     return MergedZincArtifact(artifacts, factory, targets, sources_by_target, *self._artifact_args(targets))
 
+  # Useful for when we only need access to the analysis file, and don't need a heavyweight artifact object.
+  def analysis_file_for_targets(self, targets):
+    return self._artifact_args(targets)[2]
+
   def _artifact_args(self, targets):
     """Returns the artifact paths for the given target set."""
     artifact_id = Target.maybe_readable_identify(targets)
     # Each compilation must output to its own directory, so zinc can then associate those with the appropriate
     # analysis files of previous compilations.
-    classes_dir = os.path.join(self._workdir, 'classes', artifact_id)
-    analysis_file = os.path.join(self._workdir, 'analysis', artifact_id) + '.analysis'
+    classes_dir = os.path.join(self._classes_dirs_base, artifact_id)
+    analysis_file = os.path.join(self._analysis_files_base, artifact_id) + '.analysis'
     return artifact_id, classes_dir, analysis_file
 
   @staticmethod
@@ -114,10 +123,13 @@ class MergedZincArtifact(ZincArtifact):
     self.underlying_artifacts = underlying_artifacts
 
   def merge(self):
-    self.merge_analysis()
-    self.merge_classes_dir()
+    # Must merge analysis before computing current state.
+    self._merge_analysis()
+    current_state = self.current_state()
+    self._merge_classes_dir(current_state)
+    return current_state
 
-  def merge_analysis(self):
+  def _merge_analysis(self):
     if len(self.underlying_artifacts) <= 1:
       return
     with temporary_dir(cleanup=False) as tmpdir:
@@ -137,43 +149,7 @@ class MergedZincArtifact(ZincArtifact):
           'zinc failed to merge analysis files %s to %s. Target may require a full rebuild.' % \
                                (':'.join(artifact_analysis_files), self.analysis_file))
 
-  def split_analysis(self):
-    self._do_split_analysis('analysis_file')
-
-  def split_portable_analysis(self):
-    self._do_split_analysis('portable_analysis_file')
-
-  def _do_split_analysis(self, analysis_file_attr):
-    if len(self.underlying_artifacts) <= 1:
-      return
-    # Specifies that the list of sources defines a split to the classes dir and analysis file.
-    SplitInfo = namedtuple('SplitInfo', ['sources', 'dst_classes_dir', 'dst_analysis_file'])
-
-    def _analysis(artifact):
-      return getattr(artifact, analysis_file_attr)
-
-    if len(self.underlying_artifacts) <= 1:
-      return
-
-    analysis_to_split = _analysis(self)
-    if not os.path.exists(analysis_to_split):
-      return
-
-    splits = []
-    for artifact in self.underlying_artifacts:
-      splits.append(SplitInfo(artifact.sources, artifact.classes_dir, _analysis(artifact)))
-
-    split_args = [(x.sources, x.dst_analysis_file) for x in splits]
-    if self.factory.zinc_utils.run_zinc_split(analysis_to_split, split_args):
-      raise TaskError, 'zinc failed to split analysis files %s from %s' % \
-                       (':'.join([x.dst_analysis_file for x in splits]), analysis_to_split)
-    for split in splits:
-      if os.path.exists(split.dst_analysis_file):
-        if self.factory.zinc_utils.run_zinc_rebase(split.dst_analysis_file,
-                                                   [(self.classes_dir, split.dst_classes_dir)]):
-          raise TaskError, 'Zinc failed to rebase analysis file %s' % split.dst_analysis_file
-
-  def merge_classes_dir(self):
+  def _merge_classes_dir(self, state):
     """Merge the classes dirs from the underlying artifacts.
 
     May symlink instead of copying, when it's OK to do so.
@@ -184,7 +160,7 @@ class MergedZincArtifact(ZincArtifact):
       return
     for artifact in self.underlying_artifacts:
       classnames_by_package = defaultdict(list)
-      for cls in artifact.find_all_class_files():
+      for cls in state.classes_by_target.get(artifact.targets[0], []):
         classnames_by_package[os.path.dirname(cls)].append(os.path.basename(cls))
 
       for package, classnames in classnames_by_package:
@@ -215,24 +191,63 @@ class MergedZincArtifact(ZincArtifact):
             if os.path.exists(src) and not os.path.exists(dst):
               os.link(src, dst)
 
-  def split_classes_dir(self, diff):
+  def split(self, old_state, portable):
+    current_state = self.current_state()
+    diff = ZincArtifactStateDiff(old_state, current_state)
+    if diff.analysis_changed:
+      self._split_analysis('analysis_file')
+      if portable:
+        self._split_analysis('portable_analysis_file')
+    self._split_classes_dir(current_state, diff)
+    return current_state
+
+  def _split_analysis(self, analysis_file_attr):
+    if len(self.underlying_artifacts) <= 1:
+      return
+    # Specifies that the list of sources defines a split to the classes dir and analysis file.
+    SplitInfo = namedtuple('SplitInfo', ['sources', 'dst_classes_dir', 'dst_analysis_file'])
+
+    def _analysis(artifact):
+      return getattr(artifact, analysis_file_attr)
+
+    if len(self.underlying_artifacts) <= 1:
+      return
+
+    analysis_to_split = _analysis(self)
+    if not os.path.exists(analysis_to_split):
+      return
+
+    splits = []
+    for artifact in self.underlying_artifacts:
+      splits.append(SplitInfo(artifact.sources, artifact.classes_dir, _analysis(artifact)))
+
+    split_args = [(x.sources, x.dst_analysis_file) for x in splits]
+    if self.factory.zinc_utils.run_zinc_split(analysis_to_split, split_args):
+      raise TaskError, 'zinc failed to split analysis files %s from %s' % \
+                       (':'.join([x.dst_analysis_file for x in splits]), analysis_to_split)
+    for split in splits:
+      if os.path.exists(split.dst_analysis_file):
+        if self.factory.zinc_utils.run_zinc_rebase(split.dst_analysis_file,
+                                                   [(self.classes_dir, split.dst_classes_dir)]):
+          raise TaskError, 'Zinc failed to rebase analysis file %s' % split.dst_analysis_file
+
+  def _split_classes_dir(self, state, diff):
     if len(self.underlying_artifacts) <= 1:
       return
     for artifact in self.underlying_artifacts:
       classnames_by_package = defaultdict(list)
-      for cls in artifact.find_all_class_files():
+      for cls in state.classes_by_target.get(artifact.targets[0], []):
         classnames_by_package[os.path.dirname(cls)].append(os.path.basename(cls))
 
       # TODO: Use diff to cut down on copying?
-      for package, classnames in classnames_by_package:
+      for package, classnames in classnames_by_package.items():
         artifact_package_dir = os.path.join(artifact.classes_dir, package)
         merged_package_dir = os.path.join(self.classes_dir, package)
 
         if os.path.islink(merged_package_dir):
           linked = os.readlink(merged_package_dir)
           if linked != artifact_package_dir:
-            # The output went to the wrong place. This means that this target has put classes into
-            # a package previously owned exclusively by some other target.
+            # Two targets have classes in this package.
             # First get rid of this now-invalid symlink, replacing it with a copy.
             os.unlink(merged_package_dir)
             shutil.copytree(linked, merged_package_dir)
@@ -241,15 +256,21 @@ class MergedZincArtifact(ZincArtifact):
             for f in os.listdir(linked):
               if f in our_classnames:
                 os.unlink(os.path.join(linked, f))
-            # We'll copy our files below.
+            # Make sure we copy our files, and don't attempt the symlink heuristic below.
+            safe_mkdir(artifact_package_dir)
           else:
             continue
+        # If we get here then merged_package_dir is not a symlink.
 
-        safe_mkdir(artifact_package_dir)
-        for classname in classnames:
-          src = os.path.join(merged_package_dir, classname)
-          dst = os.path.join(artifact_package_dir, classname)
-          shutil.copyfile(src, dst)
+        if not os.path.exists(artifact_package_dir):
+          # Apply the symlink heuristic on this new package.
+          shutil.move(merged_package_dir, artifact_package_dir)
+          os.symlink(artifact_package_dir, merged_package_dir)
+        else:
+          for classname in classnames:
+            src = os.path.join(merged_package_dir, classname)
+            dst = os.path.join(artifact_package_dir, classname)
+            shutil.copyfile(src, dst)
 
   @staticmethod
   def find_ancestor_package_symlink(base, dir):
@@ -295,7 +316,7 @@ class ZincArtifactState(object):
     # Note: It's important to use classes_by_src here, not classes_by_target, because a now-deleted src
     # won't be reflected in any target, which will screw up our computation of deleted classes.
     for classes in self.classes_by_src.values():
-      classes.update(classes)
+      self.classes.update(classes)
 
     self.timestamp = time.time()
 
@@ -313,7 +334,7 @@ class ZincArtifactState(object):
   def _compute_classes_by_src(artifact):
     # Compute target->classes and src->classes deps.
     if not os.path.exists(artifact.analysis_file):
-      return {}, {}
+      return {}
     len_rel_classes_dir = len(artifact.classes_dir) - len(get_buildroot())
     analysis = ZincAnalysisCollection([artifact.analysis_file], stop_after='products')
     classes_by_src = {}
