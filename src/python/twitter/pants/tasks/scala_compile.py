@@ -18,8 +18,6 @@ __author__ = 'Benjy Weinberger'
 
 import os
 
-from twitter.common.dirutil import safe_mkdir
-
 from twitter.pants import  is_scalac_plugin, get_buildroot
 from twitter.pants.targets.scala_library import ScalaLibrary
 from twitter.pants.targets.scala_tests import ScalaTests
@@ -152,7 +150,7 @@ class ScalaCompile(NailgunTask):
       for jar in self._zinc_utils.plugin_jars():
         cp.insert(0, (conf, jar))
 
-  def _localize_portable_artifact_files(self, vts):
+  def _localize_portable_analysis_files(self, vts):
     # Localize the analysis files we read from the artifact cache.
     for vt in vts:
       analysis_file = self._artifact_factory.analysis_file_for_targets(vt.targets)
@@ -161,8 +159,20 @@ class ScalaCompile(NailgunTask):
                               'Incremental rebuild of that target may not be possible.' % analysis_file)
 
   def check_artifact_cache(self, vts):
+    # Special handling for scala artifacts.
     cached_vts, uncached_vts = Task.check_artifact_cache(self, vts)
-    self._localize_portable_artifact_files(cached_vts)
+
+    # Localize the portable analysis files.
+    self._localize_portable_analysis_files(cached_vts)
+
+    # Split any merged artifacts.
+    for vt in cached_vts:
+      if len(vt.targets) > 1:
+        artifacts = [self._artifact_factory.artifact_for_target(t) for t in vt.targets]
+        merged_artifact = self._artifact_factory.merged_artifact(artifacts)
+        merged_artifact.split()
+        for v in vt.versioned_targets:
+          v.update()
     return cached_vts, uncached_vts
 
   def _process_target_partition(self, vts, cp, upstream_analysis_map):

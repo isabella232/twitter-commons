@@ -199,10 +199,10 @@ class MergedZincArtifact(ZincArtifact):
             if os.path.exists(src) and not os.path.exists(dst):
               os.link(src, dst)
 
-  def split(self, old_state, portable):
+  def split(self, old_state=None, portable=False):
     current_state = self.current_state()
-    diff = ZincArtifactStateDiff(old_state, current_state)
-    if diff.analysis_changed:
+    diff = ZincArtifactStateDiff(old_state, current_state) if old_state else None
+    if not diff or diff.analysis_changed:
       self._split_analysis('analysis_file')
       if portable:
         self._split_analysis('portable_analysis_file')
@@ -249,8 +249,12 @@ class MergedZincArtifact(ZincArtifact):
         ret[os.path.dirname(cls)].append(os.path.basename(cls))
       return ret
 
-    new_or_changed_classnames_by_package = map_classes_by_package(diff.new_or_changed_classes)
-    deleted_classnames_by_package = map_classes_by_package(diff.deleted_classes)
+    if diff:
+      new_or_changed_classnames_by_package = map_classes_by_package(diff.new_or_changed_classes)
+      deleted_classnames_by_package = map_classes_by_package(diff.deleted_classes)
+    else:
+      new_or_changed_classnames_by_package = None
+      deleted_classnames_by_package = None
 
     for artifact in self.underlying_artifacts:
       classnames_by_package = map_classes_by_package(state.classes_by_target.get(artifact.targets[0], []))
@@ -286,16 +290,17 @@ class MergedZincArtifact(ZincArtifact):
           shutil.move(merged_package_dir, artifact_package_dir)
           os.symlink(artifact_package_dir, merged_package_dir)
         else:
-          new_or_changed_classnames = set(new_or_changed_classnames_by_package.get(package, []))
+          new_or_changed_classnames = set(new_or_changed_classnames_by_package.get(package, [])) if diff else None
           for classname in classnames:
-            if classname in new_or_changed_classnames:
+            if not diff or classname in new_or_changed_classnames:
               src = os.path.join(merged_package_dir, classname)
               dst = os.path.join(artifact_package_dir, classname)
               shutil.copyfile(src, dst)
-          for classname in deleted_classnames_by_package.get(package, []):
-            path = os.path.join(artifact_package_dir, classname)
-            if os.path.exists(path):
-              os.unlink(path)
+          if diff:
+            for classname in deleted_classnames_by_package.get(package, []):
+              path = os.path.join(artifact_package_dir, classname)
+              if os.path.exists(path):
+                os.unlink(path)
 
   @staticmethod
   def find_ancestor_package_symlink(base, dir):
