@@ -17,11 +17,9 @@
 __author__ = 'Benjy Weinberger'
 
 import os
-import shutil
 
 from twitter.common.contextutil import  timing, get_timings
 from twitter.common.dirutil import safe_mkdir, safe_rmtree
-from twitter.common.util import find_common_path_prefix
 
 from twitter.pants import  is_scalac_plugin, get_buildroot
 from twitter.pants.base.target import Target
@@ -229,10 +227,6 @@ class ScalaCompile(NailgunTask):
         if self._artifact_cache and self.context.options.write_to_artifact_cache:
           merged_artifact.split_portable_analysis()
 
-      with timing('split_artifact'):
-        # Split the artifact we just compiled into per-target artifacts.
-        self._split_artifact(current_state.classes_by_target, vts.targets)
-
       # Write the entire merged artifact, and each individual split artifact, to the artifact cache, if needed.
       self._update_artifact_cache(vts)
       for vt in vts.versioned_targets:
@@ -272,45 +266,4 @@ class ScalaCompile(NailgunTask):
       self.update_artifact_cache(vt, artifacts)
     else:
       safe_rmtree(portable_analysis_file)  # Don't leave cruft lying around.
-
-  def _split_artifact(self, classes_by_target, targets):
-    """Splits an artifact representing several targets into target-by-target artifacts.
-    Creates an output classes dir and an analysis file for each target.
-    Note that it's not OK to create incomplete artifacts here: this is run *after* a zinc invocation,
-    and the expectation is that the result is complete.
-
-    NOTE: This method is reentrant.
-    """
-    if len(targets) <= 1:
-      return
-    src_classes_dir, src_analysis_file = self._output_paths(targets)
-
-    for target in targets:
-      dst_classes_dir, dst_analysis_file = self._output_paths([target])
-
-      # Copy the class files.
-      classes = classes_by_target[target]
-      ScalaCompile.smart_classes_dir_split(src_classes_dir, dst_classes_dir, classes)
-
-  @staticmethod
-  def smart_classes_dir_split(merged_classes_dir, classes_dir_for_target, classes):
-    # The package directories for all classes in this target.
-    packages = set([os.path.dirname(cls) for cls in classes])
-
-    # The closest common parent package of all of them. We putatively assume that
-    # this target contains all classes in this package and any of its subpackages.
-    common_package = find_common_path_prefix(packages)
-
-    package_dir_for_target = os.path.join(classes_dir_for_target, common_package)
-    merged_package_dir = os.path.join(merged_classes_dir, common_package)
-
-    if os.path.islink(merged_package_dir) and os.readlink(merged_package_dir) == package_dir_for_target:
-      return
-
-    for dir in packages:
-      safe_mkdir(os.path.join(classes_dir_for_target, dir))
-    for cls in classes:
-      src = os.path.join(merged_classes_dir, cls)
-      dst = os.path.join(classes_dir_for_target, cls)
-      shutil.copyfile(src, dst)
 

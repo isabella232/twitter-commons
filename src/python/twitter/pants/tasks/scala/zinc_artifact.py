@@ -223,12 +223,27 @@ class MergedZincArtifact(ZincArtifact):
       for cls in artifact.find_all_class_files():
         classnames_by_package[os.path.dirname(cls)].append(os.path.basename(cls))
 
+      # TODO: Use diff to cut down on copying?
       for package, classnames in classnames_by_package:
         artifact_package_dir = os.path.join(artifact.classes_dir, package)
         merged_package_dir = os.path.join(self.classes_dir, package)
 
-        if os.path.islink(merged_package_dir) and os.readlink(merged_package_dir) == artifact_package_dir:
-          return
+        if os.path.islink(merged_package_dir):
+          linked = os.readlink(merged_package_dir)
+          if linked != artifact_package_dir:
+            # The output went to the wrong place. This means that this target has put classes into
+            # a package previously owned exclusively by some other target.
+            # First get rid of this now-invalid symlink, replacing it with a copy.
+            os.unlink(merged_package_dir)
+            shutil.copytree(linked, merged_package_dir)
+            # Now remove our classes from the other target's dir.
+            our_classnames = set(classnames)
+            for f in os.listdir(linked):
+              if f in our_classnames:
+                os.unlink(os.path.join(linked, f))
+            # We'll copy our files below.
+          else:
+            continue
 
         safe_mkdir(artifact_package_dir)
         for classname in classnames:
