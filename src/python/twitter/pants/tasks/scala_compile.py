@@ -24,7 +24,7 @@ from twitter.pants.targets.scala_tests import ScalaTests
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.jvm_dependency_cache import JvmDependencyCache
 from twitter.pants.tasks.nailgun_task import NailgunTask
-from twitter.pants.tasks.scala.zinc_artifact import   ZincArtifactFactory
+from twitter.pants.tasks.scala.zinc_artifact import ZincArtifactFactory
 from twitter.pants.tasks.scala.zinc_utils import ZincUtils
 
 
@@ -242,3 +242,4 @@ class ScalaCompile(NailgunTask):
       # Write the per-target artifacts to the cache.
     artifact_files = [artifact.classes_dir, artifact.portable_analysis_file]
     self.update_artifact_cache(vt, artifact_files)
+

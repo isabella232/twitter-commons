@@ -37,6 +37,7 @@ from twitter.pants.tasks.scala.zinc_analysis_file import ZincAnalysisCollection
 
 
 class ZincArtifactFactory(object):
+  """Creates objects representing zinc artifacts."""
   def __init__(self, workdir, context, zinc_utils):
     self._workdir = workdir
     self.context = context
@@ -48,16 +49,18 @@ class ZincArtifactFactory(object):
     safe_mkdir(self._analysis_files_base)
 
   def artifact_for_target(self, target):
+    """The artifact representing the specified target."""
     targets = [target]
     sources_by_target = {target: ZincArtifactFactory._calculate_sources(target)}
     factory = self
-    return ZincArtifact(factory, targets, sources_by_target, *self._artifact_args([target]))
+    return _ZincArtifact(factory, targets, sources_by_target, *self._artifact_args([target]))
 
   def merged_artifact(self, artifacts):
+    """The artifact merged from those of the specified artifacts."""
     targets = list(itertools.chain.from_iterable([a.targets for a in artifacts]))
     sources_by_target = dict(itertools.chain.from_iterable([a.sources_by_target.items() for a in artifacts]))
     factory = self
-    return MergedZincArtifact(artifacts, factory, targets, sources_by_target, *self._artifact_args(targets))
+    return _MergedZincArtifact(artifacts, factory, targets, sources_by_target, *self._artifact_args(targets))
 
   # Useful for when we only need access to the analysis file, and don't need a heavyweight artifact object.
   def analysis_file_for_targets(self, targets):
@@ -82,8 +85,13 @@ class ZincArtifactFactory(object):
     return sources
 
 
-class ZincArtifact(object):
-  """Locations of the files in a zinc build artifact."""
+class _ZincArtifact(object):
+  """Locations of the files in a zinc build artifact.
+
+  An artifact consists of:
+    A) A classes directory
+    B) A zinc analysis file.
+  """
   def __init__(self, factory, targets, sources_by_target,
                artifact_id, classes_dir, analysis_file):
     self.factory = factory
@@ -97,16 +105,8 @@ class ZincArtifact(object):
     self.relations_file = analysis_file + '.relations'  # The human-readable version of the zinc analysis file.
 
   def current_state(self):
-    return ZincArtifactState(self)
-
-#  def find_all_class_files(self):
-#    """Returns a list of the classfiles under classes_dir, relative to that dir."""
-#    classes = []
-#    for dir, _, fs in os.walk(self.classes_dir):
-#      for f in fs:
-#        if f.endswith('.class'):
-#          classes.append(os.path.relpath(os.path.join(dir, f), self.classes_dir))
-#    return classes
+    """Returns the current state of this artifact."""
+    return _ZincArtifactState(self)
 
   def __eq__(self, other):
     return self.artifact_id == other.artifact_id
@@ -115,14 +115,20 @@ class ZincArtifact(object):
     return self.artifact_id != other.artifact_id
 
 
-class MergedZincArtifact(ZincArtifact):
-  """An artifact merged from some underlying artifacts."""
+class _MergedZincArtifact(_ZincArtifact):
+  """An artifact merged from some underlying artifacts.
+
+  A merged artifact consists of:
+    A) A classes directory containing all the classes from all the underlying artifacts' classes directories.
+    B) A zinc analysis file containing all the information from all the underlying artifact's analysis files.
+  """
   def __init__(self, underlying_artifacts, factory , targets, sources_by_target,
                artifact_id, classes_dir, analysis_file):
-    ZincArtifact.__init__(self, factory, targets, sources_by_target, artifact_id, classes_dir, analysis_file)
+    _ZincArtifact.__init__(self, factory, targets, sources_by_target, artifact_id, classes_dir, analysis_file)
     self.underlying_artifacts = underlying_artifacts
 
   def merge(self):
+    """Perform the merge of the underlying artifacts into a single merged one."""
     # Note that if the merged analysis file already exists we don't re-merge it.
     # Ditto re the merged classes dir. In some unlikely corner cases they may
     # be less up to date than the artifact we could create by re-merging, but this
@@ -175,7 +181,7 @@ class MergedZincArtifact(ZincArtifact):
         artifact_package_dir = os.path.join(artifact.classes_dir, package)
         merged_package_dir = os.path.join(self.classes_dir, package)
 
-        ancestor_symlink = MergedZincArtifact.find_ancestor_package_symlink(self.classes_dir, merged_package_dir)
+        ancestor_symlink = _MergedZincArtifact.find_ancestor_package_symlink(self.classes_dir, merged_package_dir)
         if not os.path.exists(merged_package_dir) and not ancestor_symlink:
           # A heuristic to prevent tons of file copying: If we're the only classes
           # in this package, we can just symlink.
@@ -201,7 +207,7 @@ class MergedZincArtifact(ZincArtifact):
 
   def split(self, old_state=None, portable=False):
     current_state = self.current_state()
-    diff = ZincArtifactStateDiff(old_state, current_state) if old_state else None
+    diff = _ZincArtifactStateDiff(old_state, current_state) if old_state else None
     if not diff or diff.analysis_changed:
       self._split_analysis('analysis_file')
       if portable:
@@ -312,7 +318,7 @@ class MergedZincArtifact(ZincArtifact):
     return None
 
 
-class ZincArtifactStateDiff(object):
+class _ZincArtifactStateDiff(object):
   def __init__(self, old_state, new_state):
     if old_state.artifact != new_state.artifact:
       raise TaskError, 'Cannot diff state of two different artifacts.'
@@ -328,20 +334,20 @@ class ZincArtifactStateDiff(object):
            (self.analysis_changed, len(self.new_or_changed_classes), len(self.deleted_classes))
 
 
-class ZincArtifactState(object):
+class _ZincArtifactState(object):
   def __init__(self, artifact):
     self.artifact = artifact
 
     # Fingerprint the text version, as the binary version may vary even when the analysis is identical.
     relfile = self.artifact.relations_file
     if os.path.exists(relfile):
-      self.analysis_fprint = ZincArtifactState._compute_file_fingerprint(self.artifact.relations_file)
+      self.analysis_fprint = _ZincArtifactState._compute_file_fingerprint(self.artifact.relations_file)
     else:
       self.analysis_fprint = None
 
-    self.classes_by_src = ZincArtifactState._compute_classes_by_src(self.artifact)
+    self.classes_by_src = _ZincArtifactState._compute_classes_by_src(self.artifact)
     self.classes_by_target = \
-      ZincArtifactState._compute_classes_by_target(self.classes_by_src, self.artifact.sources_by_target)
+      _ZincArtifactState._compute_classes_by_target(self.classes_by_src, self.artifact.sources_by_target)
     self.classes = set()
     # Note: It's important to use classes_by_src here, not classes_by_target, because a now-deleted src
     # won't be reflected in any target, which will screw up our computation of deleted classes.
