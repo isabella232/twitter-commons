@@ -85,8 +85,8 @@ class ZincUtils(object):
         self._scalac_args.append('-P:%s:%s' % (name, arg))
 
     # For localizing/relativizing analysis files.
-    self._java_home = os.path.dirname(find_java_home())
-    self._ivy_home = context.config.get('ivy', 'cache_dir')
+    self._java_home = os.path.realpath(os.path.dirname(find_java_home()))
+    self._ivy_home = os.path.realpath(context.config.get('ivy', 'cache_dir'))
 
   def plugin_jars(self):
     """The jars containing code for enabled plugins."""
