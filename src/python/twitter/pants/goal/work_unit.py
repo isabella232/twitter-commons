@@ -7,12 +7,12 @@ from twitter.pants.goal.read_write_buffer import ReadWriteBuffer
 class WorkUnit(object):
   """A hierarchical unit of work, for the purpose of timing and reporting.
 
-  A WorkUnit can be subdivided into further WorkUnits. The WorkUnit concept is deliberately decoupled from the
-  phase/task hierarchy, although it will typically be used to represent it in reports. This allows some
-  flexibility in having, say, sub-units inside a task. E.g., there might be one WorkUnit representing an
-  entire pants run, and that can be subdivided into WorkUnits for each phase. Each of those can be subdivided
-  into WorkUnits for each task, and a task can subdivide that into further work units, if finer-grained
-  timing and reporting is needed.
+  A WorkUnit can be subdivided into further WorkUnits. The WorkUnit concept is deliberately
+  decoupled from the phase/task hierarchy, although it will typically be used to represent it in
+  reports. This allows some flexibility in having, say, sub-units inside a task. E.g., there might
+  be one WorkUnit representing an entire pants run, and that can be subdivided into WorkUnits for
+  each phase. Each of those can be subdivided into WorkUnits for each task, and a task can
+  subdivide that into further work units, if finer-grained timing and reporting is needed.
   """
 
   # The outcome must be one of these values. It can only be set to a new value <= an old one.
@@ -23,10 +23,11 @@ class WorkUnit(object):
 
   def __init__(self, parent, type, name, cmd):
     """
-    - parent: The containing workunit, if any. E.g., 'compile' might contain 'java', 'scala' etc., and
+    - parent: The containing workunit, if any. E.g., 'compile' might contain 'java', 'scala' etc.,
               'scala' might contain 'compile', 'split' etc.
     - type: A string that the report formatters can use to decide how to display information
-            about this work. E.g., 'phase', 'goal', 'tool'.
+            about this work. E.g., 'phase', 'goal', 'jvm_tool'. By convention, types
+            ending with '_tool' are assumed to be invocations of external tools.
     - name: A short name for this work. E.g., 'resolve', 'compile', 'scala', 'zinc'.
     - cmd: An optional longer string representing this work. E.g., the cmd line of a
            compiler invocation. Used only for display.
@@ -90,6 +91,19 @@ class WorkUnit(object):
 
   def duration(self):
     return self.end_time - self.start_time
+
+  def ancestors(self):
+    """Returns a list of this workunit and those enclosing it, up to the root."""
+    ret = []
+    workunit = self
+    while workunit is not None:
+      ret.append(workunit)
+      workunit = workunit.parent
+    return ret
+
+  def get_path(self):
+    """Returns a path string for this workunit, E.g., 'all:compile:jvm:scalac'."""
+    return ':'.join(reversed([w.name for w in self.ancestors()]))
 
   def unaccounted_time(self):
     """Returns the difference between the time spent in our children and own time."""

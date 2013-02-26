@@ -52,7 +52,8 @@ class Context(object):
     run_timestamp = time.time()
     # run_id is safe for use in paths.
     millis = (run_timestamp * 1000) % 1000
-    run_id = 'pants_run_%s_%d' % (time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(run_timestamp)), millis)
+    run_id = 'pants_run_%s_%d' % \
+             (time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(run_timestamp)), millis)
     cmd_line = ' '.join(['pants'] + sys.argv[1:])
     info_dir = config.getdefault('info_dir')
     self._run_info = RunInfo(os.path.join(info_dir, '%s.info' % run_id))
@@ -79,12 +80,14 @@ class Context(object):
 
   @contextmanager
   def new_work_scope(self, type, name, cmd=None):
-    """Creates a (hierarchical) subunit of work in this pants run, for the purpose of timing and reporting.
+    """Creates a (hierarchical) subunit of work for the purpose of timing and reporting.
 
     - type: A string that the report formatters can use to decide how to display information
-            about this work. E.g., 'phase', 'goal'.
+            about this work. E.g., 'phase', 'goal', 'jvm_tool'. By convention, types
+            ending with '_tool' are assumed to be invocations of external tools.
     - name: A short name for this work. E.g., 'resolve', 'compile', 'scala'.
-     - cmd: An optional longer description, e.g., the cmd line of a tool invocation. Used only for display.
+     - cmd: An optional longer description, e.g., the cmd line of a tool invocation.
+            Used only for display.
 
     Use like this:
 

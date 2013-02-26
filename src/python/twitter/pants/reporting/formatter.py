@@ -8,17 +8,6 @@ from twitter.pants import get_buildroot
 from twitter.pants.base.build_file import BuildFile
 
 
-def _get_workunit_hierarchy(workunit):
-  """Returns a list of this workunit and those enclosing it, up to but NOT including the root."""
-  ret = []
-  while workunit.parent is not None:  # Skip the root scope.
-    ret.append(workunit)
-    workunit = workunit.parent
-  return list(reversed(ret))
-
-def _get_scope_names(workunit):
-  return [w.name for w in _get_workunit_hierarchy(workunit)]
-
 class Formatter(object):
   def format(self, workunit, label, s):
     raise NotImplementedError('format() not implemented')
@@ -30,10 +19,7 @@ class Formatter(object):
     return ''
 
   def start_workunit(self, workunit):
-    scopes = _get_scope_names(workunit)
-    if len(scopes) == 0:
-      return ''
-    return '[%s]\n' % ':'.join(scopes)
+    return '[%s]\n' % workunit.get_path()
 
   def end_workunit(self, workunit):
     return ''
@@ -67,7 +53,10 @@ class HTMLFormatter(Formatter):
   # Heuristics to find and linkify file and http references.
   # We require no trailing dots because some tools print an ellipsis after file names
   # (I'm looking at you, zinc). None of our files end in a dot in practice, so this is fine.
-  path_re = re.compile(r'(https?://)?/?(?:\w|[-.])+(?:/(?:\w|[-.])+)+(:w|[-.]+)?\w')  # At least two path components.
+
+  # At least two path components.
+  path_re = re.compile(r'(https?://)?/?(?:\w|[-.])+(?:/(?:\w|[-.])+)+(:w|[-.]+)?\w')
+
   def _linkify(self, s):
     def to_url(m):
       if m.group(1):
@@ -96,12 +85,11 @@ class HTMLFormatter(Formatter):
 
   def start_workunit(self, workunit):
     is_tool = workunit.type.endswith('_tool')
-    scopes = _get_scope_names(workunit)
     if workunit.parent is None:
       header_text = 'all'
     else:
-      header_text = scopes[-1] if is_tool else ':'.join(scopes)
-    args = { 'indent': len(scopes) * 10,
+      header_text = workunit.name # scopes[-1] if is_tool else ':'.join(scopes)
+    args = { 'indent': len(workunit.ancestors()) * 10,
              'html_path_base': self._html_path_base,
              'workunit': workunit.to_dict(),
              'header_text': header_text,
@@ -132,7 +120,8 @@ class HTMLFormatter(Formatter):
 
   def _render_collapsible(self, arg_string, outer_args):
     rendered_arg_string = self._renderer.render(arg_string, outer_args)
-    id, title, initially_open, spinner, class_prefix = (rendered_arg_string.split('&&') + [None, None, None])[0:5]
+    id, title, initially_open, spinner, class_prefix = \
+      (rendered_arg_string.split('&&') + [None, None, None])[0:5]
     inner_args = {
       'id': id,
       'title': title,
