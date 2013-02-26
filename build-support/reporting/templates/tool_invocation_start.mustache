@@ -1,14 +1,21 @@
 <div id="__{{workunit.id}}__tool_invocation">
 {{#collapsible}}{{workunit.id}}-cmd&&command line&&closed&&nospinner&&cmd{{/collapsible}}
-{{#collapsible}}{{workunit.id}}-stdout&&stdout&&closed&&nospinner{{/collapsible}}
-{{#collapsible}}{{workunit.id}}-stderr&&stderr&&closed&&nospinner{{/collapsible}}
+{{#collapsible}}{{workunit.id}}-stdout&&stdout&&closed&&nospinner&&greyed{{/collapsible}}
+{{#collapsible}}{{workunit.id}}-stderr&&stderr&&closed&&nospinner&&greyed{{/collapsible}}
 </div>
 <div id="__{{workunit.id}}__tool_invocation_cmd">{{workunit.cmd}}</div>
 <script>
+  function hasContent(id) {
+    $('#' + id + '-header').children().removeClass('greyed-header-text');
+    $('#' + id + '-icon').removeClass('hidden');
+  }
+
   $(function(){
+    hasContent('{{workunit.id}}');
+    hasContent('{{workunit.id}}-cmd');
     pants.append('#__{{workunit.id}}__tool_invocation', '#{{workunit.id}}-content');
     pants.append('#__{{workunit.id}}__tool_invocation_cmd', '#{{workunit.id}}-cmd-content');
-    pants.tailer.startTailing('{{workunit.id}}_stdout', '{{html_path_base}}/{{workunit.id}}.stdout', '#{{workunit.id}}-stdout-content');
-    pants.tailer.startTailing('{{workunit.id}}_stderr', '{{html_path_base}/{{workunit.id}}.stderr', '#{{workunit.id}}-stderr-content');
+    pants.tailer.startTailing('{{workunit.id}}_stdout', '{{html_path_base}}/{{workunit.id}}.stdout', '#{{workunit.id}}-stdout-content', function() { hasContent('{{workunit.id}}-stdout'); });
+    pants.tailer.startTailing('{{workunit.id}}_stderr', '{{html_path_base}}/{{workunit.id}}.stderr', '#{{workunit.id}}-stderr-content', function() { hasContent('{{workunit.id}}-stderr'); });
   });
 </script>

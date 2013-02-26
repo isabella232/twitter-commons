@@ -145,6 +145,10 @@ a {
   color: purple;
 }
 
+.greyed-header-text {
+  color: grey;
+}
+
 .spinner {
   background-image:url("../img/spinner.gif");
   background-repeat: no-repeat;
@@ -225,6 +229,10 @@ a {
 
 .nodisplay {
   display: none;
+}
+
+.hidden {
+  visibility: hidden;
 }
 
 .ansi-30, .ansi-30 a {

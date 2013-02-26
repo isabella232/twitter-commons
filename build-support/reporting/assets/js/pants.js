@@ -35,9 +35,6 @@ pants = {
       var timeStr = undefined;
       var i = undefined;
       $.each(timers, function(id, timer) {
-        //secs = '' + (now - timer.startTime) / 1000 + '000';
-        //i = secs.indexOf('.');
-        //timeStr = ((i == -1) ? secs + '.000' : secs.substr(0, i + 4)) + 's';
         $(timer.selector).html('' + Math.round((now - timer.startTime) / 1000 - 0.5) + 's');
       });
     }
@@ -74,6 +71,10 @@ pants = {
     // id -> selector.
     var tailedFileTargetSelectors = {};
 
+    // The first time we append, we call this function.
+    // id -> function.
+    var tailedFileInitFunc = {};
+
     // ids of files we're done with.
     // id -> true.
     var toBeStopped = {};
@@ -92,6 +93,7 @@ pants = {
       function forgetId(id) {
         delete tailedFileStates[id];
         delete tailedFileTargetSelectors[id];
+        delete tailedFileInitFunc[id];
         delete toBeStopped[id];
         delete hasBeenTailed[id];
 
@@ -117,7 +119,12 @@ pants = {
               if (id in tailedFileStates) {
                 tailedFileStates[id].pos += val.length;
               }
-              hasBeenTailed[id] = true;
+              if (!hasBeenTailed[id]) {
+                if (id in tailedFileInitFunc) {
+                  tailedFileInitFunc[id]();
+                }
+                hasBeenTailed[id] = true;
+              }
             });
           }
           function checkForStopped() {
@@ -140,12 +147,16 @@ pants = {
     return {
       // Call this to start tailing the specified file, appending its content to the element(s)
       // selected by the selector. You must assign some unique id to the request.
-      startTailing: function(id, path, targetSelector) {
+      // If initFunc is provided, it is called the first time any content is appended.
+      startTailing: function(id, path, targetSelector, initFunc) {
         tailedFileStates[id] = {
           'path': path,
           'pos': 0
         };
         tailedFileTargetSelectors[id] = targetSelector;
+        if (initFunc) {
+          tailedFileInitFunc[id] = initFunc;
+        }
         if (!tailingEvent) {
           tailingEvent = window.setInterval(pollOnce, 200);
         }
