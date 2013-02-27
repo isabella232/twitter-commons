@@ -2,7 +2,7 @@ import os
 import sys
 
 from twitter.common.dirutil import safe_mkdir
-from twitter.pants.goal.work_unit import WorkUnit
+from twitter.pants.goal import WorkUnit
 
 
 class Reporter(object):

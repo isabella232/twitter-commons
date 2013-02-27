@@ -3,11 +3,9 @@ from __future__ import print_function
 
 import os
 import sys
-import time
 
 from collections import defaultdict
 from contextlib import contextmanager
-
 
 from twitter.common.collections import OrderedSet
 from twitter.common.dirutil import Lock
@@ -18,9 +16,6 @@ from twitter.pants import SourceRoot
 from twitter.pants.base import ParseContext
 from twitter.pants.base.target import Target
 from twitter.pants.goal.products import Products
-from twitter.pants.goal.run_info import RunInfo
-from twitter.pants.goal.work_unit import WorkUnit
-from twitter.pants.reporting import default_reporting
 from twitter.pants.targets import Pants
 
 
@@ -48,23 +43,8 @@ class Context(object):
     def info(self, msg): pass
     def warn(self, msg): pass
 
-  def __init__(self, config, options, target_roots, lock=Lock.unlocked(), log=None, timer=None):
-    run_timestamp = time.time()
-    # run_id is safe for use in paths.
-    millis = (run_timestamp * 1000) % 1000
-    run_id = 'pants_run_%s_%d' % \
-             (time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(run_timestamp)), millis)
-    cmd_line = ' '.join(['pants'] + sys.argv[1:])
-    info_dir = config.getdefault('info_dir')
-    self._run_info = RunInfo(os.path.join(info_dir, '%s.info' % run_id))
-    self._run_info.add_infos([('id', run_id), ('timestamp', run_timestamp), ('cmd_line', cmd_line)])
-    # Create a 'latest' symlink, after we add_infos, so we're guaranteed that the file exists.
-    link_to_latest = os.path.join(info_dir, 'latest.info')
-    if os.path.exists(link_to_latest):
-      os.unlink(link_to_latest)
-    os.symlink(self._run_info.path(), link_to_latest)
-    self._current_workunit = None
-
+  def __init__(self, config, options, run_tracker, target_roots,
+               lock=Lock.unlocked(), log=None, timer=None):
     self._config = config
     self._options = options
     self._lock = lock
@@ -73,42 +53,9 @@ class Context(object):
     self._products = Products()
     self._buildroot = get_buildroot()
     self.timer = timer
+    self.run_tracker = run_tracker
 
     self.replace_targets(target_roots)
-    self.reporter = default_reporting(self)
-    self.reporter.open()
-
-  @contextmanager
-  def new_work_scope(self, type, name, cmd=None):
-    """Creates a (hierarchical) subunit of work for the purpose of timing and reporting.
-
-    - type: A string that the report formatters can use to decide how to display information
-            about this work. E.g., 'phase', 'goal', 'jvm_tool'. By convention, types
-            ending with '_tool' are assumed to be invocations of external tools.
-    - name: A short name for this work. E.g., 'resolve', 'compile', 'scala'.
-     - cmd: An optional longer description, e.g., the cmd line of a tool invocation.
-            Used only for display.
-
-    Use like this:
-
-    with context.new_work_scope('goal', 'compile') as workunit:
-      <do scoped work here>
-      <set the outcome on workunit>
-    """
-    self._current_workunit = WorkUnit(parent=self._current_workunit, type=type, name=name, cmd=cmd)
-    self._current_workunit.start_time = time.time()
-    try:
-      self.reporter.start_workunit(self._current_workunit)
-      yield self._current_workunit
-    finally:
-      self._current_workunit.end_time = time.time()
-      self.reporter.end_workunit(self._current_workunit)
-      self._current_workunit = self._current_workunit.parent
-
-  @property
-  def run_info(self):
-    """Returns the info for this pants run."""
-    return self._run_info
 
   @property
   def config(self):
@@ -147,6 +94,11 @@ class Context(object):
 
   def __str__(self):
     return 'Context(id:%s, state:%s, targets:%s)' % (self.id, self.state, self.targets())
+
+  @contextmanager
+  def new_work_scope(self, type, name, cmd=None):
+    with self.run_tracker.new_work_scope(type, name, cmd) as workunit:
+      yield workunit
 
   def acquire_lock(self):
     """ Acquire the global lock for the root directory associated with this context. When
@@ -249,7 +201,7 @@ class Context(object):
       return Pants(spec).resolve()
 
   def report(self, str):
-    self.reporter.write(self._current_workunit, str)
+    self.run_tracker.report.write(self.run_tracker.current_work_unit(), str)
 
   @contextmanager
   def state(self, key, default=None):

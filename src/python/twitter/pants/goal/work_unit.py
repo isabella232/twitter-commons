@@ -1,6 +1,9 @@
 
+import time
 import uuid
+
 from collections import defaultdict
+
 
 from twitter.pants.goal.read_write_buffer import ReadWriteBuffer
 
@@ -50,6 +53,12 @@ class WorkUnit(object):
 
     if self.parent:
       self.parent.children.append(self)
+
+  def start(self):
+    self.start_time = time.time()
+
+  def end(self):
+    self.end_time = time.time()
 
   def to_dict(self):
     """Useful for providing arguments to templates."""

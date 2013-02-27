@@ -41,7 +41,8 @@ from twitter.pants.commands import Command
 from twitter.pants.reporting import reporting_server
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.nailgun_task import NailgunTask
-from twitter.pants.goal import Context, GoalError, Phase
+from twitter.pants.goal import Context, GoalError, Phase, RunTracker, WorkUnit
+
 
 StringIO = Compatibility.StringIO
 
@@ -285,6 +286,7 @@ class Goal(Command):
 
   def setup_parser(self, parser, args):
     self.config = Config.load()
+    self.run_tracker = RunTracker(self.config)
 
     Goal.add_global_options(parser)
 
@@ -330,27 +332,29 @@ class Goal(Command):
       sys.exit(0)
     else:
       goals, specs = Goal.parse_args(args)
+      with self.run_tracker.new_work_scope(type='setup', name='parse'):
+        # TODO(John Sirois): kill PANTS_NEW and its usages when pants.new is rolled out
+        ParseContext.enable_pantsnew()
 
-      # TODO(John Sirois): kill PANTS_NEW and its usages when pants.new is rolled out
-      ParseContext.enable_pantsnew()
+        # Bootstrap goals by loading any configured bootstrap BUILD files
+        with self.check_errors('The following bootstrap_buildfiles cannot be loaded:') as error:
+          with self.run_tracker.new_work_scope(type='setup', name='bootstrap') as work_unit:
+            for path in self.config.getlist('goals', 'bootstrap_buildfiles', default = []):
+              try:
+                buildfile = BuildFile(get_buildroot(), os.path.relpath(path, get_buildroot()))
+                ParseContext(buildfile).parse()
+                work_unit.set_outcome(WorkUnit.SUCCESS)
+              except (TypeError, ImportError, TaskError, GoalError):
+                error(path, include_traceback=True)
+              except (IOError, SyntaxError):
+                error(path)
 
-      # Bootstrap goals by loading any configured bootstrap BUILD files
-      with self.check_errors('The following bootstrap_buildfiles cannot be loaded:') as error:
-        with self.timer.timing('parse:bootstrap'):
-          for path in self.config.getlist('goals', 'bootstrap_buildfiles', default = []):
-            try:
-              buildfile = BuildFile(get_buildroot(), os.path.relpath(path, get_buildroot()))
-              ParseContext(buildfile).parse()
-            except (TypeError, ImportError, TaskError, GoalError):
-              error(path, include_traceback=True)
-            except (IOError, SyntaxError):
-              error(path)
-
-      # Bootstrap user goals by loading any BUILD files implied by targets
-      with self.check_errors('The following targets could not be loaded:') as error:
-        with self.timer.timing('parse:BUILD'):
-          for spec in specs:
-            self.parse_spec(error, spec)
+        # Bootstrap user goals by loading any BUILD files implied by targets
+        with self.check_errors('The following targets could not be loaded:') as error:
+          with self.run_tracker.new_work_scope(type='setup', name='BUILD') as work_unit:
+            for spec in specs:
+              self.parse_spec(error, spec)
+            work_unit.set_outcome(WorkUnit.SUCCESS)
 
       self.phases = [Phase(goal) for goal in goals]
 
@@ -411,6 +415,7 @@ class Goal(Command):
     context = Context(
       self.config,
       self.options,
+      self.run_tracker,
       self.targets,
       lock=lock,
       log=logger,
@@ -434,7 +439,7 @@ class Goal(Command):
       print('Timing report')
       print('=============')
       self.timer.print_timings()
-    context.reporter.close()
+    self.run_tracker.close()
     return ret
 
   def cleanup(self):
@@ -534,11 +539,11 @@ class RunServer(Task):
   def setup_parser(cls, option_group, args, mkflag):
     option_group.add_option(mkflag("port"), dest="port", action="store", type="int", default=0,
       help="Serve on this port.")
-    option_group.add_option(mkflag("allowed-clients"), dest="allowed_clients", default=["127.0.0.1"],
-      action="append",
-      help="Only requests from these IPs may access this server. Useful for temporarily showing build " \
-           "results to a colleague. The special value ALL means any client may connect. Use with caution, " \
-           "as your source code is exposed to all allowed clients!")
+    option_group.add_option(mkflag("allowed-clients"), dest="allowed_clients",
+      default=["127.0.0.1"], action="append",
+      help="Only requests from these IPs may access this server. Useful for temporarily showing " \
+           "build results to a colleague. The special value ALL means any client may connect. " \
+           "Use with caution, as your source code is exposed to all allowed clients!")
 
   def execute(self, targets):
     DONE = '__done_reporting'
@@ -551,7 +556,8 @@ class RunServer(Task):
           outfile.write(str(os.getpid()))
 
       def report_launch():
-        reporting_queue.put('Launching server with pid %d at http://localhost:%d\n' % (os.getpid(), port))
+        reporting_queue.put(
+          'Launching server with pid %d at http://localhost:%d\n' % (os.getpid(), port))
 
       def done_reporting():
         reporting_queue.put(DONE)

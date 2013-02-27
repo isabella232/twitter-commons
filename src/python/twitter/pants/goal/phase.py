@@ -6,7 +6,7 @@ from optparse import OptionParser
 from twitter.common.collections import OrderedDict, OrderedSet
 from twitter.pants.goal import GoalError
 from twitter.pants.goal.group import Group
-from twitter.pants.goal.context import Context, WorkUnit
+from twitter.pants.goal.context import Context
 from twitter.pants.tasks import TaskError
 
 
@@ -105,54 +105,46 @@ class Phase(PhaseBase):
           for goal, times in timings.items():
             context.timer.log('%s:%s' % (phase, goal), times)
 
-    with context.new_work_scope(type='root', name='all') as root_workunit:
-      try:
-        # Prepare tasks roots to leaves and allow for goals introducing new goals in existing phases.
-        tasks_by_goal = {}
-        expanded = OrderedSet()
-        prepared = set()
-        round = 0
-        while True:
-          goals = list(Phase.execution_order(phases))
-          if set(goals) == prepared:
-            break
-          else:
-            round += 1
-            context.log.debug('Preparing goals in round %d' % round)
-            for goal in reversed(goals):
-              if goal not in prepared:
-                phase = Phase.of(goal)
-                expanded.add(phase)
-                context.log.debug('preparing: %s:%s' % (phase, goal.name))
-                prepared.add(goal)
-                task = goal.prepare(context)
-                tasks_by_goal[goal] = task
-
-        # Execute phases leaves to roots
-        context.log.debug(
-          'Executing goals in phases %s' % ' -> '.join(map(str, reversed(expanded)))
-        )
-        for phase in phases:
-          Group.execute(phase, tasks_by_goal, context, executed)
-
-        emit_timings()
-        root_workunit.set_outcome(WorkUnit.SUCCESS)
-        ret = 0
-      except (TaskError, GoalError) as e:
-        message = '%s' % e
-        if message:
-          print('\nFAILURE: %s\n' % e)
+    try:
+      # Prepare tasks roots to leaves and allow for goals introducing new goals in existing phases.
+      tasks_by_goal = {}
+      expanded = OrderedSet()
+      prepared = set()
+      round = 0
+      while True:
+        goals = list(Phase.execution_order(phases))
+        if set(goals) == prepared:
+          break
         else:
-          print('\nFAILURE\n')
-        emit_timings()
-        # In case the sub-workunit that raised didn't have its outcome set for some reason.
-        root_workunit.set_outcome(WorkUnit.FAILURE)
-        ret = 1
-      try:
-        context.run_info.add_info('outcome', root_workunit.outcome_string())
-      except IOError:
-        pass  # If the goal clean-all then the run info dir no longer exists...
-      return ret
+          round += 1
+          context.log.debug('Preparing goals in round %d' % round)
+          for goal in reversed(goals):
+            if goal not in prepared:
+              phase = Phase.of(goal)
+              expanded.add(phase)
+              context.log.debug('preparing: %s:%s' % (phase, goal.name))
+              prepared.add(goal)
+              task = goal.prepare(context)
+              tasks_by_goal[goal] = task
+
+      # Execute phases leaves to roots
+      context.log.debug(
+        'Executing goals in phases %s' % ' -> '.join(map(str, reversed(expanded)))
+      )
+      for phase in phases:
+        Group.execute(phase, tasks_by_goal, context, executed)
+
+      emit_timings()
+      ret = 0
+    except (TaskError, GoalError) as e:
+      message = '%s' % e
+      if message:
+        print('\nFAILURE: %s\n' % e)
+      else:
+        print('\nFAILURE\n')
+      emit_timings()
+      ret = 1
+    return ret
 
   @staticmethod
   def execute(context, *names):

@@ -11,16 +11,15 @@ from twitter.pants.reporting.reporter import ConsoleReporter, MultiFileReporter
 StringIO = Compatibility.StringIO
 
 
-
-def default_reporting(context):
-  reports_dir = context.config.get('reporting', 'reports_dir')
+def default_reporting(config, run_info):
+  reports_dir = config.get('reporting', 'reports_dir')
   link_to_latest = os.path.join(reports_dir, 'latest')
   if os.path.exists(link_to_latest):
     os.unlink(link_to_latest)
 
-  run_id = context.run_info.get_info('id')
+  run_id = run_info.get_info('id')
   if run_id is None:
-    raise Exception, 'No run_id set'
+    raise ReportingError('No run_id set')
   this_run_dir = os.path.join(reports_dir, run_id)
   safe_rmtree(this_run_dir)
 
@@ -29,20 +28,25 @@ def default_reporting(context):
   os.symlink(this_run_dir, link_to_latest)
 
   html_output_path = os.path.join(this_run_html_dir, 'build.html')
-  context.run_info.add_info('default_report', html_output_path)
+  run_info.add_info('default_report', html_output_path)
 
   report = Report()
   report.add_reporter(ConsoleReporter(PlainTextFormatter()))
-  template_dir = context.config.get('reporting', 'reports_template_dir')
-  report.add_reporter(MultiFileReporter(HTMLFormatter(template_dir, this_run_html_dir), this_run_html_dir))
+  template_dir = config.get('reporting', 'reports_template_dir')
+  report.add_reporter(
+    MultiFileReporter(HTMLFormatter(template_dir, this_run_html_dir), this_run_html_dir))
   return report
+
+class ReportingError(Exception):
+  pass
 
 class Report(object):
   """A report of a pants run."""
 
   def __init__(self):
     # We periodically emit newly reported data.
-    self._emitter_thread = PeriodicThread(target=self._lock_and_notify, name='report-emitter', period_secs=0.1)
+    self._emitter_thread = \
+      PeriodicThread(target=self._lock_and_notify, name='report-emitter', period_secs=0.1)
     self._emitter_thread.daemon = True
 
     # Map from workunit id to workunit.

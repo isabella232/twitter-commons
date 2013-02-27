@@ -15,7 +15,7 @@ from datetime import date, datetime
 
 from pystache import Renderer
 
-from twitter.pants.goal.context import RunInfo
+from twitter.pants.goal.run_tracker import RunInfo
 
 
 # Prettyprint plugin files.
