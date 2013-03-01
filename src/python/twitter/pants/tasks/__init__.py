@@ -53,8 +53,7 @@ class Task(object):
     """Subclasses can call this in their __init__() to set up artifact caching for that task type.
 
     spec should be a list of urls/file path prefixes, which are used in that order.
-    By default, no artifact caching is used. Subclasses must not only set up the cache, but
-    check it explicitly with check_artifact_cache().
+    By default, no artifact caching is used.
     """
     if len(spec) > 0:
       pants_workdir = self.context.config.getdefault('pants_workdir')
@@ -131,7 +130,7 @@ class Task(object):
     extra_data = []
     extra_data.append(self.invalidate_for())
 
-    for f in self.invalidate_for_files():
+    for f in sorted(self.invalidate_for_files()):
       sha = hashlib.sha1()
       with open(f, "rb") as fd:
         sha.update(fd.read())
@@ -193,17 +192,17 @@ class Task(object):
           self.context.log.info('No cached artifacts for %s' % vt.targets)
     return cached_vts, list(uncached_vts)
 
-  def update_artifact_cache(self, vts, build_artifacts):
+  def update_artifact_cache(self, vt, build_artifacts):
     """Write to the artifact cache, if we're configured to.
 
-    vts - a single VersionedTargetSet.
+    vt - a single VersionedTargetSet.
     build_artifacts - the paths to the artifacts for the VersionedTargetSet.
     """
     if self._artifact_cache and self.context.options.write_to_artifact_cache:
         if self.context.options.verify_artifact_cache:
           pass  # TODO: Verify that the artifact we just built is identical to the cached one.
-        self.context.log.info('Caching artifacts for %s' % str(vts.targets))
-        self._artifact_cache.insert(vts.cache_key, build_artifacts)
+        self.context.log.info('Caching artifacts for %s' % str(vt.targets))
+        self._artifact_cache.insert(vt.cache_key, build_artifacts)
 
 
 __all__ = (
