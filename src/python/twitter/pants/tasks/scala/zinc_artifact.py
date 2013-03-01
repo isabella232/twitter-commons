@@ -223,9 +223,9 @@ class _MergedZincArtifact(_ZincArtifact):
           for classname in classnames:
             src = os.path.join(artifact_package_dir, classname)
             dst = os.path.join(merged_package_dir, classname)
-            # dst may already exist if we have overlapping targets. It's not a good idea
-            # to have those, but until we enforce it, we must allow it here.
-            if os.path.exists(src) and not os.path.exists(dst):
+            if os.path.exists(src):
+              if os.path.exists(dst):
+                os.unlink(dst)
               os.link(src, dst)
 
   def split(self, old_state=None, portable=False):
@@ -322,7 +322,9 @@ class _MergedZincArtifact(_ZincArtifact):
             if not diff or classname in new_or_changed_classnames:
               src = os.path.join(merged_package_dir, classname)
               dst = os.path.join(artifact_package_dir, classname)
-              shutil.copyfile(src, dst)
+              if not os.path.samefile(src, dst):
+                os.unlink(dst)
+                os.link(src, dst)
           if diff:
             for classname in deleted_classnames_by_package.get(package, []):
               path = os.path.join(artifact_package_dir, classname)
