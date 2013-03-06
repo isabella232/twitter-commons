@@ -41,7 +41,8 @@ from twitter.pants.commands import Command
 from twitter.pants.reporting import reporting_server
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.nailgun_task import NailgunTask
-from twitter.pants.goal import Context, GoalError, Phase, RunTracker, WorkUnit
+from twitter.pants.goal import Context, GoalError, Phase, RunTracker
+from twitter.pants.goal.work_unit import WorkUnit
 
 
 StringIO = Compatibility.StringIO
@@ -332,7 +333,7 @@ class Goal(Command):
       sys.exit(0)
     else:
       goals, specs = Goal.parse_args(args)
-      with self.run_tracker.new_work_scope(type='setup', name='parse'):
+      with self.run_tracker.new_work_scope(type='setup', name='setup'):
         # TODO(John Sirois): kill PANTS_NEW and its usages when pants.new is rolled out
         ParseContext.enable_pantsnew()
 
@@ -351,7 +352,7 @@ class Goal(Command):
 
         # Bootstrap user goals by loading any BUILD files implied by targets
         with self.check_errors('The following targets could not be loaded:') as error:
-          with self.run_tracker.new_work_scope(type='setup', name='BUILD') as work_unit:
+          with self.run_tracker.new_work_scope(type='setup', name='parse') as work_unit:
             for spec in specs:
               self.parse_spec(error, spec)
             work_unit.set_outcome(WorkUnit.SUCCESS)

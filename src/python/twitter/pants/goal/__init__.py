@@ -123,7 +123,6 @@ class Goal(object):
 from twitter.pants.goal.context import Context
 from twitter.pants.goal.group import Group
 from twitter.pants.goal.run_tracker import RunTracker
-from twitter.pants.goal.work_unit import WorkUnit
 
 __all__ = (
   'Context',
@@ -132,5 +131,4 @@ __all__ = (
   'Group',
   'Phase',
   'RunTracker',
-  'WorkUnit'
 )

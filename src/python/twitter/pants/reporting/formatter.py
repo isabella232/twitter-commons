@@ -12,10 +12,10 @@ class Formatter(object):
   def format(self, workunit, label, s):
     raise NotImplementedError('format() not implemented')
 
-  def header(self):
+  def start_run(self):
     return ''
 
-  def footer(self):
+  def end_run(self):
     return ''
 
   def start_workunit(self, workunit):
@@ -80,7 +80,7 @@ class HTMLFormatter(Formatter):
         return None
 
     def maybe_add_link(url, text):
-      return '<a href="%s">%s</a>' % (url, text) if url else None
+      return '<a target="_blank" href="%s">%s</a>' % (url, text) if url else None
     return HTMLFormatter.path_re.sub(lambda m: maybe_add_link(to_url(m), m.group(0)), s)
 
   def start_workunit(self, workunit):
@@ -89,9 +89,12 @@ class HTMLFormatter(Formatter):
       header_text = 'all'
     else:
       header_text = workunit.name # scopes[-1] if is_tool else ':'.join(scopes)
+    workunit_dict = workunit.to_dict()
+    if workunit_dict['cmd']:
+      workunit_dict['cmd'] = self._linkify(workunit_dict['cmd'])
     args = { 'indent': len(workunit.ancestors()) * 10,
              'html_path_base': self._html_path_base,
-             'workunit': workunit.to_dict(),
+             'workunit': workunit_dict,
              'header_text': header_text,
              'open_or_closed': 'closed',
              'is_tool': is_tool }

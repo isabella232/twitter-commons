@@ -6,6 +6,7 @@ import time
 from contextlib import contextmanager
 
 from twitter.pants.goal.run_info import RunInfo
+from twitter.pants.goal.aggregate_timings import AggregateTimings
 from twitter.pants.goal.work_unit import WorkUnit
 from twitter.pants.reporting.report import default_reporting
 
@@ -28,10 +29,13 @@ class RunTracker(object):
       os.unlink(link_to_latest)
     os.symlink(self.run_info.path(), link_to_latest)
 
+    self.aggregate_timings = AggregateTimings()
+
     self.report = default_reporting(config, self.run_info)
     self.report.open()
 
-    self._root_workunit = WorkUnit(parent=None, type='root', name='all', cmd=None)
+    self._root_workunit = WorkUnit(parent=None, aggregate_timings=self.aggregate_timings,
+                                   type='root', name='all', cmd=None)
     self._root_workunit.start()
     self.report.start_workunit(self._root_workunit)
     self._current_workunit = self._root_workunit
@@ -66,7 +70,9 @@ class RunTracker(object):
       <do scoped work here>
       <set the outcome on workunit>
     """
-    self._current_workunit = WorkUnit(parent=self._current_workunit, type=type, name=name, cmd=cmd)
+    self._current_workunit = WorkUnit(parent=self._current_workunit,
+                                      aggregate_timings=self.aggregate_timings,
+                                      type=type, name=name, cmd=cmd)
     self._current_workunit.start()
     raised_exception = True  # Putatively.
     try:

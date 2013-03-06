@@ -3,7 +3,7 @@
 {{#collapsible}}{{workunit.id}}-stdout&&stdout&&closed&&nospinner&&greyed{{/collapsible}}
 {{#collapsible}}{{workunit.id}}-stderr&&stderr&&closed&&nospinner&&greyed{{/collapsible}}
 </div>
-<div id="__{{workunit.id}}__tool_invocation_cmd">{{workunit.cmd}}</div>
+<div id="__{{workunit.id}}__tool_invocation_cmd">{{{workunit.cmd}}}</div>
 <script>
   function hasContent(id) {
     $('#' + id + '-header').children().removeClass('greyed-header-text');

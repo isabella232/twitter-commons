@@ -2,7 +2,7 @@ import os
 import sys
 
 from twitter.common.dirutil import safe_mkdir
-from twitter.pants.goal import WorkUnit
+from twitter.pants.goal.work_unit import WorkUnit
 
 
 class Reporter(object):
@@ -10,10 +10,10 @@ class Reporter(object):
     self.formatter = formatter
 
   def open(self):
-    self.handle_formatted_output(None, None, self.formatter.header())
+    self.handle_formatted_output(None, None, self.formatter.start_run())
 
   def close(self):
-    self.handle_formatted_output(None, None, self.formatter.footer())
+    self.handle_formatted_output(None, None, self.formatter.end_run())
 
   def start_workunit(self, workunit):
     self.handle_formatted_output(workunit, None, self.formatter.start_workunit(workunit))

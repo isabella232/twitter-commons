@@ -9,8 +9,12 @@ body {
   font-size: 13px;
 }
 
-a {
-  color: blue;
+a:link {
+  color:inherit;
+}
+
+a:visited {
+  color: inherit;
 }
 
 .monospace {

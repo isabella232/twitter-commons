@@ -1,8 +1,9 @@
 from twitter.common.collections import OrderedDict, OrderedSet
 from twitter.pants import is_internal
-from twitter.pants.goal import WorkUnit
+from twitter.pants.goal.work_unit import WorkUnit
 from twitter.pants.targets import InternalTarget
 from twitter.pants.tasks import TaskError
+
 
 class Group(object):
   @staticmethod
