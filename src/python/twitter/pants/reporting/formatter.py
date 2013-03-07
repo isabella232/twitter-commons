@@ -24,6 +24,9 @@ class Formatter(object):
   def end_workunit(self, workunit):
     return ''
 
+  def format_aggregated_timings(self, workunit):
+    return ''
+
 
 class PlainTextFormatter(Formatter):
   def format(self, workunit, label, s):
@@ -120,6 +123,12 @@ class HTMLFormatter(Formatter):
     if workunit.type.endswith('_tool'):
       ret += self._renderer.render_name('tool_invocation_end', args)
     return ret + self._renderer.render_name('workunit_end', args)
+
+  def format_aggregated_timings(self, workunit):
+    args = {
+      'timings': workunit.aggregated_timings.get_all()
+    }
+    return self._renderer.render_name('aggregated_timings', args)
 
   def _render_collapsible(self, arg_string, outer_args):
     rendered_arg_string = self._renderer.render(arg_string, outer_args)

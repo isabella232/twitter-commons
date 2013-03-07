@@ -11,10 +11,13 @@
 <div class="cmd-line monospace">{{cmd_line}}</div>
 </div>
 <div id="report_{{id}}"></div>
-<div id="timing_aggregates_{{id}}"></div>
+<div id="timings_{{id}}"></div>
 <script>
   $(function() {
     pants.poller.startTailing('run_{{id}}_root', '{{report_path}}', '#report_{{id}}');
+  });
+  $(function() {
+    pants.poller.startPolling('run_{{id}}_timings', '{{aggregated_timings_path}}', '#timings_{{id}}');
   });
 </script>
 {{/run_info}}

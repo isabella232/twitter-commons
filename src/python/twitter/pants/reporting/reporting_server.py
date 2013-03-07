@@ -103,12 +103,14 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         if run_id == 'latest':
           args['is_latest'] = 'none'
       else:
-        report_abspath = os.path.join(run_info['default_report'])
+        report_abspath = run_info['default_report']
         report_relpath = os.path.relpath(report_abspath, self._root)
+        timings_path = os.path.join(os.path.dirname(report_relpath), 'aggregated_timings')
         run_info['timestamp_text'] = \
           datetime.fromtimestamp(float(run_info['timestamp'])).strftime('%H:%M:%S on %A, %B %d %Y')
         args.update({'run_info': run_info,
-                     'report_path': report_relpath})
+                     'report_path': report_relpath,
+                     'aggregated_timings_path': timings_path })
         if run_id == 'latest':
           args['is_latest'] = run_info['id']
     self._send_content(self._renderer.render_name('base', args), 'text/html')

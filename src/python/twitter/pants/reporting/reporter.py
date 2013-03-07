@@ -20,10 +20,11 @@ class Reporter(object):
 
   def end_workunit(self, workunit):
     self.handle_formatted_output(workunit, None, self.formatter.end_workunit(workunit))
+    self.overwrite_formatted_output(None, 'aggregated_timings',
+                                    self.formatter.format_aggregated_timings(workunit))
 
   def handle_output(self, workunit, label, s):
     """
-
     label - classifies the output (e.g., 'output' for output pants itself writes directly,
     'stdout'/'stderr' for output captured from a tool's stdout/stderr. Other labels are possible,
     e.g., if we capture output from a tool's logfiles."""
@@ -32,6 +33,9 @@ class Reporter(object):
   def handle_formatted_output(self, workunit, label, s):
     raise NotImplementedError('handle_formatted_output() not implemented')
 
+  def overwrite_formatted_output(self, workunit, label, s):
+    raise NotImplementedError('overwrite_formatted_output() not implemented')
+
 
 class ConsoleReporter(Reporter):
   def __init__(self, formatter):
@@ -39,6 +43,10 @@ class ConsoleReporter(Reporter):
 
   def handle_formatted_output(self, workunit, label, s):
     sys.stdout.write(s)
+
+  def overwrite_formatted_output(self, workunit, label, s):
+    # TODO: What does overwriting mean in this context?
+    pass
 
 
 class FileReporter(Reporter):
@@ -63,6 +71,10 @@ class FileReporter(Reporter):
     # We must flush in the same thread as the write.
     self._file.flush()
 
+  def overwrite_formatted_output(self, workunit, label, s):
+    # TODO: What does overwriting mean in this context?
+    pass
+
 
 class MultiFileReporter(Reporter):
   """Writes all default output to one file, and all other output to separate files per (workunit, label)."""
@@ -81,16 +93,27 @@ class MultiFileReporter(Reporter):
       file.close()
 
   def handle_formatted_output(self, workunit, label, s):
-    if not workunit or not label or label == WorkUnit.DEFAULT_OUTPUT_LABEL:
-      path = os.path.join(self._dir, 'build.html')
-    else:
-      path = os.path.join(self._dir, '%s.%s' % (workunit.id, label))
-    if path not in self._files:
-      file = open(path, 'w')
-      self._files[path] = file
-    else:
-      file = self._files[path]
-    file.write(s)
-    # We must flush in the same thread as the write.
-    file.flush()
+    if os.path.exists(self._dir):  # Make sure we're not immediately after a clean-all.
+      path = self._make_path(workunit, label)
+      if path not in self._files:
+        file = open(path, 'w')
+        self._files[path] = file
+      else:
+        file = self._files[path]
+      file.write(s)
+      # We must flush in the same thread as the write.
+      file.flush()
 
+  def overwrite_formatted_output(self, workunit, label, s):
+    if os.path.exists(self._dir):  # Make sure we're not immediately after a clean-all.
+      with open(self._make_path(workunit, label), 'w') as file:
+        file.write(s)
+
+  def _make_path(self, workunit, label):
+    if not label or label == WorkUnit.DEFAULT_OUTPUT_LABEL:
+      file = 'build.html'
+    elif not workunit:
+      file = label
+    else:
+      file = '%s.%s' % (workunit.id, label)
+    return os.path.join(self._dir, file)

@@ -1,7 +1,7 @@
 
 from collections import defaultdict
 
-class AggregateTimings(object):
+class AggregatedTimings(object):
   """Aggregates timings over multiple invocations of 'similar' work.
 
   Useful for finding bottlenecks.

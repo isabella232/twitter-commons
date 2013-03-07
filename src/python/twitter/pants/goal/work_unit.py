@@ -24,7 +24,7 @@ class WorkUnit(object):
   SUCCESS = 2
   UNKNOWN = 3
 
-  def __init__(self, parent, aggregate_timings, type, name, cmd):
+  def __init__(self, parent, aggregated_timings, type, name, cmd):
     """
     - parent: The containing workunit, if any. E.g., 'compile' might contain 'java', 'scala' etc.,
               'scala' might contain 'compile', 'split' etc.
@@ -38,7 +38,7 @@ class WorkUnit(object):
     self._outcome = WorkUnit.UNKNOWN
 
     self.parent = parent
-    self.aggregate_timings = aggregate_timings
+    self.aggregated_timings = aggregated_timings
     self.children = []
     self.type = type
     self.name = name
@@ -60,7 +60,7 @@ class WorkUnit(object):
 
   def end(self):
     self.end_time = time.time()
-    self.aggregate_timings.add_timing(self.get_path(), self.duration())
+    self.aggregated_timings.add_timing(self.get_path(), self.duration())
 
   def to_dict(self):
     """Useful for providing arguments to templates."""
@@ -84,7 +84,7 @@ class WorkUnit(object):
       self.choose(0, 0, 0, 0)  # Dummy call, to validate.
       if self.parent: self.parent.set_outcome(self._outcome)
 
-  DEFAULT_OUTPUT_LABEL = 'default'
+  DEFAULT_OUTPUT_LABEL = 'build'
   def output(self, label=DEFAULT_OUTPUT_LABEL):
     return self._outputs[label]
 
