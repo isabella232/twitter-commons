@@ -17,16 +17,16 @@
 __author__ = 'Benjy Weinberger'
 
 import os
-
+ 
+from collections import namedtuple
 from twitter.pants import  is_scalac_plugin, get_buildroot
 from twitter.pants.targets.scala_library import ScalaLibrary
 from twitter.pants.targets.scala_tests import ScalaTests
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.jvm_dependency_cache import JvmDependencyCache
 from twitter.pants.tasks.nailgun_task import NailgunTask
-from twitter.pants.tasks.scala.zinc_artifact import ZincArtifactFactory
+from twitter.pants.tasks.scala.zinc_artifact import ZincArtifactFactory, AnalysisFileSpec
 from twitter.pants.tasks.scala.zinc_utils import ZincUtils
-
 
 class ScalaCompile(NailgunTask):
   @staticmethod
@@ -119,14 +119,15 @@ class ScalaCompile(NailgunTask):
                 for conf in self._confs:
                   cp.append((conf, merged_artifact.classes_dir))
                 if os.path.exists(merged_artifact.analysis_file):
-                  upstream_analysis_map[merged_artifact.classes_dir] = merged_artifact.analysis_file
+                  upstream_analysis_map[merged_artifact.classes_dir] = \
+                    AnalysisFileSpec(merged_artifact.analysis_file, merged_artifact.classes_dir)
 
     # Check for missing dependencies.
     all_analysis_files = set()
     for target in scala_targets:
-      analysis_file = self._artifact_factory.analysis_file_for_targets([target])
-      if os.path.exists(analysis_file):
-        all_analysis_files.add(analysis_file)
+      analysis_file_spec = self._artifact_factory.analysis_file_for_targets([target])
+      if os.path.exists(analysis_file_spec.analysis_file):
+        all_analysis_files.add(analysis_file_spec)
     deps_cache = JvmDependencyCache(self.context, scala_targets, all_analysis_files)
     deps_cache.check_undeclared_dependencies()
 
@@ -141,9 +142,9 @@ class ScalaCompile(NailgunTask):
     # Localize the analysis files we read from the artifact cache.
     for vt in vts:
       analysis_file = self._artifact_factory.analysis_file_for_targets(vt.targets)
-      self.context.log.debug('Localizing analysis file %s' % analysis_file)
-      if self._zinc_utils.localize_analysis_file(ZincArtifactFactory.portable(analysis_file),
-                                                 analysis_file):
+      self.context.log.debug('Localizing analysis file %s' % analysis_file.analysis_file)
+      if self._zinc_utils.localize_analysis_file(ZincArtifactFactory.portable(analysis_file.analysis_file),
+                                                 analysis_file.analysis_file):
         self.context.log.warn('Zinc failed to localize analysis file: %s. Incremental rebuild' \
                               'of that target may not be possible.' % analysis_file)
 
