@@ -1,6 +1,6 @@
 <script>
   $('#{{workunit.id}}-header-text').addClass('{{status}}'); $('#{{workunit.id}}-spinner').hide()
-  pants.tailer.stopTailing('{{workunit.id}}_stdout');
-  pants.tailer.stopTailing('{{workunit.id}}_stderr');
+  pants.poller.stopTailing('{{workunit.id}}_stdout');
+  pants.poller.stopTailing('{{workunit.id}}_stderr');
 </script>
 

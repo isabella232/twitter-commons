@@ -31,9 +31,6 @@ pants = {
 
     function updateTimers() {
       var now = $.now();
-      var secs = undefined;
-      var timeStr = undefined;
-      var i = undefined;
       $.each(timers, function(id, timer) {
         $(timer.selector).html('' + Math.round((now - timer.startTime) / 1000 - 0.5) + 's');
       });
@@ -59,81 +56,66 @@ pants = {
     }
   },
 
-  // Creates an object that knows how to tail multiple files by periodically polling the server.
-  // Each polled file is associated with an id, so we can multiplex multiple tailings on
+  // Creates an object that knows how to poll multiple files by periodically hitting the server.
+  // Each polled file is associated with an id, so we can multiplex multiple pollings on
   // on a single server request.
-  createTailer: function() {
-    // State of each file we're polling (its path relative to the root, and our current position in it).
-    // id -> {path: ..., pos: ... }
-    var tailedFileStates = {};
+  createPoller: function() {
 
-    // When we get new data from a file, we append it to the element(s) selected by the appropriate selector.
-    // id -> selector.
-    var tailedFileTargetSelectors = {};
-
-    // The first time we append, we call this function.
-    // id -> function.
-    var tailedFileInitFunc = {};
-
-    // ids of files we're done with.
-    // id -> true.
-    var toBeStopped = {};
-
-    // ids of files that have been tailed at least once.
-    // id -> true.
-    var hasBeenTailed = {};
-
-    // We use these to ensure that we tail each requested file at least once. Otherwise a stopTailing
-    // could happen before any data has been requested.
+    // State of each file we're polling.
+    // id -> state object.
+    var polledFileStates = {};
 
     // A handle to the polling event, so we can cancel it if needed.
-    var tailingEvent = undefined;
+    var pollingEvent = undefined;
 
     function pollOnce() {
       function forgetId(id) {
-        delete tailedFileStates[id];
-        delete tailedFileTargetSelectors[id];
-        delete tailedFileInitFunc[id];
-        delete toBeStopped[id];
-        delete hasBeenTailed[id];
-
+        delete polledFileStates[id];
         var n = 0;
-        $.each(tailedFileStates, function(k, v) { n += 1; });
+        $.each(polledFileStates, function(k, v) { n += 1; });
         if (!n) {
-          window.clearInterval(tailingEvent);
-          tailingEvent = undefined;
+          window.clearInterval(pollingEvent);
+          pollingEvent = undefined;
         }
       }
 
       $.ajax({
-        url: '/tail',
+        url: '/poll',
         type: 'GET',
-        data: { q: JSON.stringify(tailedFileStates) },
+        data: { q: JSON.stringify(
+                $.map(polledFileStates, function (state, id) {
+                                          return { id: id, path: state.path, pos: state.pos } }))
+        },
         dataType: 'json',
         success: function(data, textStatus, jqXHR) {
           function appendNewData() {
             $.each(data, function(id, val) {
-              if (id in tailedFileTargetSelectors) {
-                $(tailedFileTargetSelectors[id]).append(val);
-              }
-              if (id in tailedFileStates) {
-                tailedFileStates[id].pos += val.length;
-              }
-              if (!hasBeenTailed[id]) {
-                if (id in tailedFileInitFunc) {
-                  tailedFileInitFunc[id]();
+              if (id in polledFileStates) {
+                var state = polledFileStates[id];
+                if (state.replace) {
+                  $(state.selector).html(val);
+                } else {
+                  $(state.selector).append(val);
                 }
-                hasBeenTailed[id] = true;
+                state.pos += val.length;
+              }
+              if (!state.hasBeenPolledAtLeastOnce) {
+                if (state.initFunc) {
+                  state.initFunc();
+                }
+                state.hasBeenPolledAtLeastOnce = true;
               }
             });
           }
+
           function checkForStopped() {
-            for (var id in toBeStopped) {
-              if (toBeStopped.hasOwnProperty(id) && id in hasBeenTailed) {
-                // This tailing is no longer needed.
-                forgetId(id);
+            var toDelete = [];
+            $.each(polledFileStates, function(id, state) {
+              if (state.toBeStopped && state.hasBeenPolledAtLeastOnce) {
+                toDelete.push(id);
               }
-            }
+            });
+            $.each(toDelete, function(idx, id) { forgetId(id); });
           }
           appendNewData();
           checkForStopped();
@@ -144,32 +126,52 @@ pants = {
       });
     }
 
+    function doStartPolling(id, path, targetSelector, initFunc, replace) {
+      polledFileStates[id] = {
+        path: path,
+        pos: 0,
+        replace: replace,
+        selector: targetSelector,
+        initFunc: initFunc,
+        hasBeenPolledAtLeastOnce: false,
+        toBeStopped: false
+      };
+      if (!pollingEvent) {
+        pollingEvent = window.setInterval(pollOnce, 200);
+      }
+    }
+
+    // Stop the specified polling.
+    function doStopPolling(id) {
+      if (id in polledFileStates) {
+        polledFileStates[id].toBeStopped = true;
+      }
+    }
+
     return {
+      // Call this to start polling the specified file, assigning its content to the element(s)
+      // selected by the selector. You must assign some unique id to the request.
+      // If initFunc is provided, it is called the first time any content is assigned.
+      startPolling: function(id, path, targetSelector, initFunc) {
+        doStartPolling(id, path, targetSelector, initFunc, true);
+      },
+
       // Call this to start tailing the specified file, appending its content to the element(s)
       // selected by the selector. You must assign some unique id to the request.
       // If initFunc is provided, it is called the first time any content is appended.
       startTailing: function(id, path, targetSelector, initFunc) {
-        tailedFileStates[id] = {
-          'path': path,
-          'pos': 0
-        };
-        tailedFileTargetSelectors[id] = targetSelector;
-        if (initFunc) {
-          tailedFileInitFunc[id] = initFunc;
-        }
-        if (!tailingEvent) {
-          tailingEvent = window.setInterval(pollOnce, 200);
-        }
+        doStartPolling(id, path, targetSelector, initFunc, false);
       },
 
+      // Stop the specified polling.
+      stopPolling: doStopPolling,
+
       // Stop the specified tailing.
-      stopTailing: function(id) {
-        toBeStopped[id] = true;
-      }
+      stopTailing: doStopPolling
     }
   }
 };
 
 // We really only need one global one of each of these. So here they are.
 pants.timerManager = pants.createTimerManager();
-pants.tailer = pants.createTailer();
+pants.poller = pants.createPoller();

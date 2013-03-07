@@ -11,9 +11,10 @@
 <div class="cmd-line monospace">{{cmd_line}}</div>
 </div>
 <div id="report_{{id}}"></div>
+<div id="timing_aggregates_{{id}}"></div>
 <script>
   $(function() {
-    pants.tailer.startTailing('run_{{id}}_root', '{{report_path}}', '#report_{{id}}');
+    pants.poller.startTailing('run_{{id}}_root', '{{report_path}}', '#report_{{id}}');
   });
 </script>
 {{/run_info}}

@@ -41,7 +41,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       ('/browse/', self._handle_browse),
       ('/content/', self._handle_content),
       ('/assets/', self._handle_assets),
-      ('/tail', self._handle_tail),
+      ('/poll', self._handle_poll),
       ('/latestrunid', self._handle_latest_runid)
     ]
     BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, request, client_address, server)
@@ -153,16 +153,17 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       content = infile.read()
     self._send_content(content, content_type)
 
-  def _handle_tail(self, relpath, params):
-    data = json.loads(params.get('q')[0])
+  def _handle_poll(self, relpath, params):
+    request = json.loads(params.get('q')[0])
     ret = {}
-    # data is a tailing request for multiple files. For each request:
+    # request is a polling request for multiple files. For each file:
     #  - id is some identifier assigned by the client, used to differentiate the results.
-    #  - path is the file to tail.
+    #  - path is the file to poll.
     #  - pos is the last byte position in that file seen by the client.
-    for id, state in data.items():
-      path = state.get('path', None)
-      pos = state.get('pos', 0)
+    for poll in request:
+      id = poll.get('id', None)
+      path = poll.get('path', None)
+      pos = poll.get('pos', 0)
       if path:
         abspath = os.path.normpath(os.path.join(self._root, path))
         if os.path.isfile(abspath):
