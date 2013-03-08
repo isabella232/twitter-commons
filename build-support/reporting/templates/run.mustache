@@ -9,15 +9,15 @@
 <div class="timestamp-text">Pants run at {{timestamp_text}}</div>
 <div class="cmd-line-label">Command line:</div>
 <div class="cmd-line monospace">{{cmd_line}}</div>
+<div id="aggregated-timings">{{#collapsible}}aggregated-timings-{{id}}&&Aggregated Timings&&closed&&nospinner{{/collapsible}}</div>
 </div>
-<div id="report_{{id}}"></div>
-<div id="timings_{{id}}"></div>
+<div id="report-{{id}}"></div>
 <script>
   $(function() {
-    pants.poller.startTailing('run_{{id}}_root', '{{report_path}}', '#report_{{id}}');
+    pants.poller.startTailing('run_{{id}}_root', '{{report_path}}', '#report-{{id}}');
   });
   $(function() {
-    pants.poller.startPolling('run_{{id}}_timings', '{{aggregated_timings_path}}', '#timings_{{id}}');
+    pants.poller.startPolling('run_{{id}}_aggregated_timings', '{{aggregated_timings_path}}', '#aggregated_timings-{{id}}-content');
   });
 </script>
 {{/run_info}}

@@ -96,14 +96,14 @@ pants = {
                   $(state.selector).html(val);
                 } else {
                   $(state.selector).append(val);
+                  state.pos += val.length;
                 }
-                state.pos += val.length;
-              }
-              if (!state.hasBeenPolledAtLeastOnce) {
-                if (state.initFunc) {
-                  state.initFunc();
+                if (!state.hasBeenPolledAtLeastOnce) {
+                  if (state.initFunc) {
+                    state.initFunc();
+                  }
+                  state.hasBeenPolledAtLeastOnce = true;
                 }
-                state.hasBeenPolledAtLeastOnce = true;
               }
             });
           }

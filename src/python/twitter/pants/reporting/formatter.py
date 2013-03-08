@@ -125,8 +125,11 @@ class HTMLFormatter(Formatter):
     return ret + self._renderer.render_name('workunit_end', args)
 
   def format_aggregated_timings(self, workunit):
+    aggregated_timings = workunit.aggregated_timings.get_all()
+    for item in aggregated_timings:
+      item['timing_string'] = '%.3f' % item['timing']
     args = {
-      'timings': workunit.aggregated_timings.get_all()
+      'timings': aggregated_timings
     }
     return self._renderer.render_name('aggregated_timings', args)
 

@@ -19,5 +19,5 @@ class AggregatedTimings(object):
 
     Each value is a dict: { path: <path>, timing: <timing in seconds> }
     """
-    return [{ 'path': x[0], 'timing': x[1]}
+    return [{ 'label': x[0], 'timing': x[1]}
             for x in sorted(self._timings_by_path.items(), key=lambda x: x[1], reverse=True)]

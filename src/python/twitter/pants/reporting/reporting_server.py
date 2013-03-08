@@ -113,7 +113,21 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                      'aggregated_timings_path': timings_path })
         if run_id == 'latest':
           args['is_latest'] = run_info['id']
+        args.update({ 'collapsible': lambda x: self._render_collapsible(x, args) })
     self._send_content(self._renderer.render_name('base', args), 'text/html')
+
+  def _render_collapsible(self, arg_string, outer_args):
+    rendered_arg_string = self._renderer.render(arg_string, outer_args)
+    id, title, initially_open, spinner, class_prefix =\
+    (rendered_arg_string.split('&&') + [None, None, None])[0:5]
+    inner_args = {
+      'id': id,
+      'title': title,
+      'initially_open': (initially_open == 'open'),
+      'spinner': (spinner == 'spinner'),
+      'class_prefix': class_prefix
+    }
+    return self._renderer.render_name('collapsible', inner_args)
 
   def _handle_browse(self, relpath, params):
     abspath = os.path.normpath(os.path.join(self._root, relpath))

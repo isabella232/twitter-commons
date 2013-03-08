@@ -205,6 +205,10 @@ a:visited {
   font-size: 14px;
 }
 
+/*.run {
+  position: relative;
+}*/
+
 .run .no-runs {
   font-size: 14px;
   font-weight: bold;
@@ -230,6 +234,16 @@ a:visited {
   font-size: 14px;
   font-weight: bold;
 }
+
+/*.aggregated_timings {
+  font-size: 14px;
+  font-weight: bold;
+  border: 1px solid black;
+  background-color: lightgray;
+  position: absolute;
+  top: 0px;
+  right:0px;
+}*/
 
 .nodisplay {
   display: none;
