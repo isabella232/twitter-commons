@@ -248,6 +248,10 @@ a:visited {
   padding-right: 1px;
 }
 
+.aggregated-timings table tr td i {
+  padding-left: 2px;
+}
+
 .nodisplay {
   display: none;
 }

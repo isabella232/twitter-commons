@@ -87,7 +87,7 @@ class HTMLFormatter(Formatter):
     return HTMLFormatter.path_re.sub(lambda m: maybe_add_link(to_url(m), m.group(0)), s)
 
   def start_workunit(self, workunit):
-    is_tool = workunit.type.endswith('_tool')
+    is_tool = workunit.is_tool()
     if workunit.parent is None:
       header_text = 'all'
     else:

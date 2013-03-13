@@ -55,12 +55,15 @@ class WorkUnit(object):
     if self.parent:
       self.parent.children.append(self)
 
+  def is_tool(self):
+    return self.type.endswith('_tool')
+
   def start(self):
     self.start_time = time.time()
 
   def end(self):
     self.end_time = time.time()
-    self.aggregated_timings.add_timing(self.get_path(), self.self_time())
+    self.aggregated_timings.add_timing(self.get_path(), self.self_time(), self.is_tool())
 
   def to_dict(self):
     """Useful for providing arguments to templates."""
