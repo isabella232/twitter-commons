@@ -17,8 +17,7 @@
 __author__ = 'Benjy Weinberger'
 
 import os
- 
-from collections import namedtuple
+
 from twitter.pants import  is_scalac_plugin, get_buildroot
 from twitter.pants.targets.scala_library import ScalaLibrary
 from twitter.pants.targets.scala_tests import ScalaTests
@@ -152,17 +151,19 @@ class ScalaCompile(NailgunTask):
     # Special handling for scala artifacts.
     cached_vts, uncached_vts = Task.check_artifact_cache(self, vts)
 
-    # Localize the portable analysis files.
-    self._localize_portable_analysis_files(cached_vts)
+    if cached_vts:
+      # Localize the portable analysis files.
+      with self.context.new_work_scope('localize'):
+        self._localize_portable_analysis_files(cached_vts)
 
-    # Split any merged artifacts.
-    for vt in cached_vts:
-      if len(vt.targets) > 1:
-        artifacts = [self._artifact_factory.artifact_for_target(t) for t in vt.targets]
-        merged_artifact = self._artifact_factory.merged_artifact(artifacts)
-        merged_artifact.split()
-        for v in vt.versioned_targets:
-          v.update()
+      # Split any merged artifacts.
+      for vt in cached_vts:
+        if len(vt.targets) > 1:
+          artifacts = [self._artifact_factory.artifact_for_target(t) for t in vt.targets]
+          merged_artifact = self._artifact_factory.merged_artifact(artifacts)
+          merged_artifact.split()
+          for v in vt.versioned_targets:
+            v.update()
     return cached_vts, uncached_vts
 
   def _process_target_partition(self, vts, cp, upstream_analysis_map):
@@ -190,10 +191,11 @@ class ScalaCompile(NailgunTask):
       if any([not vt.valid for vt in vts.versioned_targets]):
         old_state = current_state
         classpath = [entry for conf, entry in cp if conf in self._confs]
-        self.context.log.info('Compiling targets %s' % vts.targets)
-        if self._zinc_utils.compile(classpath, merged_artifact.sources, merged_artifact.classes_dir,
-                                    merged_artifact.analysis_file, upstream_analysis_map):
-          raise TaskError('Compile failed.')
+        with self.context.new_work_scope('compile'):
+          self.context.log.info('Compiling targets %s' % vts.targets)
+          if self._zinc_utils.compile(classpath, merged_artifact.sources, merged_artifact.classes_dir,
+                                      merged_artifact.analysis_file, upstream_analysis_map):
+            raise TaskError('Compile failed.')
 
         write_to_artifact_cache = self._artifact_cache and \
                                   self.context.options.write_to_artifact_cache

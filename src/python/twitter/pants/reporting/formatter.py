@@ -91,7 +91,7 @@ class HTMLFormatter(Formatter):
     if workunit.parent is None:
       header_text = 'all'
     else:
-      header_text = workunit.name # scopes[-1] if is_tool else ':'.join(scopes)
+      header_text = workunit.name
     workunit_dict = workunit.to_dict()
     if workunit_dict['cmd']:
       workunit_dict['cmd'] = self._linkify(workunit_dict['cmd'])
@@ -99,7 +99,7 @@ class HTMLFormatter(Formatter):
              'html_path_base': self._html_path_base,
              'workunit': workunit_dict,
              'header_text': header_text,
-             'open_or_closed': 'closed',
+             'open_or_closed': 'closed' if is_tool else 'open',
              'is_tool': is_tool }
     args.update({ 'collapsible': lambda x: self._render_collapsible(x, args) })
 
@@ -135,14 +135,15 @@ class HTMLFormatter(Formatter):
 
   def _render_collapsible(self, arg_string, outer_args):
     rendered_arg_string = self._renderer.render(arg_string, outer_args)
-    id, title, initially_open, spinner, class_prefix = \
-      (rendered_arg_string.split('&&') + [None, None, None])[0:5]
+    id, title, initially_open, spinner, class_prefix, icon = \
+      (rendered_arg_string.split('&&') + [None, None, None, None, None])[0:6]
     inner_args = {
       'id': id,
       'title': title,
       'initially_open': (initially_open == 'open'),
       'spinner': (spinner == 'spinner'),
-      'class_prefix': class_prefix
+      'class_prefix': class_prefix,
+      'icon': icon
     }
     return self._renderer.render_name('collapsible', inner_args)
 

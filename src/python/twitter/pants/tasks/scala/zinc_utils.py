@@ -93,7 +93,7 @@ class ZincUtils(object):
     """The jars containing code for enabled plugins."""
     return self._plugin_jars
 
-  def run_zinc(self, args):
+  def run_zinc(self, args, workunit_name='zinc'):
     zinc_args = [
       '-log-level', self._context.options.log_level or 'info',
       '-mirror-analysis',
@@ -103,7 +103,7 @@ class ZincUtils(object):
     zinc_args.extend(self._zinc_jar_args)
     zinc_args.extend(args)
     return self._java_runner(self._main, classpath=self._zinc_classpath,
-                             args=zinc_args, jvmargs=self._jvm_args)
+                             args=zinc_args, jvmargs=self._jvm_args, workunit_name=workunit_name)
 
   def compile(self, classpath, sources, output_dir, analysis_file, upstream_analysis_files):
     # To pass options to scalac simply prefix with -S.
@@ -125,13 +125,13 @@ class ZincUtils(object):
     return self.run_zinc(args)
 
   # Run zinc in analysis manipulation mode.
-  def run_zinc_analysis(self, analysis_file, args):
+  def run_zinc_analysis(self, analysis_file, args, workunit_name='analysis'):
     zinc_analysis_args = [
       '-analysis',
       '-cache', analysis_file,
     ]
     zinc_analysis_args.extend(args)
-    return self.run_zinc(args=zinc_analysis_args)
+    return self.run_zinc(args=zinc_analysis_args, workunit_name=workunit_name)
 
   # src_cache - split this analysis cache.
   # splits - a list of (sources, dst_cache), where sources is a list of the sources whose analysis
@@ -140,14 +140,14 @@ class ZincUtils(object):
     zinc_split_args = [
       '-split', ','.join(['{%s}:%s' % (':'.join(x[0]), x[1]) for x in splits]),
     ]
-    return self.run_zinc_analysis(src_analysis_file, zinc_split_args)
+    return self.run_zinc_analysis(src_analysis_file, zinc_split_args, workunit_name='split')
 
   # src_analysis_files - a list of analysis files to merge into dst_analysis_file.
   def run_zinc_merge(self, src_analysis_files, dst_analysis_file):
     zinc_merge_args = [
       '-merge', ':'.join(src_analysis_files),
     ]
-    return self.run_zinc_analysis(dst_analysis_file, zinc_merge_args)
+    return self.run_zinc_analysis(dst_analysis_file, zinc_merge_args, workunit_name='merge')
 
   # cache - the analysis cache to rebase.
   # rebasings - a list of pairs (rebase_from, rebase_to). Behavior is undefined if any
@@ -157,7 +157,7 @@ class ZincUtils(object):
     zinc_rebase_args = [
       '-rebase', ','.join(['%s:%s' % rebasing for rebasing in rebasings]),
     ]
-    return self.run_zinc_analysis(analysis_file, zinc_rebase_args)
+    return self.run_zinc_analysis(analysis_file, zinc_rebase_args, workunit_name='rebase')
 
   IVY_HOME_PLACEHOLDER = '/IVY_HOME_PLACEHOLDER'
   PANTS_HOME_PLACEHOLDER = '/PANTS_HOME_PLACEHOLDER'

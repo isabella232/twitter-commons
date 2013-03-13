@@ -54,25 +54,29 @@ class RunTracker(object):
     return self._current_workunit
 
   @contextmanager
-  def new_work_scope(self, type, name, cmd=None):
+  def new_work_scope(self, name, type='', cmd=''):
     """Creates a (hierarchical) subunit of work for the purpose of timing and reporting.
 
-    - type: A string that the report formatters can use to decide how to display information
-            about this work. E.g., 'phase', 'goal', 'jvm_tool'. By convention, types
-            ending with '_tool' are assumed to be invocations of external tools.
     - name: A short name for this work. E.g., 'resolve', 'compile', 'scala'.
+    - type: An optional string that the report formatters can use to decide how to display
+            information about this work. E.g., 'phase', 'goal', 'jvm_tool'. By convention, types
+            ending with '_tool' are assumed to be invocations of external tools.
      - cmd: An optional longer description, e.g., the cmd line of a tool invocation.
             Used only for display.
 
     Use like this:
 
-    with context.new_work_scope('goal', 'compile') as workunit:
+    with context.new_work_scope(name='compile', type='goal') as workunit:
       <do scoped work here>
-      <set the outcome on workunit>
+      <set the outcome on workunit if necessary>
+
+    Note that the outcome will automatically be set to failure if an exception is raised
+    in a workunit, and to success otherwise, so often you only need to set the
+    outcome explicitly if you want to set it to warning.
     """
     self._current_workunit = WorkUnit(parent=self._current_workunit,
                                       aggregated_timings=self.aggregated_timings,
-                                      type=type, name=name, cmd=cmd)
+                                      name=name, type=type, cmd=cmd)
     self._current_workunit.start()
     raised_exception = True  # Putatively.
     try:
@@ -82,6 +86,8 @@ class RunTracker(object):
     finally:
       if raised_exception:  # In case the work code failed to set the outcome.
         self._current_workunit.set_outcome(WorkUnit.FAILURE)
+      else:
+        self._current_workunit.set_outcome(WorkUnit.SUCCESS)
       self._current_workunit.end()
       self.report.end_workunit(self._current_workunit)
       self._current_workunit = self._current_workunit.parent

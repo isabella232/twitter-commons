@@ -92,4 +92,4 @@ class Checkstyle(NailgunTask):
 
     args.extend(sources)
     log.debug('Executing: %s %s' % (CHECKSTYLE_MAIN, ' '.join(args)))
-    return self.runjava(CHECKSTYLE_MAIN, classpath=classpath, args=args)
+    return self.runjava(CHECKSTYLE_MAIN, classpath=classpath, args=args, workunit_name='checkstyle')

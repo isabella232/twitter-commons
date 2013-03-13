@@ -42,7 +42,6 @@ from twitter.pants.reporting import reporting_server
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.nailgun_task import NailgunTask
 from twitter.pants.goal import Context, GoalError, Phase, RunTracker
-from twitter.pants.goal.work_unit import WorkUnit
 
 
 StringIO = Compatibility.StringIO
@@ -333,18 +332,17 @@ class Goal(Command):
       sys.exit(0)
     else:
       goals, specs = Goal.parse_args(args)
-      with self.run_tracker.new_work_scope(type='setup', name='setup'):
+      with self.run_tracker.new_work_scope(name='setup', type='setup'):
         # TODO(John Sirois): kill PANTS_NEW and its usages when pants.new is rolled out
         ParseContext.enable_pantsnew()
 
         # Bootstrap goals by loading any configured bootstrap BUILD files
         with self.check_errors('The following bootstrap_buildfiles cannot be loaded:') as error:
-          with self.run_tracker.new_work_scope(type='setup', name='bootstrap') as work_unit:
+          with self.run_tracker.new_work_scope(name='bootstrap', type='setup'):
             for path in self.config.getlist('goals', 'bootstrap_buildfiles', default = []):
               try:
                 buildfile = BuildFile(get_buildroot(), os.path.relpath(path, get_buildroot()))
                 ParseContext(buildfile).parse()
-                work_unit.set_outcome(WorkUnit.SUCCESS)
               except (TypeError, ImportError, TaskError, GoalError):
                 error(path, include_traceback=True)
               except (IOError, SyntaxError):
@@ -352,10 +350,9 @@ class Goal(Command):
 
         # Bootstrap user goals by loading any BUILD files implied by targets
         with self.check_errors('The following targets could not be loaded:') as error:
-          with self.run_tracker.new_work_scope(type='setup', name='parse') as work_unit:
+          with self.run_tracker.new_work_scope(name='parse', type='setup'):
             for spec in specs:
               self.parse_spec(error, spec)
-            work_unit.set_outcome(WorkUnit.SUCCESS)
 
       self.phases = [Phase(goal) for goal in goals]
 
@@ -654,7 +651,7 @@ goal(
 
 
 # Support straight up checkstyle runs in addition to checkstyle as last phase of compile below
-goal(name='javac',
+goal(name='java',
      action=JavaCompile,
      group=group('gen', lambda target: is_codegen(target)),
      dependencies=['gen', 'resolve']).install('checkstyle')
@@ -664,7 +661,7 @@ def is_java(target):
  return isinstance(target, JavaLibrary) or \
         isinstance(target, JavaTests)
 
-goal(name='scalac',
+goal(name='scala',
      action=ScalaCompile,
      group=group('jvm', is_scala),
      dependencies=['gen', 'resolve']).install('compile').with_description(
@@ -674,7 +671,7 @@ goal(name='apt',
      action=JavaCompile,
      group=group('jvm', is_apt),
      dependencies=['gen', 'resolve']).install('compile')
-goal(name='javac',
+goal(name='java',
      action=JavaCompile,
      group=group('jvm', is_java),
      dependencies=['gen', 'resolve']).install('compile')

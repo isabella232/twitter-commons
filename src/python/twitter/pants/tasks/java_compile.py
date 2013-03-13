@@ -242,14 +242,17 @@ class JavaCompile(NailgunTask):
     args.extend(self._args)
     args.extend(sources)
     log.debug('Executing: %s %s' % (_JMAKE_MAIN, ' '.join(args)))
-    return self.runjava(_JMAKE_MAIN, classpath=jmake_classpath, args=args, jvmargs=self._jvm_args)
+    return self.runjava(_JMAKE_MAIN, classpath=jmake_classpath, args=args, jvmargs=self._jvm_args,
+                        workunit_name='jmake')
 
   def check_artifact_cache(self, vts):
     # Special handling for java artifacts.
     cached_vts, uncached_vts = Task.check_artifact_cache(self, vts)
 
-    for vt in cached_vts:
-      self.split_depfile(vt)
+    if cached_vts:
+      with self.context.new_work_scope('split'):
+        for vt in cached_vts:
+          self.split_depfile(vt)
     return cached_vts, uncached_vts
 
   def split_depfile(self, vt):

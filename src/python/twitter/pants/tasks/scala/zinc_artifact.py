@@ -160,21 +160,24 @@ class _MergedZincArtifact(_ZincArtifact):
     # be less up to date than the artifact we could create by re-merging, but this
     # heuristic is worth it so that in the common case we don't spend a lot of time
     # copying files around.
+    if len(self.underlying_artifacts) <= 1:
+      return self.current_state()
 
-    # Must merge analysis before computing current state.
-    if not os.path.exists(self.analysis_file):
-      self._merge_analysis()
+    with self.factory.context.new_work_scope(name='merge'):
+      # Must merge analysis before computing current state.
+      if not os.path.exists(self.analysis_file):
+        with self.factory.context.new_work_scope(name='analysis'):
+          self._merge_analysis()
 
-    current_state = self.current_state()
+      current_state = self.current_state()
 
-    if not os.path.exists(self.classes_dir):
-      self._merge_classes_dir(current_state)
+      if not os.path.exists(self.classes_dir):
+        with self.factory.context.new_work_scope(name='classes'):
+          self._merge_classes_dir(current_state)
     return current_state
 
   def _merge_analysis(self):
     """Merge the analysis files from the underlying artifacts into a single file."""
-    if len(self.underlying_artifacts) <= 1:
-      return
     with temporary_dir(cleanup=False) as tmpdir:
       artifact_analysis_files = []
       for artifact in self.underlying_artifacts:
@@ -201,8 +204,6 @@ class _MergedZincArtifact(_ZincArtifact):
 
     Postcondition: symlinks are of leaf packages only.
     """
-    if len(self.underlying_artifacts) <= 1:
-      return
     self.log.debug('Merging classes dirs into %s' % self.classes_dir)
     symlinkable_packages = self._symlinkable_packages(state)
     for artifact in self.underlying_artifacts:
@@ -233,12 +234,19 @@ class _MergedZincArtifact(_ZincArtifact):
   def split(self, old_state=None, portable=False):
     """Actually split the merged artifact into per-target artifacts."""
     current_state = self.current_state()
-    diff = ZincArtifactStateDiff(old_state, current_state) if old_state else None
-    if not diff or diff.analysis_changed:
-      self._split_analysis('analysis_file')
-      if portable:
-        self._split_analysis('portable_analysis_file')
-    self._split_classes_dir(current_state, diff)
+
+    if len(self.underlying_artifacts) <= 1:
+      return current_state
+
+    with self.factory.context.new_work_scope(name='split'):
+      diff = ZincArtifactStateDiff(old_state, current_state) if old_state else None
+      if not diff or diff.analysis_changed:
+        with self.factory.context.new_work_scope(name='analysis'):
+          self._split_analysis('analysis_file')
+          if portable:
+            self._split_analysis('portable_analysis_file')
+      with self.factory.context.new_work_scope(name='classes'):
+        self._split_classes_dir(current_state, diff)
     return current_state
 
   def _split_analysis(self, analysis_file_attr):
@@ -288,7 +296,6 @@ class _MergedZincArtifact(_ZincArtifact):
       for cls in classes:
         ret[os.path.dirname(cls)].append(os.path.basename(cls))
       return ret
-
     self.log.debug('Splitting classes dir %s' % self.classes_dir)
     if diff:
       new_or_changed_classnames_by_package = map_classes_by_package(diff.new_or_changed_classes)

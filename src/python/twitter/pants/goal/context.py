@@ -96,8 +96,8 @@ class Context(object):
     return 'Context(id:%s, state:%s, targets:%s)' % (self.id, self.state, self.targets())
 
   @contextmanager
-  def new_work_scope(self, type, name, cmd=None):
-    with self.run_tracker.new_work_scope(type, name, cmd) as workunit:
+  def new_work_scope(self, name, type='', cmd=''):
+    with self.run_tracker.new_work_scope(name, type, cmd) as workunit:
       yield workunit
 
   def acquire_lock(self):

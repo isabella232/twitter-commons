@@ -176,7 +176,7 @@ class IvyResolve(NailgunTask):
 
     if self._report:
       self._generate_ivy_report()
-      
+
     if self.context.products.isrequired("ivy_jar_products"):
       self._populate_ivy_jar_products()
 
@@ -335,7 +335,7 @@ class IvyResolve(NailgunTask):
       ivy_args.append('-notransitive')
     ivy_args.extend(self._args)
 
-    result = self.runjava('org.apache.ivy.Main', args=ivy_args)
+    result = self.runjava('org.apache.ivy.Main', args=ivy_args, workunit_name='ivy')
     if result != 0:
       raise TaskError('org.apache.ivy.Main returned %d' % result)
 

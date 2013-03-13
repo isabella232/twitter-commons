@@ -91,7 +91,7 @@ class NailgunTask(Task):
     self._ng_out = os.path.join(workdir, 'stdout')
     self._ng_err = os.path.join(workdir, 'stderr')
 
-  def runjava(self, main, classpath=None, args=None, jvmargs=None):
+  def runjava(self, main, classpath=None, args=None, jvmargs=None, workunit_name=None):
     """
       Runs the java main using the given classpath and args.  If --no-ng-daemons is specified then
       the java main is run in a freshly spawned subprocess, otherwise a persistent nailgun server
@@ -101,8 +101,10 @@ class NailgunTask(Task):
     cp = (self._classpath or []) + (classpath or [])
     # If running through nailgun, we only use this cmd for display purposes.
     cmd = binary_utils.build_java_cmd(main=main, classpath=cp, args=args, jvmargs=jvmargs)
+    if not workunit_name:
+      workunit_name = main
     if self._daemon:
-      with self.context.new_work_scope(type='ng_tool', name='nailgun:%s' % main, cmd=' '.join(cmd)) as workunit:
+      with self.context.new_work_scope(name=workunit_name, type='ng_tool', cmd=' '.join(cmd)) as workunit:
         nailgun = self._get_nailgun_client(stdin=None,
           stdout=workunit.output('stdout'), stderr=workunit.output('stderr'))
 
@@ -124,7 +126,7 @@ class NailgunTask(Task):
           self._ng_shutdown()
           raise e
     else:
-      with self.context.new_work_scope(type='jvm_tool', name='jvm:%s' % main, cmd=' '.join(cmd)) as workunit:
+      with self.context.new_work_scope(name=workunit_name, type='jvm_tool', cmd=' '.join(cmd)) as workunit:
         if self.dry_run:
           self.context.report('********** Direct Java dry run')
           return 0

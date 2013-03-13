@@ -24,14 +24,14 @@ class WorkUnit(object):
   SUCCESS = 2
   UNKNOWN = 3
 
-  def __init__(self, parent, aggregated_timings, type, name, cmd):
+  def __init__(self, parent, aggregated_timings, name, type, cmd):
     """
     - parent: The containing workunit, if any. E.g., 'compile' might contain 'java', 'scala' etc.,
               'scala' might contain 'compile', 'split' etc.
-    - type: A string that the report formatters can use to decide how to display information
-            about this work. E.g., 'phase', 'goal', 'jvm_tool'. By convention, types
-            ending with '_tool' are assumed to be invocations of external tools.
     - name: A short name for this work. E.g., 'resolve', 'compile', 'scala', 'zinc'.
+    - type: An optional string that the report formatters can use to decide how to display
+            information about this work. E.g., 'phase', 'goal', 'jvm_tool'. By convention, types
+            ending with '_tool' are assumed to be invocations of external tools.
     - cmd: An optional longer string representing this work. E.g., the cmd line of a
            compiler invocation. Used only for display.
     """
@@ -40,8 +40,8 @@ class WorkUnit(object):
     self.parent = parent
     self.aggregated_timings = aggregated_timings
     self.children = []
-    self.type = type
     self.name = name
+    self.type = type
     self.cmd = cmd
     self.id = uuid.uuid4()
     # In seconds since the epoch. Doubles, to account for fractional seconds.
