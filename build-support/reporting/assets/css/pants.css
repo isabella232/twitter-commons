@@ -235,15 +235,18 @@ a:visited {
   font-weight: bold;
 }
 
-/*.aggregated_timings {
+.aggregated-timings table tr td {
   font-size: 14px;
   font-weight: bold;
-  border: 1px solid black;
-  background-color: lightgray;
-  position: absolute;
-  top: 0px;
-  right:0px;
-}*/
+  margin: 0;
+  padding: 0;
+}
+
+.aggregated-timings table tr .timing-string {
+  text-align: right;
+  color: brown;
+  padding-right: 1px;
+}
 
 .nodisplay {
   display: none;

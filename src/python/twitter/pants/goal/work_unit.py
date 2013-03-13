@@ -60,7 +60,7 @@ class WorkUnit(object):
 
   def end(self):
     self.end_time = time.time()
-    self.aggregated_timings.add_timing(self.get_path(), self.duration())
+    self.aggregated_timings.add_timing(self.get_path(), self.self_time())
 
   def to_dict(self):
     """Useful for providing arguments to templates."""
@@ -101,7 +101,15 @@ class WorkUnit(object):
     return self.choose('FAILURE', 'WARNING', 'SUCCESS', 'UNKNOWN')
 
   def duration(self):
+    """Returns the time spent in this workunit and its children."""
     return self.end_time - self.start_time
+
+  def self_time(self):
+    """Returns the time spent in this workunit outside of any children."""
+    return self.duration() - self.time_in_children()
+
+  def time_in_children(self):
+    return sum([child.duration() for child in self.children])
 
   def ancestors(self):
     """Returns a list of this workunit and those enclosing it, up to the root."""
@@ -118,10 +126,5 @@ class WorkUnit(object):
 
   def unaccounted_time(self):
     """Returns the difference between the time spent in our children and own time."""
-    if len(self.children) == 0:
-      return 0
+    return 0 if len(self.children) == 0 else self.self_time()
 
-    time_in_children = 0
-    for child in self.children:
-      time_in_children += child.duration()
-    return self.duration() - time_in_children

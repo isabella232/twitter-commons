@@ -1,23 +1,31 @@
 <div class="run">
 {{#no_such_run}}
+<p>
 {{#is_latest}}<div class="no-runs">No runs found since last clean-all.<p>Latest run will display here automatically.</div>{{/is_latest}}
 {{^is_latest}}<div class="no-such-run">No run found with id {{.}}</div>{{/is_latest}}
+</p>
 {{/no_such_run}}
 {{^no_such_run}}
 <div class="run-info">
 {{#run_info}}
 <div class="timestamp-text">Pants run at {{timestamp_text}}</div>
+<p>
 <div class="cmd-line-label">Command line:</div>
 <div class="cmd-line monospace">{{cmd_line}}</div>
-<div id="aggregated-timings">{{#collapsible}}aggregated-timings-{{id}}&&Aggregated Timings&&closed&&nospinner{{/collapsible}}</div>
+</p>
+<p>
+<div id="aggregated-timings">{{#collapsible}}aggregated-timings-collapsible&&Aggregated Timings&&closed&&nospinner&&aggregated-timings{{/collapsible}}</div>
+</p>
 </div>
+<p>
 <div id="report-{{id}}"></div>
+</p>
 <script>
   $(function() {
     pants.poller.startTailing('run_{{id}}_root', '{{report_path}}', '#report-{{id}}');
   });
   $(function() {
-    pants.poller.startPolling('run_{{id}}_aggregated_timings', '{{aggregated_timings_path}}', '#aggregated_timings-{{id}}-content');
+    pants.poller.startPolling('run_{{id}}_aggregated_timings', '{{aggregated_timings_path}}', '#aggregated-timings-collapsible-content', function() { pants.collapsible.hasContent('aggregated-timings-collapsible'); });
   });
 </script>
 {{/run_info}}

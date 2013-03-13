@@ -1,18 +1,25 @@
 
 pants = {
-  toggleScope: function(id) {
-    $("#" + id + "-content").toggle();
-    $("#" + id + "-icon").toggleClass("icon-caret-right icon-caret-down")
-  },
+  collapsible: {
+    toggle: function(id) {
+      $("#" + id + "-content").toggle();
+      $("#" + id + "-icon").toggleClass("icon-caret-right icon-caret-down")
+    },
 
-  expandScope: function(id) {
-    $("#" + id + "-content").show();
-    $("#" + id + "-icon").removeClass("icon-caret-right").addClass("icon-caret-down")
-  },
+    expand: function(id) {
+      $("#" + id + "-content").show();
+      $("#" + id + "-icon").removeClass("icon-caret-right").addClass("icon-caret-down")
+    },
 
-  collapseScope: function(id) {
-    $("#" + id + "-content").hide();
-    $("#" + id + "-icon").removeClass("icon-caret-down").addClass("icon-caret-right")
+    collapse: function(id) {
+      $("#" + id + "-content").hide();
+      $("#" + id + "-icon").removeClass("icon-caret-down").addClass("icon-caret-right")
+    },
+
+    hasContent: function(id) {
+      $('#' + id + '-header').children().removeClass('greyed-header-text');
+      $('#' + id + '-icon').removeClass('hidden');
+    }
   },
 
   append: function(fromSelector, toSelector) {

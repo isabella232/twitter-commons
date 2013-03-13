@@ -118,8 +118,8 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
   def _render_collapsible(self, arg_string, outer_args):
     rendered_arg_string = self._renderer.render(arg_string, outer_args)
-    id, title, initially_open, spinner, class_prefix =\
-    (rendered_arg_string.split('&&') + [None, None, None])[0:5]
+    id, title, initially_open, spinner, class_prefix = \
+      (rendered_arg_string.split('&&') + [None, None, None])[0:5]
     inner_args = {
       'id': id,
       'title': title,
