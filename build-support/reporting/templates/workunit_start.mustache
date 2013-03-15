@@ -3,7 +3,6 @@
   $(function(){
     pants.append('#__{{workunit.id}}__content', '#{{workunit.parent.id}}-content');
     $('#{{workunit.parent.id}}-icon').removeClass('hidden');
-    //{{^is_tool}}pants.collapsible.expand('{{workunit.parent.id}}');{{/is_tool}}
     pants.timerManager.startTimer('{{workunit.id}}', '#{{workunit.id}}-timer', 1000 * {{workunit.start_time}});
   });
 </script>
