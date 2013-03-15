@@ -26,6 +26,10 @@ pants = {
     $(fromSelector).appendTo($(toSelector)).show();
   },
 
+  appendString: function(str, toSelector) {
+    $(toSelector).append(str);
+  },
+
   // Creates an object that knows how to manage multiple timers, and periodically emit them.
   createTimerManager: function() {
     // The start time (in ms since the epoch) of each timer.
@@ -182,3 +186,9 @@ pants = {
 // We really only need one global one of each of these. So here they are.
 pants.timerManager = pants.createTimerManager();
 pants.poller = pants.createPoller();
+
+// A useful wrapper function for a common case, where we're tailing the stdout/stderr of an exec'd tool.
+pants.startTailingToolOutput = function(html_path_base, workunit_id, dev /* 'stdin' or 'stdout' */) {
+  var pollerId = workunit_id + '-' + dev;
+  pants.poller.startTailing(pollerId, html_path_base + '/' + workunit_id + '.' + dev, '#' + pollerId + '-content', function() { pants.collapsible.hasContent(pollerId); });
+}

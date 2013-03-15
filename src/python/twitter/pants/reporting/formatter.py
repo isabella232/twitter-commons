@@ -1,6 +1,7 @@
 import cgi
 import os
 import re
+import urlparse
 
 from pystache import Renderer
 
@@ -99,9 +100,9 @@ class HTMLFormatter(Formatter):
              'html_path_base': self._html_path_base,
              'workunit': workunit_dict,
              'header_text': header_text,
-             'open_or_closed': 'closed' if is_tool else 'open',
+             'initially_open': not is_tool,
              'is_tool': is_tool }
-    args.update({ 'collapsible': lambda x: self._render_collapsible(x, args) })
+    args.update({ 'collapsible': lambda x: self._render_callable('collapsible', x, args) })
 
     ret = self._renderer.render_name('workunit_start', args)
     if is_tool:
@@ -133,17 +134,7 @@ class HTMLFormatter(Formatter):
     }
     return self._renderer.render_name('aggregated_timings', args)
 
-  def _render_collapsible(self, arg_string, outer_args):
+  def _render_callable(self, template_name, arg_string, outer_args):
     rendered_arg_string = self._renderer.render(arg_string, outer_args)
-    id, title, initially_open, spinner, class_prefix, icon = \
-      (rendered_arg_string.split('&&') + [None, None, None, None, None])[0:6]
-    inner_args = {
-      'id': id,
-      'title': title,
-      'initially_open': (initially_open == 'open'),
-      'spinner': (spinner == 'spinner'),
-      'class_prefix': class_prefix,
-      'icon': icon
-    }
-    return self._renderer.render_name('collapsible', inner_args)
-
+    inner_args = dict([(k, v[0]) for k, v in urlparse.parse_qs(rendered_arg_string).items()])
+    return self._renderer.render_name(template_name, inner_args)

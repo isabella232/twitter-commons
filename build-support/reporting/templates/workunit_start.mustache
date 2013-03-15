@@ -1,4 +1,4 @@
-<div id="__{{workunit.id}}__content">{{#collapsible}}{{workunit.id}}&&{{header_text}}&&{{open_or_closed}}&&spinner&&{{#is_tool}}&&icon-cog{{/is_tool}}{{/collapsible}}</div>
+<div id="__{{workunit.id}}__content">{{#collapsible}}id={{workunit.id}}&title={{header_text}}{{#initially_open}}&initially_open=1{{/initially_open}}&spinner=1{{#is_tool}}&icon=icon-cog{{/is_tool}}{{/collapsible}}</div>
 <script>
   $(function(){
     pants.append('#__{{workunit.id}}__content', '#{{workunit.parent.id}}-content');
