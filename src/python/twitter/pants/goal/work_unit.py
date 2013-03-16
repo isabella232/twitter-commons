@@ -58,6 +58,9 @@ class WorkUnit(object):
   def is_tool(self):
     return self.type.endswith('_tool')
 
+  def is_multitool(self):
+    return self.type.endswith('_multitool')
+
   def start(self):
     self.start_time = time.time()
 

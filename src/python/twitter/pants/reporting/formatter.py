@@ -89,6 +89,7 @@ class HTMLFormatter(Formatter):
 
   def start_workunit(self, workunit):
     is_tool = workunit.is_tool()
+    is_multitool = workunit.is_multitool()
     if workunit.parent is None:
       header_text = 'all'
     else:
@@ -100,8 +101,9 @@ class HTMLFormatter(Formatter):
              'html_path_base': self._html_path_base,
              'workunit': workunit_dict,
              'header_text': header_text,
-             'initially_open': not is_tool,
-             'is_tool': is_tool }
+             'initially_open': not (is_tool or is_multitool),
+             'is_tool': is_tool,
+             'is_multitool': is_multitool }
     args.update({ 'collapsible': lambda x: self._render_callable('collapsible', x, args) })
 
     ret = self._renderer.render_name('workunit_start', args)

@@ -180,17 +180,18 @@ class _MergedZincArtifact(_ZincArtifact):
     """Merge the analysis files from the underlying artifacts into a single file."""
     with temporary_dir(cleanup=False) as tmpdir:
       artifact_analysis_files = []
-      for artifact in self.underlying_artifacts:
-        # Rebase a copy of the per-target analysis files to reflect the merged classes dir.
-        if os.path.exists(artifact.classes_dir) and os.path.exists(artifact.analysis_file):
-          self.log.debug('Rebasing analysis file %s before merging' % artifact.analysis_file)
-          analysis_file_tmp = os.path.join(tmpdir, artifact.artifact_id)
-          shutil.copyfile(artifact.analysis_file, analysis_file_tmp)
-          artifact_analysis_files.append(analysis_file_tmp)
-          if self.factory.zinc_utils.run_zinc_rebase(analysis_file_tmp,
-                                                     [(artifact.classes_dir, self.classes_dir)]):
-            self.log.warn('Zinc failed to rebase analysis file %s. ' \
-                          'Target may require a full rebuild.' % analysis_file_tmp)
+      with self.factory.context.new_work_scope(name='rebase', type='jvm_multitool'):
+        for artifact in self.underlying_artifacts:
+          # Rebase a copy of the per-target analysis files to reflect the merged classes dir.
+          if os.path.exists(artifact.classes_dir) and os.path.exists(artifact.analysis_file):
+            self.log.debug('Rebasing analysis file %s before merging' % artifact.analysis_file)
+            analysis_file_tmp = os.path.join(tmpdir, artifact.artifact_id)
+            shutil.copyfile(artifact.analysis_file, analysis_file_tmp)
+            artifact_analysis_files.append(analysis_file_tmp)
+            if self.factory.zinc_utils.run_zinc_rebase(analysis_file_tmp,
+                                                       [(artifact.classes_dir, self.classes_dir)]):
+              self.log.warn('Zinc failed to rebase analysis file %s. ' \
+                            'Target may require a full rebuild.' % analysis_file_tmp)
 
       self.log.debug('Merging into analysis file %s' % self.analysis_file)
       if self.factory.zinc_utils.run_zinc_merge(artifact_analysis_files, self.analysis_file):
@@ -278,12 +279,14 @@ class _MergedZincArtifact(_ZincArtifact):
     if self.factory.zinc_utils.run_zinc_split(analysis_to_split, split_args):
       raise TaskError('zinc failed to split analysis files %s from %s' % \
                       (':'.join([x.dst_analysis_file for x in splits]), analysis_to_split))
-    for split in splits:
-      if os.path.exists(split.dst_analysis_file):
-        self.log.debug('Rebasing analysis file %s after split' % split.dst_analysis_file)
-        if self.factory.zinc_utils.run_zinc_rebase(split.dst_analysis_file,
-                                                   [(self.classes_dir, split.dst_classes_dir)]):
-          raise TaskError('Zinc failed to rebase analysis file %s' % split.dst_analysis_file)
+
+    with self.factory.context.new_work_scope(name='rebase', type='jvm_multitool'):
+      for split in splits:
+        if os.path.exists(split.dst_analysis_file):
+          self.log.debug('Rebasing analysis file %s after split' % split.dst_analysis_file)
+          if self.factory.zinc_utils.run_zinc_rebase(split.dst_analysis_file,
+                                                     [(self.classes_dir, split.dst_classes_dir)]):
+            raise TaskError('Zinc failed to rebase analysis file %s' % split.dst_analysis_file)
 
   def _split_classes_dir(self, state, diff):
     """Split the merged classes dir into one dir per underlying artifact."""
