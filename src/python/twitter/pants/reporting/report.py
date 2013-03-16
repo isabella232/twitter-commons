@@ -85,12 +85,6 @@ class Report(object):
   def write(self, workunit, s):
     workunit.output().write(s)
 
-#  def write_targets(self, workunit, prefix, targets):
-#    indent = '\n' + ' ' * (len(prefix) + 1)
-#    s = '%s %s\n' % (prefix, indent.join([t.address.reference() for t in targets]))
-#    self.write(workunit, s)
-
-
   def close(self):
     self._emitter_thread.stop()
     with self._lock:

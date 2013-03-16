@@ -10,7 +10,7 @@
     pants.append('#__{{workunit.id}}__tool_invocation', '#{{workunit.id}}-content');
     pants.appendString('{{{workunit.cmd}}}', '#{{workunit.id}}-cmd-content');
     // Only tail the stdout/stderr when we open the enclosing collapsible, as there could be hundreds of them.
-    $('#{{workunit.id}}-header').bind('click', function() {
+    $('#{{workunit.id}}-header').one('click', function() {
       pants.poller.startTailing('{{workunit.id}}_stdout', '{{html_path_base}}/{{workunit.id}}.stdout', '#{{workunit.id}}-stdout-content', function() { pants.collapsible.hasContent('{{workunit.id}}-stdout'); });
       pants.poller.startTailing('{{workunit.id}}_stderr', '{{html_path_base}}/{{workunit.id}}.stderr', '#{{workunit.id}}-stderr-content', function() { pants.collapsible.hasContent('{{workunit.id}}-stderr'); });
     });

@@ -84,7 +84,7 @@ class HTMLFormatter(Formatter):
         return None
 
     def maybe_add_link(url, text):
-      return '<a target="_blank" href="%s">%s</a>' % (url, text) if url else None
+      return '<a target="_blank" href="%s">%s</a>' % (url, text) if url else text
     return HTMLFormatter.path_re.sub(lambda m: maybe_add_link(to_url(m), m.group(0)), s)
 
   def start_workunit(self, workunit):

@@ -90,13 +90,22 @@ pants = {
         }
       }
 
+      var polledStates = [];
+
+      function createRequestEntry(state, id) {
+        if (state.inFlight) {
+          return null;
+        } else {
+          state.inFlight = true;
+          polledStates.push(state);
+          return { id: id, path: state.path, pos: state.pos };
+        }
+      }
+
       $.ajax({
         url: '/poll',
         type: 'GET',
-        data: { q: JSON.stringify(
-                $.map(polledFileStates, function (state, id) {
-                                          return { id: id, path: state.path, pos: state.pos } }))
-        },
+        data: { q: JSON.stringify($.map(polledFileStates, createRequestEntry))},
         dataType: 'json',
         success: function(data, textStatus, jqXHR) {
           function appendNewData() {
@@ -131,8 +140,12 @@ pants = {
           appendNewData();
           checkForStopped();
         },
-        error: function(data, textStatus, jqXHR) {
+        error: function(jqXHR, textStatus, errorThrown) {
           // TODO: Something?
+        },
+        complete: function(jqXHR, textStatus) {
+          $.each(polledStates, function(idx, state) { state.inFlight = false; });
+          polledStates.length = 0;
         }
       });
     }
@@ -141,6 +154,7 @@ pants = {
       polledFileStates[id] = {
         path: path,
         pos: 0,
+        inFlight: false,
         replace: replace,
         selector: targetSelector,
         initFunc: initFunc,
