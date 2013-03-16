@@ -24,8 +24,6 @@ PPP_RE=re.compile("""^lang-.*\.js$""")
 Settings = namedtuple('Settings',
   ['info_dir', 'reports_dir', 'template_dir', 'assets_dir', 'root', 'allowed_clients'])
 
-from collections import defaultdict
-_pollings = defaultdict(int)
 
 class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
   """A handler that serves regions of files under a given root:
@@ -183,10 +181,6 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
               infile.seek(pos)
             content = infile.read()
             ret[id] = content
-            expected_pos = _pollings[id]
-            if pos != expected_pos and pos > 0:
-              print 'XXXXXXXXXXXXXXXXX %s expected %d but got %d at content %s' % (id, expected_pos, pos, content)
-            _pollings[id] += len(content)
     self._send_content(json.dumps(ret), 'application/json')
 
   def _handle_latest_runid(self, relpath, params):
