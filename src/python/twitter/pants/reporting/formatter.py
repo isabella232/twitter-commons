@@ -21,7 +21,7 @@ class Formatter(object):
     return ''
 
   def start_workunit(self, workunit):
-    return '[%s]\n' % workunit.get_path()
+    return '%s [%s]\n' % (workunit.start_time_string(), workunit.get_path())
 
   def end_workunit(self, workunit):
     return ''
@@ -119,7 +119,7 @@ class HTMLFormatter(Formatter):
     timing = '%.3f' % duration
     unaccounted_time_secs = workunit.unaccounted_time()
     unaccounted_time = '%.3f' % unaccounted_time_secs \
-      if unaccounted_time_secs >= 1 and unaccounted_time_secs > 0.01 * duration \
+      if unaccounted_time_secs >= 1 and unaccounted_time_secs > 0.05 * duration \
       else None
     args = { 'workunit': workunit.to_dict(),
              'status': workunit.choose(*HTMLFormatter._status_css_classes),
