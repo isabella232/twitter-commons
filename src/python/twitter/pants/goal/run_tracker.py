@@ -41,9 +41,10 @@ class RunTracker(object):
     self._current_workunit = self._root_workunit
 
   def close(self):
-    assert self._current_workunit == self._root_workunit
-    self._root_workunit.end()
-    self.report.end_workunit(self._root_workunit)
+    while self._current_workunit:
+      self._current_workunit.end()
+      self.report.end_workunit(self._current_workunit)
+      self._current_workunit = self._current_workunit.parent
     self.report.close()
     try:
       self.run_info.add_info('outcome', self._root_workunit.outcome_string())

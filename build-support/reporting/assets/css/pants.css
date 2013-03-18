@@ -75,7 +75,7 @@ a:visited {
 }
 
 #main-content {
-  margin-left: 200px;
+  margin-left: 260px;
   padding: 1em;
 }
 
@@ -102,6 +102,11 @@ a:visited {
   font-weight: bold;
 }
 
+.timestamp {
+  position: absolute;
+  left: 200px;
+  color: black;
+}
 
 .aborted {
   color: purple;

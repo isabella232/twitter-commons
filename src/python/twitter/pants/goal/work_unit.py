@@ -72,12 +72,14 @@ class WorkUnit(object):
   def to_dict(self):
     """Useful for providing arguments to templates."""
     ret = {}
-    for key in ['type', 'name', 'cmd', 'id', 'start_time', 'end_time']:
-      ret[key] = getattr(self, key)
+    for key in ['type', 'name', 'cmd', 'id', 'start_time', 'end_time',
+                'outcome', 'start_time_string', 'end_time_string']:
+      val = getattr(self, key)
+      ret[key] = val() if hasattr(val, '__call__') else val
       ret['parent'] = self.parent.to_dict() if self.parent else None
     return ret
 
-  def get_outcome(self):
+  def outcome(self):
     return self._outcome
 
   def set_outcome(self, outcome):
@@ -117,6 +119,15 @@ class WorkUnit(object):
 
   def time_in_children(self):
     return sum([child.duration() for child in self.children])
+
+  def start_time_string(self):
+    return self._format_time_string(self.start_time)
+
+  def end_time_string(self):
+    return self._format_time_string(self.end_time)
+
+  def _format_time_string(self, secs):
+    return time.strftime('%H:%M:%S', time.localtime(secs))
 
   def ancestors(self):
     """Returns a list of this workunit and those enclosing it, up to the root."""

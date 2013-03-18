@@ -125,7 +125,7 @@ class HTMLFormatter(Formatter):
              'status': workunit.choose(*HTMLFormatter._status_css_classes),
              'timing': timing,
              'unaccounted_time': unaccounted_time,
-             'aborted': workunit.get_outcome() == WorkUnit.ABORTED }
+             'aborted': workunit.outcome() == WorkUnit.ABORTED }
 
     ret = ''
     if workunit.type.endswith('_tool'):
@@ -144,4 +144,5 @@ class HTMLFormatter(Formatter):
   def _render_callable(self, template_name, arg_string, outer_args):
     rendered_arg_string = self._renderer.render(arg_string, outer_args)
     inner_args = dict([(k, v[0]) for k, v in urlparse.parse_qs(rendered_arg_string).items()])
-    return self._renderer.render_name(template_name, inner_args)
+    args = dict(inner_args.items() + outer_args.items())
+    return self._renderer.render_name(template_name, args)
