@@ -7,6 +7,7 @@ from pystache import Renderer
 
 from twitter.pants import get_buildroot
 from twitter.pants.base.build_file import BuildFile
+from twitter.pants.goal.work_unit import WorkUnit
 
 
 class Formatter(object):
@@ -111,16 +112,20 @@ class HTMLFormatter(Formatter):
       ret += self._renderer.render_name('tool_invocation_start', args)
     return ret
 
-  _status_css_classes = ['failure', 'warning', 'success', 'unknown']
+  _status_css_classes = ['aborted', 'failure', 'warning', 'success', 'unknown']
 
   def end_workunit(self, workunit):
-    timing = '%.3f' % (workunit.end_time - workunit.start_time)
+    duration = workunit.duration()
+    timing = '%.3f' % duration
     unaccounted_time_secs = workunit.unaccounted_time()
-    unaccounted_time = '%.3f' % unaccounted_time_secs if unaccounted_time_secs >= 1 else None
+    unaccounted_time = '%.3f' % unaccounted_time_secs \
+      if unaccounted_time_secs >= 1 and unaccounted_time_secs > 0.01 * duration \
+      else None
     args = { 'workunit': workunit.to_dict(),
-             'status': HTMLFormatter._status_css_classes[workunit.get_outcome()],
+             'status': workunit.choose(*HTMLFormatter._status_css_classes),
              'timing': timing,
-             'unaccounted_time': unaccounted_time }
+             'unaccounted_time': unaccounted_time,
+             'aborted': workunit.get_outcome() == WorkUnit.ABORTED }
 
     ret = ''
     if workunit.type.endswith('_tool'):

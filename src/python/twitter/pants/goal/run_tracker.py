@@ -78,16 +78,18 @@ class RunTracker(object):
                                       aggregated_timings=self.aggregated_timings,
                                       name=name, type=type, cmd=cmd)
     self._current_workunit.start()
-    raised_exception = True  # Putatively.
     try:
       self.report.start_workunit(self._current_workunit)
       yield self._current_workunit
-      raised_exception = False
+    except KeyboardInterrupt:
+      self._current_workunit.set_outcome(WorkUnit.ABORTED)
+      raise
+    except:
+      self._current_workunit.set_outcome(WorkUnit.FAILURE)
+      raise
+    else:
+      self._current_workunit.set_outcome(WorkUnit.SUCCESS)
     finally:
-      if raised_exception:  # In case the work code failed to set the outcome.
-        self._current_workunit.set_outcome(WorkUnit.FAILURE)
-      else:
-        self._current_workunit.set_outcome(WorkUnit.SUCCESS)
       self._current_workunit.end()
       self.report.end_workunit(self._current_workunit)
       self._current_workunit = self._current_workunit.parent

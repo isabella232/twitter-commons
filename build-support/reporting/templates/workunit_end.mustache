@@ -2,7 +2,8 @@
   $('#{{workunit.id}}-header-text').addClass('{{status}}');
   $('#{{workunit.id}}-spinner').hide();
   $('#{{workunit.id}}-timer').html('{{timing}}s');
-  {{#unaccounted_time}}$('#{{workunit.id}}-unaccounted-time').html('(Unaccounted: {{.}}s)').show();{{/unaccounted_time}}
+  {{^aborted}}{{#unaccounted_time}}$('#{{workunit.id}}-unaccounted-time').html('(Unaccounted: {{.}}s)').show();{{/unaccounted_time}}{{/aborted}}
+  {{#aborted}}$('#{{workunit.id}}-aborted').show();{{/aborted}}
 
   $(function(){
     pants.timerManager.stopTimer('{{workunit.id}}');

@@ -103,6 +103,10 @@ a:visited {
 }
 
 
+.aborted {
+  color: purple;
+}
+
 .failure {
   color: red;
 }

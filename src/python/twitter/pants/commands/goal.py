@@ -383,62 +383,64 @@ class Goal(Command):
       Phase.setup_parser(parser, args, self.phases)
 
   def run(self, lock):
-    if self.options.dry_run:
-      print '****** Dry Run ******'
+    try:
+      if self.options.dry_run:
+        print '****** Dry Run ******'
 
-    logger = None
-    if self.options.log or self.options.log_level:
-      from twitter.common.log import init
-      from twitter.common.log.options import LogOptions
-      LogOptions.set_stderr_log_level((self.options.log_level or 'info').upper())
-      logdir = self.options.logdir or self.config.get('goals', 'logdir', default=None)
-      if logdir:
-        safe_mkdir(logdir)
-        LogOptions.set_log_dir(logdir)
-        init('goals')
-      else:
-        init()
-      logger = log
+      logger = None
+      if self.options.log or self.options.log_level:
+        from twitter.common.log import init
+        from twitter.common.log.options import LogOptions
+        LogOptions.set_stderr_log_level((self.options.log_level or 'info').upper())
+        logdir = self.options.logdir or self.config.get('goals', 'logdir', default=None)
+        if logdir:
+          safe_mkdir(logdir)
+          LogOptions.set_log_dir(logdir)
+          init('goals')
+        else:
+          init()
+        logger = log
 
-    if self.options.recursive_directory:
-      log.warn('--all-recursive is deprecated, use a target spec with the form [dir]:: instead')
-      for dir in self.options.recursive_directory:
-        self.add_target_recursive(dir)
+      if self.options.recursive_directory:
+        log.warn('--all-recursive is deprecated, use a target spec with the form [dir]:: instead')
+        for dir in self.options.recursive_directory:
+          self.add_target_recursive(dir)
 
-    if self.options.target_directory:
-      log.warn('--all is deprecated, use a target spec with the form [dir]: instead')
-      for dir in self.options.target_directory:
-        self.add_target_directory(dir)
+      if self.options.target_directory:
+        log.warn('--all is deprecated, use a target spec with the form [dir]: instead')
+        for dir in self.options.target_directory:
+          self.add_target_directory(dir)
 
-    context = Context(
-      self.config,
-      self.options,
-      self.run_tracker,
-      self.targets,
-      lock=lock,
-      log=logger,
-      timer=self.timer if self.options.time else None)
+      context = Context(
+        self.config,
+        self.options,
+        self.run_tracker,
+        self.targets,
+        lock=lock,
+        log=logger,
+        timer=self.timer if self.options.time else None)
 
-    unknown = []
-    for phase in self.phases:
-      if not phase.goals():
-        unknown.append(phase)
+      unknown = []
+      for phase in self.phases:
+        if not phase.goals():
+          unknown.append(phase)
 
-    if unknown:
-      print('Unknown goal(s): %s' % ' '.join(phase.name for phase in unknown))
-      print('')
-      return Phase.execute(context, 'goals')
+      if unknown:
+        print('Unknown goal(s): %s' % ' '.join(phase.name for phase in unknown))
+        print('')
+        return Phase.execute(context, 'goals')
 
-    if logger:
-      logger.debug('Operating on targets: %s', self.targets)
+      if logger:
+        logger.debug('Operating on targets: %s', self.targets)
 
-    ret = Phase.attempt(context, self.phases)
-    if self.options.time:
-      print('Timing report')
-      print('=============')
-      self.timer.print_timings()
-    self.run_tracker.close()
-    return ret
+      ret = Phase.attempt(context, self.phases)
+      if self.options.time:
+        print('Timing report')
+        print('=============')
+        self.timer.print_timings()
+      return ret
+    finally:
+      self.run_tracker.close()
 
   def cleanup(self):
     # TODO: Make this more selective? Only kill nailguns that affect state? E.g., checkstyle

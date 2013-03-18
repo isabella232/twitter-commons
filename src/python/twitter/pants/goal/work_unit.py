@@ -19,10 +19,11 @@ class WorkUnit(object):
   """
 
   # The outcome must be one of these values. It can only be set to a new value <= an old one.
-  FAILURE = 0
-  WARNING = 1
-  SUCCESS = 2
-  UNKNOWN = 3
+  ABORTED = 0
+  FAILURE = 1
+  WARNING = 2
+  SUCCESS = 3
+  UNKNOWN = 4
 
   def __init__(self, parent, aggregated_timings, name, type, cmd):
     """
@@ -87,7 +88,7 @@ class WorkUnit(object):
     worst outcome of any of its subunits and any outcome set on it directly."""
     if outcome < self._outcome:
       self._outcome = outcome
-      self.choose(0, 0, 0, 0)  # Dummy call, to validate.
+      self.choose(0, 0, 0, 0, 0)  # Dummy call, to validate.
       if self.parent: self.parent.set_outcome(self._outcome)
 
   DEFAULT_OUTPUT_LABEL = 'build'
@@ -97,14 +98,14 @@ class WorkUnit(object):
   def outputs(self):
     return self._outputs
 
-  def choose(self, failure_val, warning_val, success_val, unknown_val):
-    """Returns one of the 4 arguments, depending on our outcome."""
-    if self._outcome not in range(0, 4):
+  def choose(self, aborted_val, failure_val, warning_val, success_val, unknown_val):
+    """Returns one of the 5 arguments, depending on our outcome."""
+    if self._outcome not in range(0, 5):
       raise Exception, 'Invalid outcome: %s' % self._outcome
-    return (failure_val, warning_val, success_val, unknown_val)[self._outcome]
+    return (aborted_val, failure_val, warning_val, success_val, unknown_val)[self._outcome]
 
   def outcome_string(self):
-    return self.choose('FAILURE', 'WARNING', 'SUCCESS', 'UNKNOWN')
+    return self.choose('ABORTED', 'FAILURE', 'WARNING', 'SUCCESS', 'UNKNOWN')
 
   def duration(self):
     """Returns the time spent in this workunit and its children."""
