@@ -76,7 +76,7 @@ class WorkUnit(object):
                 'outcome', 'start_time_string', 'end_time_string']:
       val = getattr(self, key)
       ret[key] = val() if hasattr(val, '__call__') else val
-      ret['parent'] = self.parent.to_dict() if self.parent else None
+    ret['parent'] = self.parent.to_dict() if self.parent else None
     return ret
 
   def outcome(self):
