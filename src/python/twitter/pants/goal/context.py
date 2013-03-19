@@ -43,7 +43,7 @@ class Context(object):
     def info(self, msg): pass
     def warn(self, msg): pass
 
-  def __init__(self, config, options, run_tracker, target_roots,
+  def __init__(self, config, options, run_tracker, target_roots, requested_goals,
                lock=Lock.unlocked(), log=None, timer=None):
     self._config = config
     self._options = options
@@ -54,6 +54,7 @@ class Context(object):
     self._buildroot = get_buildroot()
     self.timer = timer
     self.run_tracker = run_tracker
+    self.requested_goals = requested_goals
 
     self.replace_targets(target_roots)
 
