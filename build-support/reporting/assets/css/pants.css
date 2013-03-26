@@ -162,6 +162,18 @@ a:visited {
   color: grey;
 }
 
+.targets-title {
+  margin-left: 4px;
+  color: navy;
+  font-size: 10px;
+}
+
+.targets {
+  font-weight: normal;
+  position: relative;
+  top: 12px;
+}
+
 .spinner {
   background-image:url("../img/spinner.gif");
   background-repeat: no-repeat;

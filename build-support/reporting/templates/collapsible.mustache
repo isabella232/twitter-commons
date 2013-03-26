@@ -8,11 +8,6 @@
       [<span id="{{id}}-header-text">{{title}}</span>]
       <span class="timer" id="{{id}}-timer"></span>
       {{#icon}}<i class="{{.}}"></i>{{/icon}}
-      {{#targets?}}
-        <span class="targets" id="{{id}}-targets">
-            {{#targets}}{{.}}{{/targets}}
-        </span>
-      {{/targets?}}
       <span class="aborted nodisplay" id="{{id}}-aborted">ctrl-c</span>
       <span class="unaccounted-time nodisplay" id="{{id}}-unaccounted-time"></span>
     </div>

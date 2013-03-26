@@ -167,9 +167,9 @@ class Task(object):
         num_invalid_targets += len(vt.targets)
         num_invalid_sources += vt.cache_key.num_sources
     if num_invalid_partitions > 0:
-      self.context.log.info('Operating on %d files in %d invalidated targets in %d ' \
-                            'target partitions' % \
-                            (num_invalid_sources, num_invalid_targets, num_invalid_partitions))
+      self.context.report('Operating on %d files in %d invalidated targets in %d ' \
+                          'target partitions' % \
+                          (num_invalid_sources, num_invalid_targets, num_invalid_partitions))
 
     # Yield the result, and then mark the targets as up to date.
     yield invalidation_check

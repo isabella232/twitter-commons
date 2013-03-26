@@ -24,10 +24,10 @@ class Reporter(object):
                                     self.formatter.format_aggregated_timings(workunit))
 
   def handle_output(self, workunit, label, s):
+    """label - classifies the output (e.g., WorkUnit.DEFAULT_OUTPUT_LABEL for output pants itself
+    writes directly, 'stdout'/'stderr' for output captured from a tool's stdout/stderr. Other
+    labels are possible, e.g., if we capture output from a tool's logfiles.
     """
-    label - classifies the output (e.g., 'output' for output pants itself writes directly,
-    'stdout'/'stderr' for output captured from a tool's stdout/stderr. Other labels are possible,
-    e.g., if we capture output from a tool's logfiles."""
     self.handle_formatted_output(workunit, label, self.formatter.format(workunit, label, s))
 
   def handle_formatted_output(self, workunit, label, s):

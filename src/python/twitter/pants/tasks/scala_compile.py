@@ -110,7 +110,7 @@ class ScalaCompile(NailgunTask):
                               partition_size_hint=self._partition_size_hint) as invalidation_check:
           # Process partitions one by one.
           for vts in invalidation_check.all_vts_partitioned:
-            with self.context.new_work_scope('target_partition', targets=vts.targets):
+            with self.context.new_work_scope('target_partition'):
               if not self.dry_run:
                 merged_artifact = self._process_target_partition(vts, cp, upstream_analysis_map)
                 vts.update()

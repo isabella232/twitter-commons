@@ -2,6 +2,7 @@ import cgi
 import os
 import re
 import urlparse
+import uuid
 
 from pystache import Renderer
 
@@ -44,7 +45,15 @@ class HTMLFormatter(Formatter):
 
   def format(self, workunit, label, s):
     colored = self._handle_ansi_color_codes(cgi.escape(s))
-    return self._linkify(colored).replace('\n', '</br>')
+    ret = self._linkify(colored).replace('\n', '</br>')
+    if label == WorkUnit.DEFAULT_OUTPUT_LABEL:
+      args = {
+        'output_id': uuid.uuid4(),
+        'workunit_id': workunit.id,
+        'str': ret,
+      }
+      ret = self._renderer.render_name('output', args)
+    return ret
 
   # Replace ansi color sequences with spans of appropriately named css classes.
   ansi_color_code_re = re.compile(r'\033\[((?:\d|;)*)m')
