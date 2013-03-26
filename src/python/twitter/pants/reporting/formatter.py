@@ -7,6 +7,7 @@ from pystache import Renderer
 
 from twitter.pants import get_buildroot
 from twitter.pants.base.build_file import BuildFile
+from twitter.pants.base.mustache import MustacheRenderer
 from twitter.pants.goal.work_unit import WorkUnit
 
 
@@ -37,7 +38,7 @@ class PlainTextFormatter(Formatter):
 
 class HTMLFormatter(Formatter):
   def __init__(self, template_dir, html_dir):
-    self._renderer = Renderer(search_dirs=template_dir)
+    self._renderer = MustacheRenderer(Renderer(search_dirs=template_dir))
     self._buildroot = get_buildroot()
     self._html_path_base = os.path.relpath(html_dir, self._buildroot)
 

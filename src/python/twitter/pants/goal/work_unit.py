@@ -25,7 +25,7 @@ class WorkUnit(object):
   SUCCESS = 3
   UNKNOWN = 4
 
-  def __init__(self, parent, aggregated_timings, name, type, cmd):
+  def __init__(self, parent, aggregated_timings, name, type='', cmd='', targets=None):
     """
     - parent: The containing workunit, if any. E.g., 'compile' might contain 'java', 'scala' etc.,
               'scala' might contain 'compile', 'split' etc.
@@ -33,8 +33,8 @@ class WorkUnit(object):
     - type: An optional string that the report formatters can use to decide how to display
             information about this work. E.g., 'phase', 'goal', 'jvm_tool'. By convention, types
             ending with '_tool' are assumed to be invocations of external tools.
-    - cmd: An optional longer string representing this work. E.g., the cmd line of a
-           compiler invocation. Used only for display.
+    - cmd: An optional longer string representing this work. E.g., the cmd line of a compiler invocation.
+    - targets: An optional list of targets that this work operates on.
     """
     self._outcome = WorkUnit.UNKNOWN
 
@@ -44,6 +44,7 @@ class WorkUnit(object):
     self.name = name
     self.type = type
     self.cmd = cmd
+    self.targets = targets or []
     self.id = uuid.uuid4()
     # In seconds since the epoch. Doubles, to account for fractional seconds.
     self.start_time = 0
@@ -72,7 +73,7 @@ class WorkUnit(object):
   def to_dict(self):
     """Useful for providing arguments to templates."""
     ret = {}
-    for key in ['type', 'name', 'cmd', 'id', 'start_time', 'end_time',
+    for key in ['type', 'name', 'cmd', 'target_addresses', 'id', 'start_time', 'end_time',
                 'outcome', 'start_time_string', 'end_time_string']:
       val = getattr(self, key)
       ret[key] = val() if hasattr(val, '__call__') else val
@@ -128,6 +129,9 @@ class WorkUnit(object):
 
   def _format_time_string(self, secs):
     return time.strftime('%H:%M:%S', time.localtime(secs))
+
+  def target_addresses(self):
+    return [tgt.address.reference() for tgt in self.targets]
 
   def ancestors(self):
     """Returns a list of this workunit and those enclosing it, up to the root."""

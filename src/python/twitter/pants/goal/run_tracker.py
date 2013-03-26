@@ -55,15 +55,15 @@ class RunTracker(object):
     return self._current_workunit
 
   @contextmanager
-  def new_work_scope(self, name, type='', cmd=''):
+  def new_work_scope(self, name, type='', cmd='', targets=None):
     """Creates a (hierarchical) subunit of work for the purpose of timing and reporting.
 
     - name: A short name for this work. E.g., 'resolve', 'compile', 'scala'.
     - type: An optional string that the report formatters can use to decide how to display
             information about this work. E.g., 'phase', 'goal', 'jvm_tool'. By convention, types
             ending with '_tool' are assumed to be invocations of external tools.
-     - cmd: An optional longer description, e.g., the cmd line of a tool invocation.
-            Used only for display.
+    - cmd: An optional longer description, e.g., the cmd line of a tool invocation.
+    - targets: An optional list of targets that this work operates on.
 
     Use like this:
 
@@ -77,7 +77,7 @@ class RunTracker(object):
     """
     self._current_workunit = WorkUnit(parent=self._current_workunit,
                                       aggregated_timings=self.aggregated_timings,
-                                      name=name, type=type, cmd=cmd)
+                                      name=name, type=type, cmd=cmd, targets=targets)
     self._current_workunit.start()
     try:
       self.report.start_workunit(self._current_workunit)

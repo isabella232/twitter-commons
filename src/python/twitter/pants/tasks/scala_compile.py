@@ -110,17 +110,18 @@ class ScalaCompile(NailgunTask):
                               partition_size_hint=self._partition_size_hint) as invalidation_check:
           # Process partitions one by one.
           for vts in invalidation_check.all_vts_partitioned:
-            if not self.dry_run:
-              merged_artifact = self._process_target_partition(vts, cp, upstream_analysis_map)
-              vts.update()
-              # Note that we add the merged classes_dir to the upstream.
-              # This is because zinc doesn't handle many upstream dirs well.
-              if os.path.exists(merged_artifact.classes_dir):
-                for conf in self._confs:
-                  cp.append((conf, merged_artifact.classes_dir))
-                if os.path.exists(merged_artifact.analysis_file):
-                  upstream_analysis_map[merged_artifact.classes_dir] = \
-                    AnalysisFileSpec(merged_artifact.analysis_file, merged_artifact.classes_dir)
+            with self.context.new_work_scope('target_partition', targets=vts.targets):
+              if not self.dry_run:
+                merged_artifact = self._process_target_partition(vts, cp, upstream_analysis_map)
+                vts.update()
+                # Note that we add the merged classes_dir to the upstream.
+                # This is because zinc doesn't handle many upstream dirs well.
+                if os.path.exists(merged_artifact.classes_dir):
+                  for conf in self._confs:
+                    cp.append((conf, merged_artifact.classes_dir))
+                  if os.path.exists(merged_artifact.analysis_file):
+                    upstream_analysis_map[merged_artifact.classes_dir] = \
+                      AnalysisFileSpec(merged_artifact.analysis_file, merged_artifact.classes_dir)
 
     # Check for missing dependencies.
     all_analysis_files = set()

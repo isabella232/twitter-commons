@@ -15,6 +15,7 @@ from datetime import date, datetime
 
 from pystache import Renderer
 
+from twitter.pants.base.mustache import MustacheRenderer
 from twitter.pants.goal.run_tracker import RunInfo
 
 
@@ -274,7 +275,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
 class ReportingServer(object):
   def __init__(self, port, settings):
-    renderer = Renderer(search_dirs=settings.template_dir)
+    renderer = MustacheRenderer(Renderer(search_dirs=settings.template_dir))
 
     class MyHandler(PantsHandler):
       def __init__(self, request, client_address, server):
