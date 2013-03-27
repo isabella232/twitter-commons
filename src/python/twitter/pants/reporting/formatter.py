@@ -33,8 +33,13 @@ class Formatter(object):
       for addr, n in part:
         num_targets += 1
         num_files += n
-    s = 'Operating on %d files in %d invalidated targets in %d target partitions' % \
-           (num_files, num_targets, num_partitions)
+    s = 'Operating on '
+    if num_files > 0:
+      s += '%d files in ' % num_files
+    s += '%d invalidated targets' % num_targets
+    if num_partitions > 1:
+      s += ' in %d target partitions' % num_partitions
+    s += '.\n'
     return self.format(workunit, WorkUnit.DEFAULT_OUTPUT_LABEL, s)
 
   def end_workunit(self, workunit):

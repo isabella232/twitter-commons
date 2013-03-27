@@ -45,7 +45,9 @@ class ConsoleReporter(Reporter):
     Reporter.__init__(self, formatter)
 
   def handle_formatted_output(self, workunit, label, s):
-    sys.stdout.write(s)
+    if label == WorkUnit.DEFAULT_OUTPUT_LABEL or label is None:
+      sys.stdout.write(s)
+    # Ignore the other outputs (stdout/stderr of tools etc).
 
   def overwrite_formatted_output(self, workunit, label, s):
     # TODO: What does overwriting mean in this context?
