@@ -18,6 +18,9 @@ class Reporter(object):
   def start_workunit(self, workunit):
     self.handle_formatted_output(workunit, None, self.formatter.start_workunit(workunit))
 
+  def report_targets(self, workunit, parts):
+    self.handle_formatted_output(workunit, None, self.formatter.format_targets(workunit, parts))
+
   def end_workunit(self, workunit):
     self.handle_formatted_output(workunit, None, self.formatter.end_workunit(workunit))
     self.overwrite_formatted_output(None, 'aggregated_timings',

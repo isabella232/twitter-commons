@@ -25,6 +25,18 @@ class Formatter(object):
   def start_workunit(self, workunit):
     return '%s [%s]\n' % (workunit.start_time_string(), workunit.get_path())
 
+  def format_targets(self, workunit, parts):
+    num_partitions = len(parts)
+    num_targets = 0
+    num_files = 0
+    for part in parts:
+      for addr, n in part:
+        num_targets += 1
+        num_files += n
+    s = 'Operating on %d files in %d invalidated targets in %d target partitions' % \
+           (num_files, num_targets, num_partitions)
+    return self.format(workunit, WorkUnit.DEFAULT_OUTPUT_LABEL, s)
+
   def end_workunit(self, workunit):
     return ''
 

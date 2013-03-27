@@ -159,17 +159,15 @@ class Task(object):
         InvalidationCheck(invalidation_check.all_vts, uncached_targets, partition_size_hint)
 
     # Do some reporting.
+    parts = []
     num_invalid_partitions = len(invalidation_check.invalid_vts_partitioned)
-    num_invalid_targets = 0
-    num_invalid_sources = 0
-    for vt in invalidation_check.invalid_vts:
-      if not vt.valid:
-        num_invalid_targets += len(vt.targets)
-        num_invalid_sources += vt.cache_key.num_sources
+    for vt in invalidation_check.invalid_vts_partitioned:
+      part = []
+      for underlying_vt in vt.versioned_targets:
+        part.append((underlying_vt.target.address.reference, underlying_vt.cache_key.num_sources))
+      parts.append(part)
     if num_invalid_partitions > 0:
-      self.context.report('Operating on %d files in %d invalidated targets in %d ' \
-                          'target partitions' % \
-                          (num_invalid_sources, num_invalid_targets, num_invalid_partitions))
+      self.context.report_targets(parts)
 
     # Yield the result, and then mark the targets as up to date.
     yield invalidation_check

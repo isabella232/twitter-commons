@@ -201,8 +201,11 @@ class Context(object):
     with ParseContext.temp():
       return Pants(spec).resolve()
 
-  def report(self, str):
-    self.run_tracker.report.write(self.run_tracker.current_work_unit(), str)
+  def report_targets(self, parts):
+    self.run_tracker.report.report_targets(self.run_tracker.current_work_unit(), parts)
+
+  def report(self, s):
+    self.run_tracker.report.write(self.run_tracker.current_work_unit(), s)
 
   @contextmanager
   def state(self, key, default=None):

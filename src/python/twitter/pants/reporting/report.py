@@ -75,15 +75,27 @@ class Report(object):
       for reporter in self._reporters:
         reporter.start_workunit(workunit)
 
+  def report_targets(self, workunit, parts):
+    """Report which targets we're currently working on.
+
+    Argument is list of target partitions. Each partition is a list of pairs
+    (target address, number of source files).
+    """
+    with self._lock:
+      self._notify()  # Make sure we flush everything reported until now.
+      for reporter in self._reporters:
+        reporter.report_targets(workunit, parts)
+
+  def write(self, workunit, s):
+    """Write arbitrary output to the workunit's default output."""
+    workunit.output().write(s)
+
   def end_workunit(self, workunit):
     with self._lock:
       self._notify()  # Make sure we flush everything reported until now.
       for reporter in self._reporters:
         reporter.end_workunit(workunit)
       del self._workunits[workunit.id]
-
-  def write(self, workunit, s):
-    workunit.output().write(s)
 
   def close(self):
     self._emitter_thread.stop()
