@@ -31,17 +31,29 @@ class Formatter(object):
     return s
 
   def format_targets(self, workunit, parts):
-    """Format the set of target partitions for display."""
+    """Format the list of target partitions."""
     return ''
 
   def end_workunit(self, workunit):
     return ''
 
   def format_aggregated_timings(self, workunit):
+    """Format the list of aggregating timings for the workunit and everything under it."""
     return ''
 
 
-class PlainTextFormatter(Formatter):
+class _PlainTextFormatter(Formatter):
+  def start_workunit(self, workunit):
+    return self.prefix(workunit, '[%s]' % workunit.name, with_timestamp=True) + '\n'
+
+  def format_output(self, workunit, label, s):
+    """Format captured output from an external tool."""
+    return self.prefix(workunit, s)
+
+  def format_message(self, workunit, s):
+    """Format an internal pants report message."""
+    return self.prefix(workunit, s)
+
   def format_targets(self, workunit, parts):
     num_partitions = len(parts)
     num_targets = 0
@@ -56,12 +68,32 @@ class PlainTextFormatter(Formatter):
     s += '%d invalidated targets' % num_targets
     if num_partitions > 1:
       s += ' in %d target partitions' % num_partitions
-    s += '.\n'
-    return s
+    return self.prefix(workunit, s) + '.\n'
+
+  def prefix(self, workunit, s, with_timestamp=False):
+    raise NotImplementedError()
+
+class IndentingPlainTextFormatter(_PlainTextFormatter):
+  def start_workunit(self, workunit):
+    return self.prefix(workunit, '[%s]' % workunit.name, with_timestamp=True) + '\n'
+
+  def prefix(self, workunit, s, with_timestamp=False):
+    indent = '  ' * (len(workunit.ancestors()) - 1)
+    return (workunit.start_time_string() if with_timestamp else ' ' * 8) + ' ' + \
+           '\n'.join([indent + line for line in s.split('\n')])
+
+
+class NonIndentingPlainTextFormatter(_PlainTextFormatter):
+  def start_workunit(self, workunit):
+    return self.prefix(workunit, '[%s]' % workunit.get_path(), with_timestamp=True) + '\n'
+
+  def prefix(self, workunit, s, with_timestamp=False):
+    return (workunit.start_time_string() if with_timestamp else ' ' * 8) + ' ' + s
 
 
 class HTMLFormatter(Formatter):
   def __init__(self, template_dir, html_dir):
+    Formatter.__init__(self)
     self._renderer = MustacheRenderer(Renderer(search_dirs=template_dir))
     self._buildroot = get_buildroot()
     self._html_path_base = os.path.relpath(html_dir, self._buildroot)

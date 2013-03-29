@@ -5,7 +5,7 @@ from twitter.common.dirutil import safe_rmtree, safe_mkdir
 
 from twitter.common.lang import Compatibility
 from twitter.common.threading import PeriodicThread
-from twitter.pants.reporting.formatter import HTMLFormatter, PlainTextFormatter
+from twitter.pants.reporting.formatter import HTMLFormatter, IndentingPlainTextFormatter
 from twitter.pants.reporting.reporter import ConsoleReporter, MultiFileReporter
 
 StringIO = Compatibility.StringIO
@@ -31,7 +31,7 @@ def default_reporting(config, run_info):
   run_info.add_info('default_report', html_output_path)
 
   report = Report()
-  report.add_reporter(ConsoleReporter(PlainTextFormatter()))
+  report.add_reporter(ConsoleReporter(IndentingPlainTextFormatter()))
   template_dir = config.get('reporting', 'reports_template_dir')
   report.add_reporter(
     MultiFileReporter(HTMLFormatter(template_dir, this_run_html_dir), this_run_html_dir))

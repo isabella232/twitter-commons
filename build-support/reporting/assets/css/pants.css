@@ -162,27 +162,6 @@ a:visited {
   color: grey;
 }
 
-.targets-title {
-  margin-left: 4px;
-  color: navy;
-  font-size: 10px;
-}
-
-.targets {
-  font-weight: normal;
-  position: relative;
-  top: 12px;
-}
-
-.spinner {
-  background-image:url("../img/spinner.gif");
-  background-repeat: no-repeat;
-  background-position: left top;
-  width: 16px;
-  height: 16px;
-  float: left;
-}
-
 .codebase-browse .breadcrumbs {
   font-size: 16px;
   font-weight: bold;
