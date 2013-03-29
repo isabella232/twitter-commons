@@ -205,7 +205,7 @@ class Context(object):
     self.run_tracker.report.report_targets(self.run_tracker.current_work_unit(), parts)
 
   def report(self, s):
-    self.run_tracker.report.write(self.run_tracker.current_work_unit(), s)
+    self.run_tracker.report.message(self.run_tracker.current_work_unit(), s)
 
   @contextmanager
   def state(self, key, default=None):

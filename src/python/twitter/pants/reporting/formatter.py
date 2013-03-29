@@ -13,9 +13,6 @@ from twitter.pants.goal.work_unit import WorkUnit
 
 
 class Formatter(object):
-  def format(self, workunit, label, s):
-    raise NotImplementedError('format() not implemented')
-
   def start_run(self):
     return ''
 
@@ -25,6 +22,26 @@ class Formatter(object):
   def start_workunit(self, workunit):
     return '%s [%s]\n' % (workunit.start_time_string(), workunit.get_path())
 
+  def format_output(self, workunit, label, s):
+    """Format captured output from an external tool."""
+    return s
+
+  def format_message(self, workunit, s):
+    """Format an internal pants report message."""
+    return s
+
+  def format_targets(self, workunit, parts):
+    """Format the set of target partitions for display."""
+    return ''
+
+  def end_workunit(self, workunit):
+    return ''
+
+  def format_aggregated_timings(self, workunit):
+    return ''
+
+
+class PlainTextFormatter(Formatter):
   def format_targets(self, workunit, parts):
     num_partitions = len(parts)
     num_targets = 0
@@ -40,17 +57,6 @@ class Formatter(object):
     if num_partitions > 1:
       s += ' in %d target partitions' % num_partitions
     s += '.\n'
-    return self.format(workunit, WorkUnit.DEFAULT_OUTPUT_LABEL, s)
-
-  def end_workunit(self, workunit):
-    return ''
-
-  def format_aggregated_timings(self, workunit):
-    return ''
-
-
-class PlainTextFormatter(Formatter):
-  def format(self, workunit, label, s):
     return s
 
 
@@ -60,17 +66,101 @@ class HTMLFormatter(Formatter):
     self._buildroot = get_buildroot()
     self._html_path_base = os.path.relpath(html_dir, self._buildroot)
 
-  def format(self, workunit, label, s):
-    colored = self._handle_ansi_color_codes(cgi.escape(s))
-    ret = self._linkify(colored).replace('\n', '</br>')
-    if label == WorkUnit.DEFAULT_OUTPUT_LABEL:
-      args = {
-        'output_id': uuid.uuid4(),
-        'workunit_id': workunit.id,
-        'str': ret,
-      }
-      ret = self._renderer.render_name('output', args)
+  def start_workunit(self, workunit):
+    is_tool = workunit.is_tool()
+    is_multitool = workunit.is_multitool()
+    if workunit.parent is None:
+      header_text = 'all'
+    else:
+      header_text = workunit.name
+    workunit_dict = workunit.to_dict()
+    if workunit_dict['cmd']:
+      workunit_dict['cmd'] = self._linkify(workunit_dict['cmd'])
+    args = { 'indent': len(workunit.ancestors()) * 10,
+             'html_path_base': self._html_path_base,
+             'workunit': workunit_dict,
+             'header_text': header_text,
+             'initially_open': not (is_tool or is_multitool),
+             'is_tool': is_tool,
+             'is_multitool': is_multitool }
+    args.update({ 'collapsible': lambda x: self._render_callable('collapsible', x, args) })
+
+    ret = self._renderer.render_name('workunit_start', args)
+    if is_tool:
+      ret += self._renderer.render_name('tool_invocation_start', args)
     return ret
+
+  _status_css_classes = ['aborted', 'failure', 'warning', 'success', 'unknown']
+
+  def format_output(self, workunit, label, s):
+    return self._htmlify_text(s)
+
+  def format_message(self, workunit, s):
+    return self._append_to_workunit(workunit, self._htmlify_text(s))
+
+  def format_targets(self, workunit, parts):
+    num_partitions = len(parts)
+    num_files = 0
+    addrs = []
+    for part in parts:
+      for addr, n in part:
+        addrs.append(addr)
+        num_files += n
+    addrs_txt = self._htmlify_text('\n'.join(addrs))
+    args = {
+      'id': workunit.id,
+      'addrs': addrs_txt,
+      'partitioned': num_partitions > 1,
+      'num_partitions': num_partitions,
+      'num_targets': len(addrs),
+      'num_files': num_files
+    }
+    return self._append_to_workunit(workunit, self._renderer.render_name('targets', args))
+
+  def end_workunit(self, workunit):
+    duration = workunit.duration()
+    timing = '%.3f' % duration
+    unaccounted_time_secs = workunit.unaccounted_time()
+    unaccounted_time = '%.3f' % unaccounted_time_secs \
+      if unaccounted_time_secs >= 1 and unaccounted_time_secs > 0.05 * duration \
+      else None
+    args = { 'workunit': workunit.to_dict(),
+             'status': workunit.choose(*HTMLFormatter._status_css_classes),
+             'timing': timing,
+             'unaccounted_time': unaccounted_time,
+             'aborted': workunit.outcome() == WorkUnit.ABORTED }
+
+    ret = ''
+    if workunit.type.endswith('_tool'):
+      ret += self._renderer.render_name('tool_invocation_end', args)
+    return ret + self._renderer.render_name('workunit_end', args)
+
+  def format_aggregated_timings(self, workunit):
+    aggregated_timings = workunit.aggregated_timings.get_all()
+    for item in aggregated_timings:
+      item['timing_string'] = '%.3f' % item['timing']
+    args = {
+      'timings': aggregated_timings
+    }
+    return self._renderer.render_name('aggregated_timings', args)
+
+  def _render_callable(self, template_name, arg_string, outer_args):
+    rendered_arg_string = self._renderer.render(arg_string, outer_args)
+    inner_args = dict([(k, v[0]) for k, v in urlparse.parse_qs(rendered_arg_string).items()])
+    args = dict(inner_args.items() + outer_args.items())
+    return self._renderer.render_name(template_name, args)
+
+  def _htmlify_text(self, s):
+    colored = self._handle_ansi_color_codes(cgi.escape(s))
+    return self._linkify(colored).replace('\n', '</br>')
+
+  def _append_to_workunit(self, workunit, s):
+    args = {
+      'output_id': uuid.uuid4(),
+      'workunit_id': workunit.id,
+      'str': s,
+      }
+    return self._renderer.render_name('output', args)
 
   # Replace ansi color sequences with spans of appropriately named css classes.
   ansi_color_code_re = re.compile(r'\033\[((?:\d|;)*)m')
@@ -115,61 +205,3 @@ class HTMLFormatter(Formatter):
       return '<a target="_blank" href="%s">%s</a>' % (url, text) if url else text
     return HTMLFormatter.path_re.sub(lambda m: maybe_add_link(to_url(m), m.group(0)), s)
 
-  def start_workunit(self, workunit):
-    is_tool = workunit.is_tool()
-    is_multitool = workunit.is_multitool()
-    if workunit.parent is None:
-      header_text = 'all'
-    else:
-      header_text = workunit.name
-    workunit_dict = workunit.to_dict()
-    if workunit_dict['cmd']:
-      workunit_dict['cmd'] = self._linkify(workunit_dict['cmd'])
-    args = { 'indent': len(workunit.ancestors()) * 10,
-             'html_path_base': self._html_path_base,
-             'workunit': workunit_dict,
-             'header_text': header_text,
-             'initially_open': not (is_tool or is_multitool),
-             'is_tool': is_tool,
-             'is_multitool': is_multitool }
-    args.update({ 'collapsible': lambda x: self._render_callable('collapsible', x, args) })
-
-    ret = self._renderer.render_name('workunit_start', args)
-    if is_tool:
-      ret += self._renderer.render_name('tool_invocation_start', args)
-    return ret
-
-  _status_css_classes = ['aborted', 'failure', 'warning', 'success', 'unknown']
-
-  def end_workunit(self, workunit):
-    duration = workunit.duration()
-    timing = '%.3f' % duration
-    unaccounted_time_secs = workunit.unaccounted_time()
-    unaccounted_time = '%.3f' % unaccounted_time_secs \
-      if unaccounted_time_secs >= 1 and unaccounted_time_secs > 0.05 * duration \
-      else None
-    args = { 'workunit': workunit.to_dict(),
-             'status': workunit.choose(*HTMLFormatter._status_css_classes),
-             'timing': timing,
-             'unaccounted_time': unaccounted_time,
-             'aborted': workunit.outcome() == WorkUnit.ABORTED }
-
-    ret = ''
-    if workunit.type.endswith('_tool'):
-      ret += self._renderer.render_name('tool_invocation_end', args)
-    return ret + self._renderer.render_name('workunit_end', args)
-
-  def format_aggregated_timings(self, workunit):
-    aggregated_timings = workunit.aggregated_timings.get_all()
-    for item in aggregated_timings:
-      item['timing_string'] = '%.3f' % item['timing']
-    args = {
-      'timings': aggregated_timings
-    }
-    return self._renderer.render_name('aggregated_timings', args)
-
-  def _render_callable(self, template_name, arg_string, outer_args):
-    rendered_arg_string = self._renderer.render(arg_string, outer_args)
-    inner_args = dict([(k, v[0]) for k, v in urlparse.parse_qs(rendered_arg_string).items()])
-    args = dict(inner_args.items() + outer_args.items())
-    return self._renderer.render_name(template_name, args)

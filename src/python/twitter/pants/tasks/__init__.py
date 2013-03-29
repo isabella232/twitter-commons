@@ -164,7 +164,7 @@ class Task(object):
     for vt in invalidation_check.invalid_vts_partitioned:
       part = []
       for underlying_vt in vt.versioned_targets:
-        part.append((underlying_vt.target.address.reference, underlying_vt.cache_key.num_sources))
+        part.append((underlying_vt.target.address.reference(), underlying_vt.cache_key.num_sources))
       parts.append(part)
     if num_invalid_partitions > 0:
       self.context.report_targets(parts)

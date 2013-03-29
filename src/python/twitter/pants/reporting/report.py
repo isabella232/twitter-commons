@@ -86,9 +86,12 @@ class Report(object):
       for reporter in self._reporters:
         reporter.report_targets(workunit, parts)
 
-  def write(self, workunit, s):
-    """Write arbitrary output to the workunit's default output."""
-    workunit.output().write(s)
+  def message(self, workunit, s):
+    """Report a message."""
+    with self._lock:
+      self._notify()  # Make sure we flush everything reported until now.
+      for reporter in self._reporters:
+        reporter.handle_message(workunit, s)
 
   def end_workunit(self, workunit):
     with self._lock:
