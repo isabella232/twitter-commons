@@ -37,8 +37,12 @@ class Formatter(object):
   def end_workunit(self, workunit):
     return ''
 
-  def format_aggregated_timings(self, workunit):
+  def format_aggregated_timings(self, aggregated_timings):
     """Format the list of aggregating timings for the workunit and everything under it."""
+    return ''
+
+  def format_artifact_cache_stats(self, artifact_cache_stats):
+    """Format the artifact cache stats."""
     return ''
 
 
@@ -167,14 +171,20 @@ class HTMLFormatter(Formatter):
       ret += self._renderer.render_name('tool_invocation_end', args)
     return ret + self._renderer.render_name('workunit_end', args)
 
-  def format_aggregated_timings(self, workunit):
-    aggregated_timings = workunit.aggregated_timings.get_all()
-    for item in aggregated_timings:
+  def format_aggregated_timings(self, aggregated_timings):
+    aggregated_timings_dict = aggregated_timings.get_all()
+    for item in aggregated_timings_dict:
       item['timing_string'] = '%.3f' % item['timing']
     args = {
-      'timings': aggregated_timings
+      'timings': aggregated_timings_dict
     }
     return self._renderer.render_name('aggregated_timings', args)
+
+  def format_artifact_cache_stats(self, artifact_cache_stats):
+    args = {
+      'artifact_cache_stats': artifact_cache_stats.get_all()
+    }
+    return self._renderer.render_name('artifact_cache_stats', args)
 
   def _render_callable(self, template_name, arg_string, outer_args):
     rendered_arg_string = self._renderer.render(arg_string, outer_args)

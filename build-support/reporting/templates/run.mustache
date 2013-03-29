@@ -13,9 +13,10 @@
 <div class="cmd-line-label">Command line:</div>
 <div class="cmd-line monospace">{{cmd_line}}</div>
 </p>
-<p>
+<div>
 <div id="aggregated-timings">{{#collapsible}}id=aggregated-timings-collapsible&title=Aggregated%20timings&class_prefix=aggregated-timings{{/collapsible}}</div>
-</p>
+<div id="artifact-cache-stats">{{#collapsible}}id=artifact-cache-stats-collapsible&title=Artifact%20cache%20stats&class_prefix=artifact-cache-stats{{/collapsible}}</div>
+</div>
 </div>
 <p>
 <div id="report-{{id}}"></div>
@@ -26,6 +27,9 @@
   });
   $(function() {
     pants.poller.startPolling('run_{{id}}_aggregated_timings', '{{aggregated_timings_path}}', '#aggregated-timings-collapsible-content', function() { pants.collapsible.hasContent('aggregated-timings-collapsible'); });
+  });
+  $(function() {
+    pants.poller.startPolling('run_{{id}}_artifact_cache_stats', '{{artifact_cache_stats_path}}', '#artifact-cache-stats-collapsible-content', function() { pants.collapsible.hasContent('artifact-cache-stats-collapsible'); });
   });
 </script>
 {{/run_info}}

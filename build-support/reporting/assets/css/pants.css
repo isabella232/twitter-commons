@@ -248,6 +248,11 @@ a:visited {
   padding-left: 2px;
 }
 
+.artifact-cache-stats table {
+  font-size: 14px;
+  font-weight: bold;
+}
+
 .nodisplay {
   display: none;
 }

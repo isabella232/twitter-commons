@@ -5,6 +5,7 @@ import time
 
 from contextlib import contextmanager
 
+from twitter.pants.goal.artifact_cache_stats import ArtifactCacheStats
 from twitter.pants.goal.run_info import RunInfo
 from twitter.pants.goal.aggregated_timings import AggregatedTimings
 from twitter.pants.goal.work_unit import WorkUnit
@@ -30,8 +31,9 @@ class RunTracker(object):
     os.symlink(self.run_info.path(), link_to_latest)
 
     self.aggregated_timings = AggregatedTimings()
+    self.artifact_cache_stats = ArtifactCacheStats()
 
-    self.report = default_reporting(config, self.run_info)
+    self.report = default_reporting(config, self)
     self.report.open()
 
     self._root_workunit = WorkUnit(parent=None, aggregated_timings=self.aggregated_timings,

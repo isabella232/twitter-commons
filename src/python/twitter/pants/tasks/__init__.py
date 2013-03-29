@@ -155,6 +155,9 @@ class Task(object):
         cached_targets, uncached_targets = self.check_artifact_cache(vts_to_check)
 
       # Now that we've checked the cache, re-partition whatever is still invalid.
+      for vts in uncached_targets:
+        self.context.artifact_cache_stats.add_miss('default', vts.target)
+      self.context.log.info('No cached artifacts for %s' % [vts.target for vts in uncached_targets])
       invalidation_check = \
         InvalidationCheck(invalidation_check.all_vts, uncached_targets, partition_size_hint)
 
@@ -196,11 +199,10 @@ class Task(object):
         if was_in_cache:
           cached_vts.append(vt)
           uncached_vts.discard(vt)
+          for t in vt.targets:
+            self.context.artifact_cache_stats.add_hit('default', t)
           self.context.log.info('Using cached artifacts for %s' % vt.targets)
           vt.update()
-        else:
-          self.context.log.info('No cached artifacts for %s' % vt.targets)
-
     return cached_vts, list(uncached_vts)
 
   def update_artifact_cache(self, vt, build_artifacts):

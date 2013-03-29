@@ -6,7 +6,8 @@ from twitter.pants.goal.work_unit import WorkUnit
 
 
 class Reporter(object):
-  def __init__(self, formatter):
+  def __init__(self, run_tracker, formatter):
+    self.run_tracker = run_tracker
     self.formatter = formatter
 
   def open(self):
@@ -33,7 +34,9 @@ class Reporter(object):
   def end_workunit(self, workunit):
     self.handle_formatted(workunit, None, self.formatter.end_workunit(workunit))
     self.overwrite_formatted(None, 'aggregated_timings',
-                                    self.formatter.format_aggregated_timings(workunit))
+                             self.formatter.format_aggregated_timings(self.run_tracker.aggregated_timings))
+    self.overwrite_formatted(None, 'artifact_cache_stats',
+                                    self.formatter.format_artifact_cache_stats(self.run_tracker.artifact_cache_stats))
 
   def handle_formatted(self, workunit, label, s):
     raise NotImplementedError('handle_formatted_output() not implemented')
@@ -43,8 +46,8 @@ class Reporter(object):
 
 
 class ConsoleReporter(Reporter):
-  def __init__(self, formatter):
-    Reporter.__init__(self, formatter)
+  def __init__(self, run_tracker, formatter):
+    Reporter.__init__(self, run_tracker, formatter)
 
   def handle_formatted(self, workunit, label, s):
     if label == WorkUnit.DEFAULT_OUTPUT_LABEL or label is None:
@@ -58,8 +61,8 @@ class ConsoleReporter(Reporter):
 
 class FileReporter(Reporter):
   """Merges all output, for all labels, into one file."""
-  def __init__(self, formatter, path):
-    Reporter.__init__(self, formatter)
+  def __init__(self, run_tracker, formatter, path):
+    Reporter.__init__(self, run_tracker, formatter)
     self._path = path
     self._file = None
 
@@ -85,8 +88,8 @@ class FileReporter(Reporter):
 
 class MultiFileReporter(Reporter):
   """Writes all default output to one file, and all other output to separate files per (workunit, label)."""
-  def __init__(self, formatter, directory):
-    Reporter.__init__(self, formatter)
+  def __init__(self, run_tracker, formatter, directory):
+    Reporter.__init__(self, run_tracker, formatter)
     self._dir = directory
     self._files = {} # path -> file
 
