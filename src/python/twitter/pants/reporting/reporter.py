@@ -46,8 +46,13 @@ class Reporter(object):
 
 
 class ConsoleReporter(Reporter):
-  def __init__(self, run_tracker, formatter):
-    Reporter.__init__(self, run_tracker, formatter)
+  def close(self):
+    if self.run_tracker.options.time:
+      sys.stdout.write(self.formatter.format_aggregated_timings(self.run_tracker.aggregated_timings))
+      sys.stdout.write('\n')
+      sys.stdout.write(self.formatter.format_artifact_cache_stats(self.run_tracker.artifact_cache_stats))
+      sys.stdout.write('\n')
+    Reporter.close(self)
 
   def handle_formatted(self, workunit, label, s):
     if label == WorkUnit.DEFAULT_OUTPUT_LABEL or label is None:

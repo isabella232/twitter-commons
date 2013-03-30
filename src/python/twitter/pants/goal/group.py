@@ -11,18 +11,11 @@ class Group(object):
 
     def execute_task(name, task, targets):
       """Execute and time a single goal that has had all of its dependencies satisfied."""
-      start = context.timer.now() if context.timer else None
       try:
         task.execute(targets)
       finally:
-        elapsed = context.timer.now() - start if context.timer else None
         if phase not in executed:
           executed[phase] = OrderedDict()
-        if elapsed:
-          phase_timings = executed[phase]
-          if name not in phase_timings:
-            phase_timings[name] = []
-          phase_timings[name].append(elapsed)
 
     if phase not in executed:
       # Note the locking strategy: We lock the first time we need to, and hold the lock until

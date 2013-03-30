@@ -42,6 +42,8 @@ class RunTracker(object):
     self.report.start_workunit(self._root_workunit)
     self._current_workunit = self._root_workunit
 
+    self.options = None  # Set later, after options are parsed.
+
   def close(self):
     while self._current_workunit:
       self._current_workunit.end()

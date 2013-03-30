@@ -74,6 +74,19 @@ class _PlainTextFormatter(Formatter):
       s += ' in %d target partitions' % num_partitions
     return self.prefix(workunit, s) + '.\n'
 
+  def format_aggregated_timings(self, aggregated_timings):
+    return '\nTiming Report' + \
+           '\n=============\n' + \
+           '\n'.join(['%(timing).3f %(label)s' % x for x in aggregated_timings.get_all()])
+
+  def format_artifact_cache_stats(self, artifact_cache_stats):
+    stats = artifact_cache_stats.get_all()
+    return '\nArtifact Cache Stats' + \
+           '\n====================\n' + \
+           'Artifact cache reads not enabled.' if not stats else \
+           '\n'.join(['%(cache_name)s - Hits: %(num_hits)d Misses: %(num_misses)d' % x
+                     for x in stats])
+
   def prefix(self, workunit, s, with_timestamp=False):
     raise NotImplementedError()
 
