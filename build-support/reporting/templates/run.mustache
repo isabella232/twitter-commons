@@ -14,7 +14,8 @@
 <div class="cmd-line monospace">{{cmd_line}}</div>
 </p>
 <div>
-<div id="aggregated-timings">{{#collapsible}}id=aggregated-timings-collapsible&title=Aggregated%20timings&class_prefix=aggregated-timings{{/collapsible}}</div>
+<div id="cumulative-timings">{{#collapsible}}id=cumulative-timings-collapsible&title=Cumulative%20timings&class_prefix=aggregated-timings{{/collapsible}}</div>
+<div id="self-timings">{{#collapsible}}id=self-timings-collapsible&title=Self%20timings&class_prefix=aggregated-timings{{/collapsible}}</div>
 <div id="artifact-cache-stats">{{#collapsible}}id=artifact-cache-stats-collapsible&title=Artifact%20cache%20stats&class_prefix=artifact-cache-stats{{/collapsible}}</div>
 </div>
 </div>
@@ -26,7 +27,10 @@
     pants.poller.startTailing('run_{{id}}_root', '{{report_path}}', '#report-{{id}}');
   });
   $(function() {
-    pants.poller.startPolling('run_{{id}}_aggregated_timings', '{{aggregated_timings_path}}', '#aggregated-timings-collapsible-content', function() { pants.collapsible.hasContent('aggregated-timings-collapsible'); });
+    pants.poller.startPolling('run_{{id}}_cumulative_timings', '{{cumulative_timings_path}}', '#cumulative-timings-collapsible-content', function() { pants.collapsible.hasContent('cumulative-timings-collapsible'); });
+  });
+  $(function() {
+    pants.poller.startPolling('run_{{id}}_self_timings', '{{self_timings_path}}', '#self-timings-collapsible-content', function() { pants.collapsible.hasContent('self-timings-collapsible'); });
   });
   $(function() {
     pants.poller.startPolling('run_{{id}}_artifact_cache_stats', '{{artifact_cache_stats_path}}', '#artifact-cache-stats-collapsible-content', function() { pants.collapsible.hasContent('artifact-cache-stats-collapsible'); });

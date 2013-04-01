@@ -75,7 +75,7 @@ a:visited {
 }
 
 #main-content {
-  margin-left: 260px;
+  margin-left: 300px;
   padding: 1em;
 }
 
@@ -102,9 +102,17 @@ a:visited {
   font-weight: bold;
 }
 
-.timestamp {
+.timeprefix {
   position: absolute;
   left: 200px;
+}
+
+.timestamp {
+  color: grey;
+}
+
+.timedelta {
+  margin-left: 6px;
   color: black;
 }
 

@@ -30,17 +30,22 @@ class RunTracker(object):
       os.unlink(link_to_latest)
     os.symlink(self.run_info.path(), link_to_latest)
 
-    self.aggregated_timings = AggregatedTimings()
+    # Time spent in a workunit, including its children.
+    self.cumulative_timings = AggregatedTimings()
+
+    # Time spent in a workunit, not including its children.
+    self.self_timings = AggregatedTimings()
+
     self.artifact_cache_stats = ArtifactCacheStats()
 
     self.report = default_reporting(config, self)
     self.report.open()
 
-    self._root_workunit = WorkUnit(parent=None, aggregated_timings=self.aggregated_timings,
-                                   type='root', name='all', cmd=None)
-    self._root_workunit.start()
-    self.report.start_workunit(self._root_workunit)
-    self._current_workunit = self._root_workunit
+    self.root_workunit = WorkUnit(run_tracker=self, parent=None,
+                                  type='root', name='all', cmd=None)
+    self.root_workunit.start()
+    self.report.start_workunit(self.root_workunit)
+    self._current_workunit = self.root_workunit
 
     self.options = None  # Set later, after options are parsed.
 
@@ -51,7 +56,7 @@ class RunTracker(object):
       self._current_workunit = self._current_workunit.parent
     self.report.close()
     try:
-      self.run_info.add_info('outcome', self._root_workunit.outcome_string())
+      self.run_info.add_info('outcome', self.root_workunit.outcome_string())
     except IOError:
       pass  # If the goal is clean-all then the run info dir no longer exists...
 
@@ -78,8 +83,7 @@ class RunTracker(object):
     in a workunit, and to success otherwise, so often you only need to set the
     outcome explicitly if you want to set it to warning.
     """
-    self._current_workunit = WorkUnit(parent=self._current_workunit,
-                                      aggregated_timings=self.aggregated_timings,
+    self._current_workunit = WorkUnit(run_tracker=self, parent=self._current_workunit,
                                       name=name, type=type, cmd=cmd)
     self._current_workunit.start()
     try:

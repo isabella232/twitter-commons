@@ -33,10 +33,12 @@ class Reporter(object):
 
   def end_workunit(self, workunit):
     self.handle_formatted(workunit, None, self.formatter.end_workunit(workunit))
-    self.overwrite_formatted(None, 'aggregated_timings',
-                             self.formatter.format_aggregated_timings(self.run_tracker.aggregated_timings))
+    self.overwrite_formatted(None, 'cumulative_timings',
+        self.formatter.format_aggregated_timings(self.run_tracker.cumulative_timings))
+    self.overwrite_formatted(None, 'self_timings',
+        self.formatter.format_aggregated_timings(self.run_tracker.self_timings))
     self.overwrite_formatted(None, 'artifact_cache_stats',
-                                    self.formatter.format_artifact_cache_stats(self.run_tracker.artifact_cache_stats))
+        self.formatter.format_artifact_cache_stats(self.run_tracker.artifact_cache_stats))
 
   def handle_formatted(self, workunit, label, s):
     raise NotImplementedError('handle_formatted_output() not implemented')
@@ -48,10 +50,18 @@ class Reporter(object):
 class ConsoleReporter(Reporter):
   def close(self):
     if self.run_tracker.options.time:
-      sys.stdout.write(self.formatter.format_aggregated_timings(self.run_tracker.aggregated_timings))
-      sys.stdout.write('\n')
-      sys.stdout.write(self.formatter.format_artifact_cache_stats(self.run_tracker.artifact_cache_stats))
-      sys.stdout.write('\n')
+      print('\n')
+      print('Cumulative Timings')
+      print('==================')
+      print(self.formatter.format_aggregated_timings(self.run_tracker.cumulative_timings))
+      print('\n')
+      print('Self Timings')
+      print('============')
+      print(self.formatter.format_aggregated_timings(self.run_tracker.self_timings))
+      print('\n')
+      print('Artifact Cache Stats')
+      print('====================')
+      print(self.formatter.format_artifact_cache_stats(self.run_tracker.artifact_cache_stats))
     Reporter.close(self)
 
   def handle_formatted(self, workunit, label, s):

@@ -108,13 +108,15 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         report_abspath = run_info['default_report']
         report_relpath = os.path.relpath(report_abspath, self._root)
         report_dir = os.path.dirname(report_relpath)
-        aggregated_timings_path = os.path.join(report_dir, 'aggregated_timings')
+        self_timings_path = os.path.join(report_dir, 'self_timings')
+        cumulative_timings_path = os.path.join(report_dir, 'cumulative_timings')
         artifact_cache_stats_path = os.path.join(report_dir, 'artifact_cache_stats')
         run_info['timestamp_text'] = \
           datetime.fromtimestamp(float(run_info['timestamp'])).strftime('%H:%M:%S on %A, %B %d %Y')
         args.update({'run_info': run_info,
                      'report_path': report_relpath,
-                     'aggregated_timings_path': aggregated_timings_path,
+                     'self_timings_path': self_timings_path,
+                     'cumulative_timings_path': cumulative_timings_path,
                      'artifact_cache_stats_path': artifact_cache_stats_path})
         if run_id == 'latest':
           args['is_latest'] = run_info['id']

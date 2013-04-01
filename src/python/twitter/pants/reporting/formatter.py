@@ -20,7 +20,7 @@ class Formatter(object):
     return ''
 
   def start_workunit(self, workunit):
-    return '%s [%s]\n' % (workunit.start_time_string(), workunit.get_path())
+    return ''
 
   def format_output(self, workunit, label, s):
     """Format captured output from an external tool."""
@@ -48,7 +48,7 @@ class Formatter(object):
 
 class _PlainTextFormatter(Formatter):
   def start_workunit(self, workunit):
-    return self.prefix(workunit, '[%s]' % workunit.name, with_timestamp=True) + '\n'
+    return self.prefix(workunit, '[%s]' % workunit.name, with_time_string=True) + '\n'
 
   def format_output(self, workunit, label, s):
     """Format captured output from an external tool."""
@@ -75,37 +75,40 @@ class _PlainTextFormatter(Formatter):
     return self.prefix(workunit, s) + '.\n'
 
   def format_aggregated_timings(self, aggregated_timings):
-    return '\nTiming Report' + \
-           '\n=============\n' + \
-           '\n'.join(['%(timing).3f %(label)s' % x for x in aggregated_timings.get_all()])
+    return '\n'.join(['%(timing).3f %(label)s' % x for x in aggregated_timings.get_all()])
 
   def format_artifact_cache_stats(self, artifact_cache_stats):
     stats = artifact_cache_stats.get_all()
-    return '\nArtifact Cache Stats' + \
-           '\n====================\n' + \
-           'Artifact cache reads not enabled.' if not stats else \
+    return 'Artifact cache reads not enabled.' if not stats else \
            '\n'.join(['%(cache_name)s - Hits: %(num_hits)d Misses: %(num_misses)d' % x
                      for x in stats])
 
-  def prefix(self, workunit, s, with_timestamp=False):
+  def time_string(self, workunit, with_time_string):
+    if with_time_string:
+      return workunit.start_time_string() + ' ' + workunit.start_delta_string()
+    else:
+      return ' ' * 14
+
+  def prefix(self, workunit, s, with_time_string=False):
     raise NotImplementedError()
+
 
 class IndentingPlainTextFormatter(_PlainTextFormatter):
   def start_workunit(self, workunit):
-    return self.prefix(workunit, '[%s]' % workunit.name, with_timestamp=True) + '\n'
+    return self.prefix(workunit, '[%s]' % workunit.name, with_time_string=True) + '\n'
 
-  def prefix(self, workunit, s, with_timestamp=False):
+  def prefix(self, workunit, s, with_time_string=False):
     indent = '  ' * (len(workunit.ancestors()) - 1)
-    return (workunit.start_time_string() if with_timestamp else ' ' * 8) + ' ' + \
+    return self.time_string(workunit, with_time_string) + ' ' + \
            '\n'.join([indent + line for line in s.split('\n')])
 
 
 class NonIndentingPlainTextFormatter(_PlainTextFormatter):
   def start_workunit(self, workunit):
-    return self.prefix(workunit, '[%s]' % workunit.get_path(), with_timestamp=True) + '\n'
+    return self.prefix(workunit, '[%s]' % workunit.get_path(), with_time_string=True) + '\n'
 
-  def prefix(self, workunit, s, with_timestamp=False):
-    return (workunit.start_time_string() if with_timestamp else ' ' * 8) + ' ' + s
+  def prefix(self, workunit, s, with_time_string=False):
+    return self.time_string(workunit, with_time_string) + ' ' + s
 
 
 class HTMLFormatter(Formatter):

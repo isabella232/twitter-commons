@@ -4,7 +4,9 @@
       <i id="{{id}}-icon" class="visibility-icon icon-large {{#initially_open}}icon-caret-down{{/initially_open}}{{^initially_open}}icon-caret-right{{/initially_open}} hidden"></i>
     </div>
     <div class="{{#class_prefix}}{{.}}-header-text {{/class_prefix}}toggle-header-text">
-      <div class="timestamp">{{workunit.start_time_string}}</div>
+      <div class="timeprefix">
+        <span class="timestamp">{{workunit.start_time_string}}</span><span class="timedelta">{{workunit.start_delta_string}}</span>
+      </div>
       [<span id="{{id}}-header-text">{{title}}</span>]
       <span class="timer" id="{{id}}-timer"></span>
       {{#icon}}<i class="{{.}}"></i>{{/icon}}

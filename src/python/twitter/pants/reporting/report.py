@@ -5,7 +5,7 @@ from twitter.common.dirutil import safe_rmtree, safe_mkdir
 
 from twitter.common.lang import Compatibility
 from twitter.common.threading import PeriodicThread
-from twitter.pants.reporting.formatter import HTMLFormatter, NonIndentingPlainTextFormatter
+from twitter.pants.reporting.formatter import HTMLFormatter, IndentingPlainTextFormatter
 from twitter.pants.reporting.reporter import ConsoleReporter, MultiFileReporter
 
 StringIO = Compatibility.StringIO
@@ -31,10 +31,10 @@ def default_reporting(config, run_tracker):
   run_tracker.run_info.add_info('default_report', html_output_path)
 
   report = Report()
-  report.add_reporter(ConsoleReporter(run_tracker, NonIndentingPlainTextFormatter()))
+  report.add_reporter(ConsoleReporter(run_tracker, IndentingPlainTextFormatter()))
   template_dir = config.get('reporting', 'reports_template_dir')
-  report.add_reporter(
-    MultiFileReporter(run_tracker, HTMLFormatter(template_dir, this_run_html_dir), this_run_html_dir))
+  report.add_reporter(MultiFileReporter(run_tracker,
+                      HTMLFormatter(template_dir, this_run_html_dir), this_run_html_dir))
   return report
 
 class ReportingError(Exception):

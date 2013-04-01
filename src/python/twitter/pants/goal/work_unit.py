@@ -25,20 +25,22 @@ class WorkUnit(object):
   SUCCESS = 3
   UNKNOWN = 4
 
-  def __init__(self, parent, aggregated_timings, name, type='', cmd=''):
+  def __init__(self, run_tracker, parent, name, type='', cmd=''):
     """
+    - run_tracker: The RunTracker that tracks this WorkUnit.
     - parent: The containing workunit, if any. E.g., 'compile' might contain 'java', 'scala' etc.,
               'scala' might contain 'compile', 'split' etc.
     - name: A short name for this work. E.g., 'resolve', 'compile', 'scala', 'zinc'.
     - type: An optional string that the report formatters can use to decide how to display
             information about this work. E.g., 'phase', 'goal', 'jvm_tool'. By convention, types
             ending with '_tool' are assumed to be invocations of external tools.
-    - cmd: An optional longer string representing this work. E.g., the cmd line of a compiler invocation.
+    - cmd: An optional longer string representing this work.
+           E.g., the cmd line of a compiler invocation.
     """
     self._outcome = WorkUnit.UNKNOWN
 
+    self.run_tracker = run_tracker
     self.parent = parent
-    self.aggregated_timings = aggregated_timings
     self.children = []
     self.name = name
     self.type = type
@@ -66,13 +68,14 @@ class WorkUnit(object):
 
   def end(self):
     self.end_time = time.time()
-    self.aggregated_timings.add_timing(self.get_path(), self.self_time(), self.is_tool())
+    self.run_tracker.cumulative_timings.add_timing(self.get_path(), self.duration(), self.is_tool())
+    self.run_tracker.self_timings.add_timing(self.get_path(), self._self_time(), self.is_tool())
 
   def to_dict(self):
     """Useful for providing arguments to templates."""
     ret = {}
     for key in ['type', 'name', 'cmd', 'id', 'start_time', 'end_time',
-                'outcome', 'start_time_string', 'end_time_string']:
+                'outcome', 'start_time_string', 'start_delta_string']:
       val = getattr(self, key)
       ret[key] = val() if hasattr(val, '__call__') else val
     ret['parent'] = self.parent.to_dict() if self.parent else None
@@ -109,24 +112,21 @@ class WorkUnit(object):
     return self.choose('ABORTED', 'FAILURE', 'WARNING', 'SUCCESS', 'UNKNOWN')
 
   def duration(self):
-    """Returns the time spent in this workunit and its children."""
+    """Returns the time (in fractional seconds) spent in this workunit and its children."""
     return self.end_time - self.start_time
 
-  def self_time(self):
-    """Returns the time spent in this workunit outside of any children."""
-    return self.duration() - self.time_in_children()
-
-  def time_in_children(self):
-    return sum([child.duration() for child in self.children])
+  def start_delta(self):
+    """How long (in whole seconds) after this run started did this workunit start."""
+    return int(self.start_time) - int(self.run_tracker.root_workunit.start_time)
 
   def start_time_string(self):
-    return self._format_time_string(self.start_time)
+    """A convenient string representation of start_time."""
+    return time.strftime('%H:%M:%S', time.localtime(self.start_time))
 
-  def end_time_string(self):
-    return self._format_time_string(self.end_time)
-
-  def _format_time_string(self, secs):
-    return time.strftime('%H:%M:%S', time.localtime(secs))
+  def start_delta_string(self):
+    """A conveneint string representation of start_delta()."""
+    delta = self.start_delta()
+    return '%02d:%02d' % (delta / 60, delta % 60)
 
   def ancestors(self):
     """Returns a list of this workunit and those enclosing it, up to the root."""
@@ -142,6 +142,10 @@ class WorkUnit(object):
     return ':'.join(reversed([w.name for w in self.ancestors()]))
 
   def unaccounted_time(self):
-    """Returns the difference between the time spent in our children and own time."""
-    return 0 if len(self.children) == 0 else self.self_time()
+    """Returns non-leaf time spent in this workunit."""
+    return 0 if len(self.children) == 0 else self._self_time()
+
+  def _self_time(self):
+    """Returns the time spent in this workunit outside of any children."""
+    return self.duration() - sum([child.duration() for child in self.children])
 
