@@ -1,9 +1,11 @@
 <div {{#class_prefix}}class="{{.}}" {{/class_prefix}}id="{{id}}">
-  <div class="{{#class_prefix}}{{.}}-header {{/class_prefix}}toggle-header" id="{{id}}-header" onclick="pants.collapsible.toggle('{{id}}')">
-    <div class="{{#class_prefix}}{{.}}-header-icon {{/class_prefix}}toggle-header-icon">
+  <div class="{{#class_prefix}}{{.}}-header {{/class_prefix}}toggle-header" id="{{id}}-header">
+    <div class="{{#class_prefix}}{{.}}-header-icon {{/class_prefix}}toggle-header-icon" onclick="pants.collapsible.toggle('{{id}}')">
       <i id="{{id}}-icon" class="visibility-icon icon-large {{#initially_open}}icon-caret-down{{/initially_open}}{{^initially_open}}icon-caret-right{{/initially_open}} hidden"></i>
     </div>
-    <div class="{{#class_prefix}}{{.}}-header-text {{/class_prefix}}toggle-header-text"><div class="timestamp">{{workunit.start_time_string}}</div>[<span id="{{id}}-header-text">{{title}}</span>]
+    <div class="{{#class_prefix}}{{.}}-header-text {{/class_prefix}}toggle-header-text">
+      <div class="timestamp">{{workunit.start_time_string}}</div>
+      [<span id="{{id}}-header-text">{{title}}</span>]
       <span class="timer" id="{{id}}-timer"></span>
       {{#icon}}<i class="{{.}}"></i>{{/icon}}
       <span class="aborted nodisplay" id="{{id}}-aborted">ctrl-c</span>

@@ -89,21 +89,8 @@ class Phase(PhaseBase):
 
   @staticmethod
   def attempt(context, phases):
-    """
-      Attempts to reach the goals for the supplied phases, optionally recording phase timings and
-      then logging then when all specified phases have completed.
-    """
+    """Attempts to reach the goals for the supplied phases."""
     executed = OrderedDict()
-
-    # I'd rather do this in a finally block below, but some goals os.fork and each of these cause
-    # finally to run, printing goal timings multiple times instead of once at the end.
-    # TODO: Not true any more - nailgun_task is the only thing that forks, and its child calls
-    # os._exit() to exit without calling finally blocks.
-    def emit_timings():
-      if context.timer:
-        for phase, timings in executed.items():
-          for goal, times in timings.items():
-            context.timer.log('%s:%s' % (phase, goal), times)
 
     try:
       # Prepare tasks roots to leaves and allow for goals introducing new goals in existing phases.
@@ -134,7 +121,6 @@ class Phase(PhaseBase):
       for phase in phases:
         Group.execute(phase, tasks_by_goal, context, executed)
 
-      emit_timings()
       ret = 0
     except (TaskError, GoalError) as e:
       message = '%s' % e
@@ -142,7 +128,6 @@ class Phase(PhaseBase):
         print('\nFAILURE: %s\n' % e)
       else:
         print('\nFAILURE\n')
-      emit_timings()
       ret = 1
     return ret
 

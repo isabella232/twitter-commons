@@ -15,6 +15,7 @@ from datetime import date, datetime
 
 from pystache import Renderer
 
+from twitter.pants.base.mustache import MustacheRenderer
 from twitter.pants.goal.run_tracker import RunInfo
 
 
@@ -106,12 +107,15 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       else:
         report_abspath = run_info['default_report']
         report_relpath = os.path.relpath(report_abspath, self._root)
-        timings_path = os.path.join(os.path.dirname(report_relpath), 'aggregated_timings')
+        report_dir = os.path.dirname(report_relpath)
+        aggregated_timings_path = os.path.join(report_dir, 'aggregated_timings')
+        artifact_cache_stats_path = os.path.join(report_dir, 'artifact_cache_stats')
         run_info['timestamp_text'] = \
           datetime.fromtimestamp(float(run_info['timestamp'])).strftime('%H:%M:%S on %A, %B %d %Y')
         args.update({'run_info': run_info,
                      'report_path': report_relpath,
-                     'aggregated_timings_path': timings_path })
+                     'aggregated_timings_path': aggregated_timings_path,
+                     'artifact_cache_stats_path': artifact_cache_stats_path})
         if run_id == 'latest':
           args['is_latest'] = run_info['id']
         args.update({ 'collapsible': lambda x: self._render_callable('collapsible', x, args) })
@@ -274,7 +278,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
 class ReportingServer(object):
   def __init__(self, port, settings):
-    renderer = Renderer(search_dirs=settings.template_dir)
+    renderer = MustacheRenderer(Renderer(search_dirs=settings.template_dir))
 
     class MyHandler(PantsHandler):
       def __init__(self, request, client_address, server):

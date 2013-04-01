@@ -155,21 +155,22 @@ class Task(object):
         cached_targets, uncached_targets = self.check_artifact_cache(vts_to_check)
 
       # Now that we've checked the cache, re-partition whatever is still invalid.
+      for vts in uncached_targets:
+        self.context.artifact_cache_stats.add_miss('default', vts.target)
+      self.context.log.info('No cached artifacts for %s' % [vts.target for vts in uncached_targets])
       invalidation_check = \
         InvalidationCheck(invalidation_check.all_vts, uncached_targets, partition_size_hint)
 
     # Do some reporting.
+    parts = []
     num_invalid_partitions = len(invalidation_check.invalid_vts_partitioned)
-    num_invalid_targets = 0
-    num_invalid_sources = 0
-    for vt in invalidation_check.invalid_vts:
-      if not vt.valid:
-        num_invalid_targets += len(vt.targets)
-        num_invalid_sources += vt.cache_key.num_sources
+    for vt in invalidation_check.invalid_vts_partitioned:
+      part = []
+      for underlying_vt in vt.versioned_targets:
+        part.append((underlying_vt.target.address.reference(), underlying_vt.cache_key.num_sources))
+      parts.append(part)
     if num_invalid_partitions > 0:
-      self.context.log.info('Operating on %d files in %d invalidated targets in %d ' \
-                            'target partitions' % \
-                            (num_invalid_sources, num_invalid_targets, num_invalid_partitions))
+      self.context.report_targets(parts)
 
     # Yield the result, and then mark the targets as up to date.
     yield invalidation_check
@@ -198,11 +199,10 @@ class Task(object):
         if was_in_cache:
           cached_vts.append(vt)
           uncached_vts.discard(vt)
+          for t in vt.targets:
+            self.context.artifact_cache_stats.add_hit('default', t)
           self.context.log.info('Using cached artifacts for %s' % vt.targets)
           vt.update()
-        else:
-          self.context.log.info('No cached artifacts for %s' % vt.targets)
-
     return cached_vts, list(uncached_vts)
 
   def update_artifact_cache(self, vt, build_artifacts):

@@ -162,15 +162,6 @@ a:visited {
   color: grey;
 }
 
-.spinner {
-  background-image:url("../img/spinner.gif");
-  background-repeat: no-repeat;
-  background-position: left top;
-  width: 16px;
-  height: 16px;
-  float: left;
-}
-
 .codebase-browse .breadcrumbs {
   font-size: 16px;
   font-weight: bold;
@@ -255,6 +246,11 @@ a:visited {
 
 .aggregated-timings table tr td i {
   padding-left: 2px;
+}
+
+.artifact-cache-stats table {
+  font-size: 14px;
+  font-weight: bold;
 }
 
 .nodisplay {

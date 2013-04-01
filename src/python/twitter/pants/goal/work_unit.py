@@ -25,7 +25,7 @@ class WorkUnit(object):
   SUCCESS = 3
   UNKNOWN = 4
 
-  def __init__(self, parent, aggregated_timings, name, type, cmd):
+  def __init__(self, parent, aggregated_timings, name, type='', cmd=''):
     """
     - parent: The containing workunit, if any. E.g., 'compile' might contain 'java', 'scala' etc.,
               'scala' might contain 'compile', 'split' etc.
@@ -33,8 +33,7 @@ class WorkUnit(object):
     - type: An optional string that the report formatters can use to decide how to display
             information about this work. E.g., 'phase', 'goal', 'jvm_tool'. By convention, types
             ending with '_tool' are assumed to be invocations of external tools.
-    - cmd: An optional longer string representing this work. E.g., the cmd line of a
-           compiler invocation. Used only for display.
+    - cmd: An optional longer string representing this work. E.g., the cmd line of a compiler invocation.
     """
     self._outcome = WorkUnit.UNKNOWN
 

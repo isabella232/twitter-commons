@@ -44,7 +44,7 @@ class Context(object):
     def warn(self, msg): pass
 
   def __init__(self, config, options, run_tracker, target_roots, requested_goals,
-               lock=Lock.unlocked(), log=None, timer=None):
+               lock=Lock.unlocked(), log=None):
     self._config = config
     self._options = options
     self._lock = lock
@@ -52,7 +52,6 @@ class Context(object):
     self._state = {}
     self._products = Products()
     self._buildroot = get_buildroot()
-    self.timer = timer
     self.run_tracker = run_tracker
     self.requested_goals = requested_goals
 
@@ -98,7 +97,7 @@ class Context(object):
 
   @contextmanager
   def new_work_scope(self, name, type='', cmd=''):
-    with self.run_tracker.new_work_scope(name, type, cmd) as workunit:
+    with self.run_tracker.new_work_scope(name=name, type=type, cmd=cmd) as workunit:
       yield workunit
 
   def acquire_lock(self):
@@ -201,8 +200,11 @@ class Context(object):
     with ParseContext.temp():
       return Pants(spec).resolve()
 
-  def report(self, str):
-    self.run_tracker.report.write(self.run_tracker.current_work_unit(), str)
+  def report_targets(self, parts):
+    self.run_tracker.report.report_targets(self.run_tracker.current_work_unit(), parts)
+
+  def report(self, s):
+    self.run_tracker.report.message(self.run_tracker.current_work_unit(), s)
 
   @contextmanager
   def state(self, key, default=None):

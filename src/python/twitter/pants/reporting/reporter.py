@@ -6,53 +6,68 @@ from twitter.pants.goal.work_unit import WorkUnit
 
 
 class Reporter(object):
-  def __init__(self, formatter):
+  def __init__(self, run_tracker, formatter):
+    self.run_tracker = run_tracker
     self.formatter = formatter
 
   def open(self):
-    self.handle_formatted_output(None, None, self.formatter.start_run())
+    self.handle_formatted(None, None, self.formatter.start_run())
 
   def close(self):
-    self.handle_formatted_output(None, None, self.formatter.end_run())
+    self.handle_formatted(None, None, self.formatter.end_run())
 
   def start_workunit(self, workunit):
-    self.handle_formatted_output(workunit, None, self.formatter.start_workunit(workunit))
-
-  def end_workunit(self, workunit):
-    self.handle_formatted_output(workunit, None, self.formatter.end_workunit(workunit))
-    self.overwrite_formatted_output(None, 'aggregated_timings',
-                                    self.formatter.format_aggregated_timings(workunit))
+    self.handle_formatted(workunit, None, self.formatter.start_workunit(workunit))
 
   def handle_output(self, workunit, label, s):
+    """label - classifies the output e.g., 'stdout'/'stderr' for output captured from a tool's stdout/stderr.
+    Other labels are possible, e.g., if we capture output from a tool's logfiles.
     """
-    label - classifies the output (e.g., 'output' for output pants itself writes directly,
-    'stdout'/'stderr' for output captured from a tool's stdout/stderr. Other labels are possible,
-    e.g., if we capture output from a tool's logfiles."""
-    self.handle_formatted_output(workunit, label, self.formatter.format(workunit, label, s))
+    self.handle_formatted(workunit, label, self.formatter.format_output(workunit, label, s))
 
-  def handle_formatted_output(self, workunit, label, s):
+  def handle_message(self, workunit, s):
+    self.handle_formatted(workunit, None, self.formatter.format_message(workunit, s))
+
+  def report_targets(self, workunit, parts):
+    self.handle_formatted(workunit, None, self.formatter.format_targets(workunit, parts))
+
+  def end_workunit(self, workunit):
+    self.handle_formatted(workunit, None, self.formatter.end_workunit(workunit))
+    self.overwrite_formatted(None, 'aggregated_timings',
+                             self.formatter.format_aggregated_timings(self.run_tracker.aggregated_timings))
+    self.overwrite_formatted(None, 'artifact_cache_stats',
+                                    self.formatter.format_artifact_cache_stats(self.run_tracker.artifact_cache_stats))
+
+  def handle_formatted(self, workunit, label, s):
     raise NotImplementedError('handle_formatted_output() not implemented')
 
-  def overwrite_formatted_output(self, workunit, label, s):
+  def overwrite_formatted(self, workunit, label, s):
     raise NotImplementedError('overwrite_formatted_output() not implemented')
 
 
 class ConsoleReporter(Reporter):
-  def __init__(self, formatter):
-    Reporter.__init__(self, formatter)
+  def close(self):
+    if self.run_tracker.options.time:
+      sys.stdout.write(self.formatter.format_aggregated_timings(self.run_tracker.aggregated_timings))
+      sys.stdout.write('\n')
+      sys.stdout.write(self.formatter.format_artifact_cache_stats(self.run_tracker.artifact_cache_stats))
+      sys.stdout.write('\n')
+    Reporter.close(self)
 
-  def handle_formatted_output(self, workunit, label, s):
-    sys.stdout.write(s)
+  def handle_formatted(self, workunit, label, s):
+    if label == WorkUnit.DEFAULT_OUTPUT_LABEL or label is None:
+      sys.stdout.write(s)
+    # Ignore the other outputs (stdout/stderr of tools etc).
 
-  def overwrite_formatted_output(self, workunit, label, s):
+  def overwrite_formatted(self, workunit, label, s):
     # TODO: What does overwriting mean in this context?
     pass
 
 
 class FileReporter(Reporter):
   """Merges all output, for all labels, into one file."""
-  def __init__(self, formatter, path):
-    Reporter.__init__(self, formatter)
+  def __init__(self, run_tracker, formatter, path):
+    Reporter.__init__(self, run_tracker, formatter)
     self._path = path
     self._file = None
 
@@ -66,21 +81,21 @@ class FileReporter(Reporter):
     self._file.close()
     self._file = None
 
-  def handle_formatted_output(self, workunit, label, s):
+  def handle_formatted(self, workunit, label, s):
     self._file.write(s)
     # We must flush in the same thread as the write.
     self._file.flush()
 
-  def overwrite_formatted_output(self, workunit, label, s):
+  def overwrite_formatted(self, workunit, label, s):
     # TODO: What does overwriting mean in this context?
     pass
 
 
 class MultiFileReporter(Reporter):
   """Writes all default output to one file, and all other output to separate files per (workunit, label)."""
-  def __init__(self, formatter, dir):
-    Reporter.__init__(self, formatter)
-    self._dir = dir
+  def __init__(self, run_tracker, formatter, directory):
+    Reporter.__init__(self, run_tracker, formatter)
+    self._dir = directory
     self._files = {} # path -> file
 
   def open(self):
@@ -89,31 +104,31 @@ class MultiFileReporter(Reporter):
 
   def close(self):
     Reporter.close(self)
-    for file in self._files.values():
-      file.close()
+    for f in self._files.values():
+      f.close()
 
-  def handle_formatted_output(self, workunit, label, s):
+  def handle_formatted(self, workunit, label, s):
     if os.path.exists(self._dir):  # Make sure we're not immediately after a clean-all.
       path = self._make_path(workunit, label)
       if path not in self._files:
-        file = open(path, 'w')
-        self._files[path] = file
+        f = open(path, 'w')
+        self._files[path] = f
       else:
-        file = self._files[path]
-      file.write(s)
+        f = self._files[path]
+      f.write(s)
       # We must flush in the same thread as the write.
-      file.flush()
+      f.flush()
 
-  def overwrite_formatted_output(self, workunit, label, s):
+  def overwrite_formatted(self, workunit, label, s):
     if os.path.exists(self._dir):  # Make sure we're not immediately after a clean-all.
-      with open(self._make_path(workunit, label), 'w') as file:
-        file.write(s)
+      with open(self._make_path(workunit, label), 'w') as f:
+        f.write(s)
 
   def _make_path(self, workunit, label):
     if not label or label == WorkUnit.DEFAULT_OUTPUT_LABEL:
-      file = 'build.html'
+      f = 'build.html'
     elif not workunit:
-      file = label
+      f = label
     else:
-      file = '%s.%s' % (workunit.id, label)
-    return os.path.join(self._dir, file)
+      f = '%s.%s' % (workunit.id, label)
+    return os.path.join(self._dir, f)

@@ -188,9 +188,6 @@ class Goal(Command):
 
   def __init__(self, root_dir, parser, args):
     self.targets = []
-    # Note that we can't gate this on the self.options.time flag, because self.options is
-    # only set up in Command.__init__, and only after it calls setup_parser(), which uses the timer.
-    self.timer = Timer()
     Command.__init__(self, root_dir, parser, args)
 
   @contextmanager
@@ -385,6 +382,10 @@ class Goal(Command):
       Phase.setup_parser(parser, args, self.phases)
 
   def run(self, lock):
+    # Clunky, but we must init the RunTracker in setup_parser(), and options can't be parsed
+    # until after that.
+    self.run_tracker.options = self.options
+
     try:
       if self.options.dry_run:
         print '****** Dry Run ******'
@@ -420,8 +421,7 @@ class Goal(Command):
         self.targets,
         requested_goals=self.requested_goals,
         lock=lock,
-        log=logger,
-        timer=self.timer if self.options.time else None)
+        log=logger)
 
       unknown = []
       for phase in self.phases:
@@ -436,12 +436,7 @@ class Goal(Command):
       if logger:
         logger.debug('Operating on targets: %s', self.targets)
 
-      ret = Phase.attempt(context, self.phases)
-      if self.options.time:
-        print('Timing report')
-        print('=============')
-        self.timer.print_timings()
-      return ret
+      return Phase.attempt(context, self.phases)
     finally:
       self.run_tracker.close()
 
