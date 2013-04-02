@@ -47,9 +47,6 @@ class Formatter(object):
 
 
 class _PlainTextFormatter(Formatter):
-  def start_workunit(self, workunit):
-    return self.prefix(workunit, '[%s]' % workunit.name, with_time_string=True) + '\n'
-
   def format_output(self, workunit, label, s):
     """Format captured output from an external tool."""
     return self.prefix(workunit, s)
@@ -72,7 +69,7 @@ class _PlainTextFormatter(Formatter):
     s += '%d invalidated targets' % num_targets
     if num_partitions > 1:
       s += ' in %d target partitions' % num_partitions
-    return self.prefix(workunit, s) + '.\n'
+    return self.prefix(workunit, s) + '.'
 
   def format_aggregated_timings(self, aggregated_timings):
     return '\n'.join(['%(timing).3f %(label)s' % x for x in aggregated_timings.get_all()])
@@ -85,9 +82,9 @@ class _PlainTextFormatter(Formatter):
 
   def time_string(self, workunit, with_time_string):
     if with_time_string:
-      return workunit.start_time_string() + ' ' + workunit.start_delta_string()
+      return '\n' + workunit.start_time_string() + ' ' + workunit.start_delta_string()
     else:
-      return ' ' * 14
+      return '\n' + ' ' * 14
 
   def prefix(self, workunit, s, with_time_string=False):
     raise NotImplementedError()
@@ -95,17 +92,21 @@ class _PlainTextFormatter(Formatter):
 
 class IndentingPlainTextFormatter(_PlainTextFormatter):
   def start_workunit(self, workunit):
-    return self.prefix(workunit, '[%s]' % workunit.name, with_time_string=True) + '\n'
+    if workunit.parent and workunit.parent.is_multitool():
+      return '.'
+    return self.prefix(workunit, '[%s]' % workunit.name, with_time_string=True)
 
   def prefix(self, workunit, s, with_time_string=False):
     indent = '  ' * (len(workunit.ancestors()) - 1)
     return self.time_string(workunit, with_time_string) + ' ' + \
-           '\n'.join([indent + line for line in s.split('\n')])
+           ('\n' + ' ' * 14 + ' ').join([indent + line for line in s.strip().split('\n')])
 
 
 class NonIndentingPlainTextFormatter(_PlainTextFormatter):
   def start_workunit(self, workunit):
-    return self.prefix(workunit, '[%s]' % workunit.get_path(), with_time_string=True) + '\n'
+    if workunit.parent and workunit.parent.is_multitool():
+      return '.'
+    return self.prefix(workunit, '[%s]' % workunit.get_path(), with_time_string=True)
 
   def prefix(self, workunit, s, with_time_string=False):
     return self.time_string(workunit, with_time_string) + ' ' + s

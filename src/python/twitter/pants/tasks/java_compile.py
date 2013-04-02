@@ -168,7 +168,6 @@ class JavaCompile(NailgunTask):
     depfile = self.create_depfile_path(vt.targets)
 
     self.merge_depfile(vt)  # Get what we can from previous builds.
-    self.context.log.info('Compiling targets %s' % str(vt.targets))
     sources_by_target, processors, fingerprint = self.calculate_sources(vt.targets)
     if sources_by_target:
       sources = reduce(lambda all, sources: all.union(sources), sources_by_target.values())

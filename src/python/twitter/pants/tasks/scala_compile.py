@@ -142,7 +142,6 @@ class ScalaCompile(NailgunTask):
     # Localize the analysis files we read from the artifact cache.
     for vt in vts:
       analysis_file = self._artifact_factory.analysis_file_for_targets(vt.targets)
-      self.context.log.debug('Localizing analysis file %s' % analysis_file.analysis_file)
       if self._zinc_utils.localize_analysis_file(ZincArtifactFactory.portable(analysis_file.analysis_file),
                                                  analysis_file.analysis_file):
         self.context.log.warn('Zinc failed to localize analysis file: %s. Incremental rebuild' \
@@ -154,7 +153,7 @@ class ScalaCompile(NailgunTask):
 
     if cached_vts:
       # Localize the portable analysis files.
-      with self.context.new_work_scope('localize'):
+      with self.context.new_work_scope('localize', type='jvm_multitool'):
         self._localize_portable_analysis_files(cached_vts)
 
       # Split any merged artifacts.
@@ -179,8 +178,8 @@ class ScalaCompile(NailgunTask):
     merged_artifact = self._artifact_factory.merged_artifact(artifacts)
 
     if not merged_artifact.sources:
-      self.context.log.warn('Skipping scala compile for targets with no sources:\n  %s' %
-                            merged_artifact.targets)
+      self.context.report('Skipping scala compile for targets with no sources:\n  %s' %
+                          merged_artifact.targets)
     else:
       # Get anything we have from previous builds (or we pulled from the artifact cache).
       # We must do this even if we're not going to compile, because the merged output dir
@@ -193,7 +192,6 @@ class ScalaCompile(NailgunTask):
         old_state = current_state
         classpath = [entry for conf, entry in cp if conf in self._confs]
         with self.context.new_work_scope('compile'):
-          self.context.log.info('Compiling targets %s' % vts.targets)
           if self._zinc_utils.compile(classpath, merged_artifact.sources, merged_artifact.classes_dir,
                                       merged_artifact.analysis_file, upstream_analysis_map):
             raise TaskError('Compile failed.')

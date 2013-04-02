@@ -32,6 +32,24 @@ class TaskError(Exception):
   """Raised to indicate a task has failed."""
   pass
 
+
+def _pprint_tgts(prefix, targets):
+  strs = [t.address.reference() for t in targets]
+  if strs:
+    strs[0] = prefix + strs[0]
+  chunks = []
+  i = 0
+  while i < len(strs):
+    chunk = []
+    chunk_linelen = 0
+    while i < len(strs) and chunk_linelen + len(strs[i]) < 120:
+      chunk.append(strs[i])
+      chunk_linelen += len(strs[i])
+      i += 1
+    chunks.append(', '.join(chunk))
+  return '\n'.join([c for c in chunks])
+
+
 class Task(object):
   @classmethod
   def setup_parser(cls, option_group, args, mkflag):
@@ -145,19 +163,33 @@ class Task(object):
     # See if we have entire partitions cached.
     if self._artifact_cache and self.context.options.read_from_artifact_cache:
       with self.context.new_work_scope('cache'):
+        all_cached_targets = []
         partitions_to_check = \
           [vt for vt in invalidation_check.all_vts_partitioned if not vt.valid]
         cached_partitions, uncached_partitions = self.check_artifact_cache(partitions_to_check)
+        for vt in cached_partitions:
+          for t in vt.targets:
+            all_cached_targets.append(t)
 
         # See if we have any individual targets from the uncached partitions.
         vts_to_check = [vt for vt in itertools.chain.from_iterable(
           [x.versioned_targets for x in uncached_partitions]) if not vt.valid]
         cached_targets, uncached_targets = self.check_artifact_cache(vts_to_check)
+        for vt in cached_targets:
+          all_cached_targets.append(vt.target)
+
+      if all_cached_targets:
+        # Do some reporting.
+        for t in all_cached_targets:
+          self.context.run_tracker.artifact_cache_stats.add_hit('default', t)
+        self.context.report(_pprint_tgts('Using cached artifacts for ', all_cached_targets))
 
       # Now that we've checked the cache, re-partition whatever is still invalid.
-      for vts in uncached_targets:
-        self.context.artifact_cache_stats.add_miss('default', vts.target)
-      self.context.log.info('No cached artifacts for %s' % [vts.target for vts in uncached_targets])
+      if uncached_targets:
+        for vts in uncached_targets:
+          self.context.run_tracker.artifact_cache_stats.add_miss('default', vts.target)
+        self.context.report(_pprint_tgts('No cached artifacts for ',
+                            [vt.target for vt in uncached_targets]))
       invalidation_check = \
         InvalidationCheck(invalidation_check.all_vts, uncached_targets, partition_size_hint)
 
@@ -199,9 +231,6 @@ class Task(object):
         if was_in_cache:
           cached_vts.append(vt)
           uncached_vts.discard(vt)
-          for t in vt.targets:
-            self.context.artifact_cache_stats.add_hit('default', t)
-          self.context.log.info('Using cached artifacts for %s' % vt.targets)
           vt.update()
     return cached_vts, list(uncached_vts)
 
@@ -216,9 +245,8 @@ class Task(object):
         with self.context.new_work_scope('update'):
           if self.context.options.verify_artifact_cache:
             pass  # TODO: Verify that the artifact we just built is identical to the cached one.
-          self.context.log.info('Caching artifacts for %s' % str(vt.targets))
+          self.context.report(_pprint_tgts('Caching artifacts for ',vt.targets))
           self._artifact_cache.insert(vt.cache_key, build_artifacts)
-
 
 __all__ = (
   'TaskError',
