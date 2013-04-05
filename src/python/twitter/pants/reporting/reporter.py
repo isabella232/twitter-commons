@@ -28,8 +28,9 @@ class Reporter(object):
   def handle_message(self, workunit, s):
     self.handle_formatted(workunit, None, self.formatter.format_message(workunit, s))
 
-  def report_targets(self, workunit, parts):
-    self.handle_formatted(workunit, None, self.formatter.format_targets(workunit, parts))
+  def handle_targets_message(self, workunit, prefix, targets, suffix):
+    self.handle_formatted(workunit, None,
+      self.formatter.format_targets_message(workunit, prefix, targets, suffix))
 
   def end_workunit(self, workunit):
     self.handle_formatted(workunit, None, self.formatter.end_workunit(workunit))

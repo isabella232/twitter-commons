@@ -181,7 +181,10 @@ class ScalaCompile(NailgunTask):
       self.context.report('Skipping scala compile for targets with no sources:\n  %s' %
                           merged_artifact.targets)
     else:
-      self.context.report_versioned_targets([vts])
+      # Do some reporting.
+      prefix = 'Operating on target partition containing '
+      suffix = '.'
+      self.context.report_targets(prefix, vts.targets, suffix)
       # Get anything we have from previous builds (or we pulled from the artifact cache).
       # We must do this even if we're not going to compile, because the merged output dir
       # will go on the classpath of downstream tasks. We can't put the per-target dirs

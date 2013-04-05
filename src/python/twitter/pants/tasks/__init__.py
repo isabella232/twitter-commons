@@ -33,23 +33,6 @@ class TaskError(Exception):
   pass
 
 
-def _pprint_tgts(prefix, targets):
-  strs = [t.address.reference() for t in targets]
-  if strs:
-    strs[0] = prefix + strs[0]
-  chunks = []
-  i = 0
-  while i < len(strs):
-    chunk = []
-    chunk_linelen = 0
-    while i < len(strs) and chunk_linelen + len(strs[i]) < 120:
-      chunk.append(strs[i])
-      chunk_linelen += len(strs[i])
-      i += 1
-    chunks.append(', '.join(chunk))
-  return '\n'.join([c for c in chunks])
-
-
 class Task(object):
   @classmethod
   def setup_parser(cls, option_group, args, mkflag):
@@ -182,27 +165,33 @@ class Task(object):
         # Do some reporting.
         for t in all_cached_targets:
           self.context.run_tracker.artifact_cache_stats.add_hit('default', t)
-        self.context.report(_pprint_tgts('Using cached artifacts for ', all_cached_targets))
+        self.context.report_targets('Using cached artifacts for ', all_cached_targets, '.')
 
       # Now that we've checked the cache, re-partition whatever is still invalid.
       if uncached_targets:
         for vts in uncached_targets:
           self.context.run_tracker.artifact_cache_stats.add_miss('default', vts.target)
-        self.context.report(_pprint_tgts('No cached artifacts for ',
-                            [vt.target for vt in uncached_targets]))
+        self.context.report_targets('No cached artifacts for ',
+                                    [vt.target for vt in uncached_targets], '.')
       invalidation_check = \
         InvalidationCheck(invalidation_check.all_vts, uncached_targets, partition_size_hint)
 
     # Do some reporting.
-    parts = []
+    targets = []
+    num_sources = 0
     num_invalid_partitions = len(invalidation_check.invalid_vts_partitioned)
     for vt in invalidation_check.invalid_vts_partitioned:
-      part = []
-      for underlying_vt in vt.versioned_targets:
-        part.append((underlying_vt.target.address.reference(), underlying_vt.cache_key.num_sources))
-      parts.append(part)
-    if num_invalid_partitions > 0:
-      self.context.report_targets(parts)
+      targets.extend(vt.targets)
+      num_sources += vt.cache_key.num_sources
+    if len(targets):
+      prefix = 'Invalidated '
+      suffix = ''
+      if num_sources > 0:
+        suffix += ' containing %d sources' % num_sources
+      if num_invalid_partitions > 1:
+        suffix += ' in %d target partitions'
+      suffix += '.'
+      self.context.report_targets(prefix, targets, suffix)
 
     # Yield the result, and then mark the targets as up to date.
     yield invalidation_check
@@ -245,7 +234,7 @@ class Task(object):
         with self.context.new_work_scope('update'):
           if self.context.options.verify_artifact_cache:
             pass  # TODO: Verify that the artifact we just built is identical to the cached one.
-          self.context.report(_pprint_tgts('Caching artifacts for ',vt.targets))
+          self.context.report_targets('Caching artifacts for ', vt.targets, '.')
           self._artifact_cache.insert(vt.cache_key, build_artifacts)
 
 __all__ = (

@@ -30,8 +30,8 @@ class Formatter(object):
     """Format an internal pants report message."""
     return s
 
-  def format_targets(self, workunit, parts):
-    """Format the list of target partitions."""
+  def format_targets_message(self, workunit, prefix, targets, suffix):
+    """Format a message containing a list of targets."""
     return ''
 
   def end_workunit(self, workunit):
@@ -49,7 +49,7 @@ class Formatter(object):
 class _PlainTextFormatter(Formatter):
   def end_run(self):
     return '\n'
-  
+
   def format_output(self, workunit, label, s):
     """Format captured output from an external tool."""
     return self.prefix(workunit, s)
@@ -58,21 +58,8 @@ class _PlainTextFormatter(Formatter):
     """Format an internal pants report message."""
     return self.prefix(workunit, s)
 
-  def format_targets(self, workunit, parts):
-    num_partitions = len(parts)
-    num_targets = 0
-    num_files = 0
-    for part in parts:
-      for addr, n in part:
-        num_targets += 1
-        num_files += n
-    s = 'Operating on '
-    if num_files > 0:
-      s += '%d files in ' % num_files
-    s += '%d invalidated targets' % num_targets
-    if num_partitions > 1:
-      s += ' in %d target partitions' % num_partitions
-    return self.prefix(workunit, s) + '.'
+  def format_targets_message(self, workunit, prefix, targets, suffix):
+    return self.prefix(workunit, '%s%d targets%s' % (prefix, len(targets), suffix))
 
   def format_aggregated_timings(self, aggregated_timings):
     return '\n'.join(['%(timing).3f %(label)s' % x for x in aggregated_timings.get_all()])
@@ -154,22 +141,15 @@ class HTMLFormatter(Formatter):
   def format_message(self, workunit, s):
     return self._append_to_workunit(workunit, self._htmlify_text(s))
 
-  def format_targets(self, workunit, parts):
-    num_partitions = len(parts)
-    num_files = 0
-    addrs = []
-    for part in parts:
-      for addr, n in part:
-        addrs.append(addr)
-        num_files += n
+  def format_targets_message(self, workunit, prefix, targets, suffix):
+    addrs = [tgt.address.reference() for tgt in targets]
     addrs_txt = self._htmlify_text('\n'.join(addrs))
     args = {
       'id': uuid.uuid4(),
       'addrs': addrs_txt,
-      'partitioned': num_partitions > 1,
-      'num_partitions': num_partitions,
       'num_targets': len(addrs),
-      'num_files': num_files
+      'prefix': prefix,
+      'suffix': suffix
     }
     return self._append_to_workunit(workunit, self._renderer.render_name('targets', args))
 

@@ -75,16 +75,15 @@ class Report(object):
       for reporter in self._reporters:
         reporter.start_workunit(workunit)
 
-  def report_targets(self, workunit, parts):
-    """Report which targets we're currently working on.
+  def targets_message(self, workunit, prefix, targets, suffix):
+    """Report a message containing a list of targets.
 
-    Argument is list of target partitions. Each partition is a list of pairs
-    (target address, number of source files).
+    Allows us to format that list nicely and consistently.
     """
     with self._lock:
       self._notify()  # Make sure we flush everything reported until now.
       for reporter in self._reporters:
-        reporter.report_targets(workunit, parts)
+        reporter.handle_targets_message(workunit, prefix, targets, suffix)
 
   def message(self, workunit, s):
     """Report a message."""
