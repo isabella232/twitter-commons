@@ -111,6 +111,12 @@ class ScalaCompile(NailgunTask):
           # Process partitions one by one.
           for vts in invalidation_check.all_vts_partitioned:
             if not self.dry_run:
+              # Do some reporting.
+              prefix = 'Operating on '
+              if len(invalidation_check.all_vts_partitioned) > 1:
+                prefix += 'target partition containing '
+              suffix = '.'
+              self.context.report_targets(prefix, vts.targets, suffix)
               merged_artifact = self._process_target_partition(vts, cp, upstream_analysis_map)
               vts.update()
               # Note that we add the merged classes_dir to the upstream.
@@ -181,10 +187,6 @@ class ScalaCompile(NailgunTask):
       self.context.report('Skipping scala compile for targets with no sources:\n  %s' %
                           merged_artifact.targets)
     else:
-      # Do some reporting.
-      prefix = 'Operating on target partition containing '
-      suffix = '.'
-      self.context.report_targets(prefix, vts.targets, suffix)
       # Get anything we have from previous builds (or we pulled from the artifact cache).
       # We must do this even if we're not going to compile, because the merged output dir
       # will go on the classpath of downstream tasks. We can't put the per-target dirs

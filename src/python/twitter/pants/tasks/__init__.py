@@ -187,7 +187,7 @@ class Task(object):
       prefix = 'Invalidated '
       suffix = ''
       if num_sources > 0:
-        suffix += ' containing %d sources' % num_sources
+        suffix += ' containing %d source files' % num_sources
       if num_invalid_partitions > 1:
         suffix += ' in %d target partitions'
       suffix += '.'

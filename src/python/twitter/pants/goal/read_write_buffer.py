@@ -8,8 +8,9 @@ StringIO = Compatibility.StringIO
 class ReadWriteBuffer(object):
   """An unbounded read-write buffer.
 
-  Can be used as a file-like object, e.g., you can redirect stdout/stderr to it when spawning subprocesses.
-  This useful when you want to poll the output of long-running subprocesses in a separate thread."""
+  Can be used as a file-like object, e.g., you can redirect stdout/stderr to it when spawning
+  subprocesses. This is useful when you want to poll the output of long-running subprocesses in a
+  separate thread."""
   def __init__(self):
     self._lock = threading.Lock()
     self._io = StringIO()

@@ -59,7 +59,8 @@ class _PlainTextFormatter(Formatter):
     return self.prefix(workunit, s)
 
   def format_targets_message(self, workunit, prefix, targets, suffix):
-    return self.prefix(workunit, '%s%d targets%s' % (prefix, len(targets), suffix))
+    return self.prefix(workunit, '%s%d target%s%s' %
+                                 (prefix, len(targets), 's' if len(targets) > 1 else '', suffix))
 
   def format_aggregated_timings(self, aggregated_timings):
     return '\n'.join(['%(timing).3f %(label)s' % x for x in aggregated_timings.get_all()])
@@ -148,6 +149,7 @@ class HTMLFormatter(Formatter):
       'id': uuid.uuid4(),
       'addrs': addrs_txt,
       'num_targets': len(addrs),
+      'plural': len(addrs) > 1,
       'prefix': prefix,
       'suffix': suffix
     }
