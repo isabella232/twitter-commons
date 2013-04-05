@@ -1,7 +1,7 @@
 <div>
 Operating on {{#num_files}}{{.}} files in {{/num_files}}
-<a href="#" onclick="$('#{{id}}-targets').toggle(); return false;">{{num_targets}} targets</a>{{#partitioned}} in {{num_partitions}} partitions{{/partitioned}}.
-<div id="{{id}}-targets" class="nodisplay">
+<a href="#" onclick="$('#{{id}}').toggle(); return false;">{{num_targets}} targets</a>{{#partitioned}} in {{num_partitions}} partitions{{/partitioned}}.
+<div id="{{id}}" class="nodisplay">
 {{{addrs}}}
 </div>
 </div>

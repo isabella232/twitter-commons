@@ -47,6 +47,9 @@ class Formatter(object):
 
 
 class _PlainTextFormatter(Formatter):
+  def end_run(self):
+    return '\n'
+  
   def format_output(self, workunit, label, s):
     """Format captured output from an external tool."""
     return self.prefix(workunit, s)
@@ -161,7 +164,7 @@ class HTMLFormatter(Formatter):
         num_files += n
     addrs_txt = self._htmlify_text('\n'.join(addrs))
     args = {
-      'id': workunit.id,
+      'id': uuid.uuid4(),
       'addrs': addrs_txt,
       'partitioned': num_partitions > 1,
       'num_partitions': num_partitions,

@@ -181,6 +181,7 @@ class ScalaCompile(NailgunTask):
       self.context.report('Skipping scala compile for targets with no sources:\n  %s' %
                           merged_artifact.targets)
     else:
+      self.context.report_versioned_targets([vts])
       # Get anything we have from previous builds (or we pulled from the artifact cache).
       # We must do this even if we're not going to compile, because the merged output dir
       # will go on the classpath of downstream tasks. We can't put the per-target dirs
@@ -192,7 +193,8 @@ class ScalaCompile(NailgunTask):
         old_state = current_state
         classpath = [entry for conf, entry in cp if conf in self._confs]
         with self.context.new_work_scope('compile'):
-          if self._zinc_utils.compile(classpath, merged_artifact.sources, merged_artifact.classes_dir,
+          if self._zinc_utils.compile(classpath, merged_artifact.sources,
+                                      merged_artifact.classes_dir,
                                       merged_artifact.analysis_file, upstream_analysis_map):
             raise TaskError('Compile failed.')
 

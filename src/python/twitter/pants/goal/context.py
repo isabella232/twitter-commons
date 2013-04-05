@@ -203,6 +203,11 @@ class Context(object):
   def report_targets(self, parts):
     self.run_tracker.report.report_targets(self.run_tracker.current_work_unit(), parts)
 
+  def report_versioned_targets(self, vtslist):
+    self.run_tracker.report.report_targets(self.run_tracker.current_work_unit(),
+      [[(vt.target.address.reference(), vt.num_sources) for vt in vts.versioned_targets]
+       for vts in vtslist])
+
   def report(self, s):
     self.run_tracker.report.message(self.run_tracker.current_work_unit(), s)
 
