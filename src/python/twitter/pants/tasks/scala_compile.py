@@ -117,8 +117,9 @@ class ScalaCompile(NailgunTask):
               prefix = 'Operating on '
               if len(invalidation_check.all_vts_partitioned) > 1:
                 prefix += 'target partition containing '
-              suffix = '.'
-              self.context.report(prefix, list_to_report_element(vts.targets, 'target'), suffix)
+              self.context.report(
+                prefix,
+                list_to_report_element([t.address.reference() for t in vts.targets], 'target'))
               merged_artifact = self._process_target_partition(vts, cp, upstream_analysis_map)
               vts.update()
               # Note that we add the merged classes_dir to the upstream.

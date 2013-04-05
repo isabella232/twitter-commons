@@ -179,20 +179,20 @@ class Task(object):
 
     # Do some reporting.
     targets = []
-    num_sources = 0
+    sources = []
     num_invalid_partitions = len(invalidation_check.invalid_vts_partitioned)
     for vt in invalidation_check.invalid_vts_partitioned:
       targets.extend(vt.targets)
-      num_sources += vt.cache_key.num_sources
+      sources.extend(vt.cache_key.sources)
     if len(targets):
-      prefix = 'Invalidated '
-      suffix = ''
-      if num_sources > 0:
-        suffix += ' containing %d source files' % num_sources
+      msg_elements = ['Invalidated ',
+                      list_to_report_element([t.address.reference() for t in targets], 'target')]
+      if len(sources) > 0:
+        msg_elements.append(' containing ')
+        msg_elements.append(list_to_report_element(sources, 'source file'))
       if num_invalid_partitions > 1:
-        suffix += ' in %d target partitions'
-      suffix += '.'
-      self._report_targets(prefix, targets, suffix)
+        msg_elements.append(' in %d target partitions' % num_invalid_partitions)
+      self.context.report(*msg_elements)
 
     # Yield the result, and then mark the targets as up to date.
     yield invalidation_check
