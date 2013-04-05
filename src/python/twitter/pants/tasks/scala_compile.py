@@ -24,6 +24,7 @@ from twitter.pants.targets.scala_tests import ScalaTests
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.jvm_dependency_cache import JvmDependencyCache
 from twitter.pants.tasks.nailgun_task import NailgunTask
+from twitter.pants.reporting.reporting_utils import list_to_report_element
 from twitter.pants.tasks.scala.zinc_artifact import ZincArtifactFactory, AnalysisFileSpec
 from twitter.pants.tasks.scala.zinc_utils import ZincUtils
 
@@ -63,8 +64,9 @@ class ScalaCompile(NailgunTask):
 
     # Set up the zinc utils.
     # Command line switch overrides color setting set in pants.ini
-    color = context.options.scala_compile_color if context.options.scala_compile_color is not None else \
-            context.config.getbool('scala-compile', 'color', default=True)
+    color = context.options.scala_compile_color \
+              if context.options.scala_compile_color is not None else \
+              context.config.getbool('scala-compile', 'color', default=True)
 
     self._zinc_utils = ZincUtils(context=context, java_runner=self.runjava, color=color)
 
@@ -116,7 +118,7 @@ class ScalaCompile(NailgunTask):
               if len(invalidation_check.all_vts_partitioned) > 1:
                 prefix += 'target partition containing '
               suffix = '.'
-              self.context.report_targets(prefix, vts.targets, suffix)
+              self.context.report(prefix, list_to_report_element(vts.targets, 'target'), suffix)
               merged_artifact = self._process_target_partition(vts, cp, upstream_analysis_map)
               vts.update()
               # Note that we add the merged classes_dir to the upstream.
@@ -148,8 +150,8 @@ class ScalaCompile(NailgunTask):
     # Localize the analysis files we read from the artifact cache.
     for vt in vts:
       analysis_file = self._artifact_factory.analysis_file_for_targets(vt.targets)
-      if self._zinc_utils.localize_analysis_file(ZincArtifactFactory.portable(analysis_file.analysis_file),
-                                                 analysis_file.analysis_file):
+      if self._zinc_utils.localize_analysis_file(
+          ZincArtifactFactory.portable(analysis_file.analysis_file), analysis_file.analysis_file):
         self.context.log.warn('Zinc failed to localize analysis file: %s. Incremental rebuild' \
                               'of that target may not be possible.' % analysis_file)
 

@@ -25,6 +25,7 @@ from multiprocessing.pool import ThreadPool
 from twitter.common.collections.orderedset import OrderedSet
 from twitter.pants.base.artifact_cache import create_artifact_cache
 from twitter.pants.base.build_invalidator import CacheKeyGenerator
+from twitter.pants.reporting.reporting_utils import list_to_report_element
 from twitter.pants.tasks.cache_manager import CacheManager, InvalidationCheck
 
 
@@ -165,14 +166,14 @@ class Task(object):
         # Do some reporting.
         for t in all_cached_targets:
           self.context.run_tracker.artifact_cache_stats.add_hit('default', t)
-        self.context.report_targets('Using cached artifacts for ', all_cached_targets, '.')
+        self._report_targets('Using cached artifacts for ', all_cached_targets, '.')
 
       # Now that we've checked the cache, re-partition whatever is still invalid.
       if uncached_targets:
         for vts in uncached_targets:
           self.context.run_tracker.artifact_cache_stats.add_miss('default', vts.target)
-        self.context.report_targets('No cached artifacts for ',
-                                    [vt.target for vt in uncached_targets], '.')
+        self._report_targets('No cached artifacts for ',
+                             [vt.target for vt in uncached_targets], '.')
       invalidation_check = \
         InvalidationCheck(invalidation_check.all_vts, uncached_targets, partition_size_hint)
 
@@ -191,7 +192,7 @@ class Task(object):
       if num_invalid_partitions > 1:
         suffix += ' in %d target partitions'
       suffix += '.'
-      self.context.report_targets(prefix, targets, suffix)
+      self._report_targets(prefix, targets, suffix)
 
     # Yield the result, and then mark the targets as up to date.
     yield invalidation_check
@@ -234,8 +235,14 @@ class Task(object):
         with self.context.new_work_scope('update'):
           if self.context.options.verify_artifact_cache:
             pass  # TODO: Verify that the artifact we just built is identical to the cached one.
-          self.context.report_targets('Caching artifacts for ', vt.targets, '.')
+          self._report_targets('Caching artifacts for ', vt.targets, '.')
           self._artifact_cache.insert(vt.cache_key, build_artifacts)
+
+  def _report_targets(self, prefix, targets, suffix):
+    self.context.report(
+      prefix,
+      list_to_report_element([t.address.reference() for t in targets], 'target'),
+      suffix)
 
 __all__ = (
   'TaskError',

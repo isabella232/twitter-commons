@@ -75,22 +75,12 @@ class Report(object):
       for reporter in self._reporters:
         reporter.start_workunit(workunit)
 
-  def targets_message(self, workunit, prefix, targets, suffix):
-    """Report a message containing a list of targets.
-
-    Allows us to format that list nicely and consistently.
-    """
-    with self._lock:
-      self._notify()  # Make sure we flush everything reported until now.
-      for reporter in self._reporters:
-        reporter.handle_targets_message(workunit, prefix, targets, suffix)
-
-  def message(self, workunit, s):
+  def message(self, workunit, *msg_elements):
     """Report a message."""
     with self._lock:
       self._notify()  # Make sure we flush everything reported until now.
       for reporter in self._reporters:
-        reporter.handle_message(workunit, s)
+        reporter.handle_message(workunit, *msg_elements)
 
   def end_workunit(self, workunit):
     with self._lock:

@@ -26,13 +26,9 @@ class Formatter(object):
     """Format captured output from an external tool."""
     return s
 
-  def format_message(self, workunit, s):
+  def format_message(self, workunit, *msg_elements):
     """Format an internal pants report message."""
-    return s
-
-  def format_targets_message(self, workunit, prefix, targets, suffix):
-    """Format a message containing a list of targets."""
-    return ''
+    return ''.join(msg_elements)
 
   def end_workunit(self, workunit):
     return ''
@@ -54,13 +50,10 @@ class _PlainTextFormatter(Formatter):
     """Format captured output from an external tool."""
     return self.prefix(workunit, s)
 
-  def format_message(self, workunit, s):
+  def format_message(self, workunit, *msg_elements):
     """Format an internal pants report message."""
-    return self.prefix(workunit, s)
-
-  def format_targets_message(self, workunit, prefix, targets, suffix):
-    return self.prefix(workunit, '%s%d target%s%s' %
-                                 (prefix, len(targets), 's' if len(targets) > 1 else '', suffix))
+    elements = [e if isinstance(e, basestring) else e[0] for e in msg_elements]
+    return self.prefix(workunit, ''.join(elements))
 
   def format_aggregated_timings(self, aggregated_timings):
     return '\n'.join(['%(timing).3f %(label)s' % x for x in aggregated_timings.get_all()])
@@ -139,21 +132,21 @@ class HTMLFormatter(Formatter):
   def format_output(self, workunit, label, s):
     return self._htmlify_text(s)
 
-  def format_message(self, workunit, s):
-    return self._append_to_workunit(workunit, self._htmlify_text(s))
-
-  def format_targets_message(self, workunit, prefix, targets, suffix):
-    addrs = [tgt.address.reference() for tgt in targets]
-    addrs_txt = self._htmlify_text('\n'.join(addrs))
-    args = {
-      'id': uuid.uuid4(),
-      'addrs': addrs_txt,
-      'num_targets': len(addrs),
-      'plural': len(addrs) > 1,
-      'prefix': prefix,
-      'suffix': suffix
-    }
-    return self._append_to_workunit(workunit, self._renderer.render_name('targets', args))
+  def format_message(self, workunit, *msg_elements):
+    elements = []
+    detail_ids = []
+    for e in msg_elements:
+      if isinstance(e, basestring):
+        elements.append({'text': self._htmlify_text(e)})
+      else:  # Assume it's a pair (text, detail).
+        detail_id = uuid.uuid4()
+        detail_ids.append(detail_id)
+        elements.append({'text': self._htmlify_text(e[0]),
+                         'detail': self._htmlify_text(e[1]),
+                         'detail-id': detail_id })
+    args = { 'elements': elements,
+             'detail-ids': detail_ids }
+    return self._append_to_workunit(workunit, self._renderer.render_name('message', args))
 
   def end_workunit(self, workunit):
     duration = workunit.duration()

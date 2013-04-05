@@ -200,12 +200,8 @@ class Context(object):
     with ParseContext.temp():
       return Pants(spec).resolve()
 
-  def report_targets(self, prefix, targets, suffix):
-    self.run_tracker.report.targets_message(self.run_tracker.current_work_unit(),
-                                            prefix, targets, suffix)
-
-  def report(self, s):
-    self.run_tracker.report.message(self.run_tracker.current_work_unit(), s)
+  def report(self, *msg_elements):
+    self.run_tracker.report.message(self.run_tracker.current_work_unit(), *msg_elements)
 
   @contextmanager
   def state(self, key, default=None):

@@ -20,17 +20,13 @@ class Reporter(object):
     self.handle_formatted(workunit, None, self.formatter.start_workunit(workunit))
 
   def handle_output(self, workunit, label, s):
-    """label - classifies the output e.g., 'stdout'/'stderr' for output captured from a tool's stdout/stderr.
+    """label - classifies the output e.g., 'stdout' for output captured from a tool's stdout.
     Other labels are possible, e.g., if we capture output from a tool's logfiles.
     """
     self.handle_formatted(workunit, label, self.formatter.format_output(workunit, label, s))
 
-  def handle_message(self, workunit, s):
-    self.handle_formatted(workunit, None, self.formatter.format_message(workunit, s))
-
-  def handle_targets_message(self, workunit, prefix, targets, suffix):
-    self.handle_formatted(workunit, None,
-      self.formatter.format_targets_message(workunit, prefix, targets, suffix))
+  def handle_message(self, workunit, *msg_elements):
+    self.handle_formatted(workunit, None, self.formatter.format_message(workunit, *msg_elements))
 
   def end_workunit(self, workunit):
     self.handle_formatted(workunit, None, self.formatter.end_workunit(workunit))

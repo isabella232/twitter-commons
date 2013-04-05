@@ -9,13 +9,17 @@ class MustacheRenderer(object):
     # Mustache needs this, especially in cases where foo is a list: there is no way to render a
     # block exactly once iff a list is not empty.
     # Note: if the original map contains foo?, it will take precedence over our synthetic foo?.
-    def set_to_map(x):
+    def convert_val(x):
       # Pystache can't handle sets, so we convert to maps of key->True.
       if isinstance(x, set):
         return dict([(k, True) for k in x])
+      elif isinstance(x, dict):
+        return MustacheRenderer.expand(x)
+      elif isinstance(x, list):
+        return [convert_val(e) for e in x]
       else:
         return x
-    items = [(key, set_to_map(val)) for (key, val) in args.items()]
+    items = [(key, convert_val(val)) for (key, val) in args.items()]
     ret = dict([(key + '?', True) for (key, val) in items if val and not key.endswith('?')])
     ret.update(dict(items))
     return ret
