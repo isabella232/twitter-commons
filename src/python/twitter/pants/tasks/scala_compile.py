@@ -201,6 +201,10 @@ class ScalaCompile(NailgunTask):
         old_state = current_state
         classpath = [entry for conf, entry in cp if conf in self._confs]
         with self.context.new_work_scope('compile'):
+          # Zinc may delete classfiles, then later exit on a compilation error. Then if the
+          # change triggering the error is reverted, we won't rebuild to restore the missing
+          # classfiles. So we force-invalidate here, to be on the safe side.
+          vts.force_invalidate()
           if self._zinc_utils.compile(classpath, merged_artifact.sources,
                                       merged_artifact.classes_dir,
                                       merged_artifact.analysis_file, upstream_analysis_map):
