@@ -431,28 +431,29 @@ class JvmDependencyCache(object):
     """
     if not self.check_missing_deps:
         return
-    sources_by_target = self.get_sources_by_target()
-    targets_by_source = self.get_targets_by_source()
-    targets_by_class = self.get_targets_by_class()
-    binary_deps_by_target = self.get_binary_deps_by_target()
+    with self.context.new_work_scope(name='depcheck'):
+      sources_by_target = self.get_sources_by_target()
+      targets_by_source = self.get_targets_by_source()
+      targets_by_class = self.get_targets_by_class()
+      binary_deps_by_target = self.get_binary_deps_by_target()
 
-    (deps_by_target, jar_deps_by_target) = \
-        self.get_compilation_dependencies(sources_by_target, targets_by_source,
-                                          targets_by_class, binary_deps_by_target)
-    found_missing_deps = False
-    for target in deps_by_target:
-      computed_deps = deps_by_target[target]
-      computed_jar_deps = jar_deps_by_target[target]
-      undeclared_deps, immediate_undeclared_deps = \
-        self.get_missing_deps_for_target(target, computed_deps, computed_jar_deps,
-                                         targets_by_class)
-      found_missing_deps = found_missing_deps or undeclared_deps or immediate_undeclared_deps
+      (deps_by_target, jar_deps_by_target) = \
+          self.get_compilation_dependencies(sources_by_target, targets_by_source,
+                                            targets_by_class, binary_deps_by_target)
+      found_missing_deps = False
+      for target in deps_by_target:
+        computed_deps = deps_by_target[target]
+        computed_jar_deps = jar_deps_by_target[target]
+        undeclared_deps, immediate_undeclared_deps = \
+          self.get_missing_deps_for_target(target, computed_deps, computed_jar_deps,
+                                           targets_by_class)
+        found_missing_deps = found_missing_deps or undeclared_deps or immediate_undeclared_deps
 
-      if self.check_unnecessary_deps and not target.has_label('synthetic'):
-        self.check_unnecessary_deps(target, computed_deps)
+        if self.check_unnecessary_deps and not target.has_label('synthetic'):
+          self.check_unnecessary_deps(target, computed_deps)
 
-    if found_missing_deps:
-      raise TaskError('Missing dependencies detected.')
+      if found_missing_deps:
+        raise TaskError('Missing dependencies detected.')
 
   def check_unnecessary_deps(self, target, computed_deps):
     """ Generate warning messages about unnecessary declared dependencies.

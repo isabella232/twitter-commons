@@ -113,13 +113,6 @@ class ScalaCompile(NailgunTask):
           # Process partitions one by one.
           for vts in invalidation_check.all_vts_partitioned:
             if not self.dry_run:
-              # Do some reporting.
-              prefix = 'Operating on '
-              if len(invalidation_check.all_vts_partitioned) > 1:
-                prefix += 'target partition containing '
-              self.context.report(
-                prefix,
-                list_to_report_element([t.address.reference() for t in vts.targets], 'target'))
               merged_artifact = self._process_target_partition(vts, cp, upstream_analysis_map)
               vts.update()
               # Note that we add the merged classes_dir to the upstream.
@@ -198,6 +191,11 @@ class ScalaCompile(NailgunTask):
 
       # Invoke the compiler if needed.
       if any([not vt.valid for vt in vts.versioned_targets]):
+        # Do some reporting.
+        prefix = 'Operating on partition containing '
+        self.context.report(
+          prefix,
+          list_to_report_element([t.address.reference() for t in vts.targets], 'target'))
         old_state = current_state
         classpath = [entry for conf, entry in cp if conf in self._confs]
         with self.context.new_work_scope('compile'):

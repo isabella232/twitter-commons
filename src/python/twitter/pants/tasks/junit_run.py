@@ -174,14 +174,18 @@ class JUnitRun(JvmTask):
 
         def run_tests(classpath, main, jvmargs=None):
           with safe_args(tests) as all_tests:
-            result = runjava(
+            cmd = build_java_cmd(
               jvmargs=(jvmargs or []) + self.java_args,
               classpath=classpath,
               main=main,
               args=self.flags + all_tests
             )
-            if result != 0:
-              raise TaskError()
+            with self.context.new_work_scope(name='run', type='jvm_tool', cmd=cmd) as workunit:
+              result = run_java_cmd(cmd, stdout=workunit.output('stdout'),
+                                         stderr=workunit.output('stderr'))
+              workunit.set_outcome(WorkUnit.FAILURE if result else WorkUnit.SUCCESS)
+              if result:
+                raise TaskError('Test failed.')
 
         if self.coverage:
           emma_classpath = profile_classpath(self.emma_profile)
