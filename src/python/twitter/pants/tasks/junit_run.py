@@ -23,9 +23,12 @@ import sys
 from twitter.common.dirutil import safe_mkdir, safe_open
 
 from twitter.pants import is_codegen, is_java, is_scala, is_test
+from twitter.pants.goal.work_unit import WorkUnit
 from twitter.pants.tasks import binary_utils, Task, TaskError
-from twitter.pants.tasks.binary_utils import profile_classpath, runjava, safe_args
+from twitter.pants.tasks.binary_utils import profile_classpath, runjava, safe_args, \
+    build_java_cmd, run_java_cmd
 from twitter.pants.tasks.jvm_task import JvmTask
+
 
 class JUnitRun(JvmTask):
   @classmethod
@@ -180,7 +183,8 @@ class JUnitRun(JvmTask):
               main=main,
               args=self.flags + all_tests
             )
-            with self.context.new_work_scope(name='run', type='jvm_tool', cmd=cmd) as workunit:
+            cmd_str = ' '.join(cmd)
+            with self.context.new_workunit(name='run', type='test_tool', cmd=cmd_str) as workunit:
               result = run_java_cmd(cmd, stdout=workunit.output('stdout'),
                                          stderr=workunit.output('stderr'))
               workunit.set_outcome(WorkUnit.FAILURE if result else WorkUnit.SUCCESS)
@@ -255,6 +259,7 @@ class JUnitRun(JvmTask):
           finally:
             generate_reports()
         else:
+          self.context.lock.release()
           run_tests(junit_classpath, 'com.twitter.common.testing.runner.JUnitConsoleRunner')
 
   def get_coverage_patterns(self, targets):

@@ -253,7 +253,7 @@ class JavaCompile(NailgunTask):
     cached_vts, uncached_vts = Task.check_artifact_cache(self, vts)
 
     if cached_vts:
-      with self.context.new_work_scope('split'):
+      with self.context.new_workunit('split'):
         for vt in cached_vts:
           self.split_depfile(vt)
     return cached_vts, uncached_vts

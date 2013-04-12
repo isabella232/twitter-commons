@@ -155,7 +155,7 @@ class ScalaCompile(NailgunTask):
 
     if cached_vts:
       # Localize the portable analysis files.
-      with self.context.new_work_scope('localize', type='jvm_multitool'):
+      with self.context.new_workunit('localize', type='jvm_multitool'):
         self._localize_portable_analysis_files(cached_vts)
 
       # Split any merged artifacts.
@@ -204,7 +204,7 @@ class ScalaCompile(NailgunTask):
           list_to_report_element([t.address.reference() for t in vts.targets], 'target'))
         old_state = current_state
         classpath = [entry for conf, entry in cp if conf in self._confs]
-        with self.context.new_work_scope('compile'):
+        with self.context.new_workunit('compile'):
           # Zinc may delete classfiles, then later exit on a compilation error. Then if the
           # change triggering the error is reverted, we won't rebuild to restore the missing
           # classfiles. So we force-invalidate here, to be on the safe side.

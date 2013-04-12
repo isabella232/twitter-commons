@@ -112,7 +112,7 @@ class HTMLFormatter(Formatter):
       header_text = workunit.name
     workunit_dict = workunit.to_dict()
     if workunit_dict['cmd']:
-      workunit_dict['cmd'] = self._linkify(workunit_dict['cmd'])
+      workunit_dict['cmd'] = self._linkify(workunit_dict['cmd'].replace('$', '\\\\$'))
     args = { 'indent': len(workunit.ancestors()) * 10,
              'html_path_base': self._html_path_base,
              'workunit': workunit_dict,

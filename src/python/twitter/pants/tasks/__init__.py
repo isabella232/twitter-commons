@@ -146,7 +146,7 @@ class Task(object):
 
     # See if we have entire partitions cached.
     if self._artifact_cache and self.context.options.read_from_artifact_cache:
-      with self.context.new_work_scope('cache'):
+      with self.context.new_workunit('cache'):
         all_cached_targets = []
         partitions_to_check = \
           [vt for vt in invalidation_check.all_vts_partitioned if not vt.valid]
@@ -211,7 +211,7 @@ class Task(object):
     cached_vts = []
     uncached_vts = OrderedSet(vts)
 
-    with self.context.new_work_scope('check'):
+    with self.context.new_workunit('check'):
       pool = ThreadPool(processes=6)
       res = pool.map(lambda vt: self._artifact_cache.use_cached_files(vt.cache_key),
                      vts, chunksize=1)
@@ -231,8 +231,8 @@ class Task(object):
     build_artifacts - the paths to the artifacts for the VersionedTargetSet.
     """
     if self._artifact_cache and self.context.options.write_to_artifact_cache:
-      with self.context.new_work_scope('cache'):
-        with self.context.new_work_scope('update'):
+      with self.context.new_workunit('cache'):
+        with self.context.new_workunit('update'):
           if self.context.options.verify_artifact_cache:
             pass  # TODO: Verify that the artifact we just built is identical to the cached one.
           self._report_targets('Caching artifacts for ', vt.targets, '.')

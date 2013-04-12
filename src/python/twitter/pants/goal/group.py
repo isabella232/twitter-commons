@@ -49,21 +49,21 @@ class Group(object):
         else:
           runqueue.append((None, [goal]))
 
-      with context.new_work_scope(name=phase.name, type='phase'):
+      with context.new_workunit(name=phase.name, type='phase'):
         # Note that we don't explicitly set the outcome at the phase level. We just take
         # the outcomes that propagate up from the goal workunits.
         for group_name, goals in runqueue:
           if not group_name:
             goal = goals[0]
-            with context.new_work_scope(name=goal.name, type='goal'):
+            with context.new_workunit(name=goal.name, type='goal'):
               execute_task(goal.name, tasks_by_goal[goal], context.targets())
           else:
-            with context.new_work_scope(name=group_name, type='group'):
+            with context.new_workunit(name=group_name, type='group'):
               for chunk in Group._create_chunks(context, goals):
                 for goal in goals:
                   goal_chunk = filter(goal.group.predicate, chunk)
                   if len(goal_chunk) > 0:
-                    with context.new_work_scope(name=goal.name, type='goal'):
+                    with context.new_workunit(name=goal.name, type='goal'):
                       execute_task(goal.name, tasks_by_goal[goal], goal_chunk)
 
       # Can't put this in a finally block because some tasks fork, and the forked processes would

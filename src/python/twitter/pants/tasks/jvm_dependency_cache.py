@@ -452,12 +452,13 @@ class JvmDependencyCache(object):
     """
     if not self.check_missing_deps:
         return
-    sources_by_target = self.get_sources_by_target()
-    targets_by_source = self.get_targets_by_source()
-    targets_by_class = self.get_targets_by_class()
-    binary_deps_by_target = self.get_binary_deps_by_target()
 
-    with self.context.new_work_scope(name='depcheck'):
+    with self.context.new_workunit(name='depcheck'):
+      sources_by_target = self.get_sources_by_target()
+      targets_by_source = self.get_targets_by_source()
+      targets_by_class = self.get_targets_by_class()
+      binary_deps_by_target = self.get_binary_deps_by_target()
+
       (deps_by_target, jar_deps_by_target) = \
           self.get_compilation_dependencies(sources_by_target, targets_by_source,
                                             targets_by_class, binary_deps_by_target)

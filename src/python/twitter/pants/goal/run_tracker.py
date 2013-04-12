@@ -64,7 +64,7 @@ class RunTracker(object):
     return self._current_workunit
 
   @contextmanager
-  def new_work_scope(self, name, type='', cmd=''):
+  def new_workunit(self, name, type='', cmd=''):
     """Creates a (hierarchical) subunit of work for the purpose of timing and reporting.
 
     - name: A short name for this work. E.g., 'resolve', 'compile', 'scala'.
@@ -75,7 +75,7 @@ class RunTracker(object):
 
     Use like this:
 
-    with context.new_work_scope(name='compile', type='goal') as workunit:
+    with context.new_workunit(name='compile', type='goal') as workunit:
       <do scoped work here>
       <set the outcome on workunit if necessary>
 

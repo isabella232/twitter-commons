@@ -163,14 +163,14 @@ class _MergedZincArtifact(_ZincArtifact):
     if len(self.underlying_artifacts) <= 1:
       return self.current_state()
 
-    with self.factory.context.new_work_scope(name='merge'):
+    with self.factory.context.new_workunit(name='merge'):
       # Must merge analysis before computing current state.
       if force or not os.path.exists(self.analysis_file):
-        with self.factory.context.new_work_scope(name='analysis'):
+        with self.factory.context.new_workunit(name='analysis'):
           self._merge_analysis()
       current_state = self.current_state()
       if force or not os.path.exists(self.classes_dir):
-        with self.factory.context.new_work_scope(name='classes'):
+        with self.factory.context.new_workunit(name='classes'):
           self._merge_classes_dir(current_state)
     return current_state
 
@@ -178,7 +178,7 @@ class _MergedZincArtifact(_ZincArtifact):
     """Merge the analysis files from the underlying artifacts into a single file."""
     with temporary_dir(cleanup=False) as tmpdir:
       artifact_analysis_files = []
-      with self.factory.context.new_work_scope(name='rebase', type='jvm_multitool'):
+      with self.factory.context.new_workunit(name='rebase', type='jvm_multitool'):
         for artifact in self.underlying_artifacts:
           # Rebase a copy of the per-target analysis files to reflect the merged classes dir.
           if os.path.exists(artifact.classes_dir) and os.path.exists(artifact.analysis_file):
@@ -238,14 +238,14 @@ class _MergedZincArtifact(_ZincArtifact):
     if len(self.underlying_artifacts) <= 1:
       return current_state
 
-    with self.factory.context.new_work_scope(name='split'):
+    with self.factory.context.new_workunit(name='split'):
       diff = ZincArtifactStateDiff(old_state, current_state) if old_state else None
       if not diff or diff.analysis_changed:
-        with self.factory.context.new_work_scope(name='analysis'):
+        with self.factory.context.new_workunit(name='analysis'):
           self._split_analysis('analysis_file')
           if portable:
             self._split_analysis('portable_analysis_file')
-      with self.factory.context.new_work_scope(name='classes'):
+      with self.factory.context.new_workunit(name='classes'):
         self._split_classes_dir(current_state, diff)
     return current_state
 
@@ -279,7 +279,7 @@ class _MergedZincArtifact(_ZincArtifact):
       raise TaskError('zinc failed to split analysis files %s from %s' % \
                       (':'.join([x.dst_analysis_file for x in splits]), analysis_to_split))
 
-    with self.factory.context.new_work_scope(name='rebase', type='jvm_multitool'):
+    with self.factory.context.new_workunit(name='rebase', type='jvm_multitool'):
       for split in splits:
         if os.path.exists(split.dst_analysis_file):
           self.log.debug('Rebasing analysis file %s after split' % split.dst_analysis_file)

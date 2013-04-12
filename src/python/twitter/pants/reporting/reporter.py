@@ -62,7 +62,7 @@ class ConsoleReporter(Reporter):
     Reporter.close(self)
 
   def handle_formatted(self, workunit, label, s):
-    if label == WorkUnit.DEFAULT_OUTPUT_LABEL or label is None:
+    if label == WorkUnit.DEFAULT_OUTPUT_LABEL or label is None or workunit.type.startswith('test_'):
       sys.stdout.write(s)
     # Ignore the other outputs (stdout/stderr of tools etc).
 

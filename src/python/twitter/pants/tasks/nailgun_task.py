@@ -104,7 +104,7 @@ class NailgunTask(Task):
     if not workunit_name:
       workunit_name = main
     if self._daemon:
-      with self.context.new_work_scope(name=workunit_name, type='ng_tool', cmd=' '.join(cmd)) as workunit:
+      with self.context.new_workunit(name=workunit_name, type='ng_tool', cmd=' '.join(cmd)) as workunit:
         nailgun = self._get_nailgun_client(stdin=None,
           stdout=workunit.output('stdout'), stderr=workunit.output('stderr'))
 
@@ -126,7 +126,7 @@ class NailgunTask(Task):
           self._ng_shutdown()
           raise e
     else:
-      with self.context.new_work_scope(name=workunit_name, type='jvm_tool', cmd=' '.join(cmd)) as workunit:
+      with self.context.new_workunit(name=workunit_name, type='jvm_tool', cmd=' '.join(cmd)) as workunit:
         if self.dry_run:
           self.context.report('********** Direct Java dry run')
           return 0
