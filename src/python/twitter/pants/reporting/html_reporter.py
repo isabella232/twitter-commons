@@ -116,7 +116,7 @@ class HtmlReporter(Reporter):
         self._output_files[path] = f
       else:
         f = self._output_files[path]
-      f.write(s)
+      f.write(self._htmlify_text(s))
       # We must flush in the same thread as the write.
       f.flush()
 
