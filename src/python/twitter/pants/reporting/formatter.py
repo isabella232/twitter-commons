@@ -42,60 +42,6 @@ class Formatter(object):
     return ''
 
 
-class _PlainTextFormatter(Formatter):
-  def end_run(self):
-    return '\n'
-
-  def format_output(self, workunit, label, s):
-    """Format captured output from an external tool."""
-    return self.prefix(workunit, s)
-
-  def format_message(self, workunit, *msg_elements):
-    """Format an internal pants report message."""
-    elements = [e if isinstance(e, basestring) else e[0] for e in msg_elements]
-    return self.prefix(workunit, ''.join(elements))
-
-  def format_aggregated_timings(self, aggregated_timings):
-    return '\n'.join(['%(timing).3f %(label)s' % x for x in aggregated_timings.get_all()])
-
-  def format_artifact_cache_stats(self, artifact_cache_stats):
-    stats = artifact_cache_stats.get_all()
-    return 'Artifact cache reads not enabled.' if not stats else \
-           '\n'.join(['%(cache_name)s - Hits: %(num_hits)d Misses: %(num_misses)d' % x
-                     for x in stats])
-
-  def time_string(self, workunit, with_time_string):
-    if with_time_string:
-      return '\n' + workunit.start_time_string() + ' ' + workunit.start_delta_string()
-    else:
-      return '\n' + ' ' * 14
-
-  def prefix(self, workunit, s, with_time_string=False):
-    raise NotImplementedError()
-
-
-class IndentingPlainTextFormatter(_PlainTextFormatter):
-  def start_workunit(self, workunit):
-    if workunit.parent and workunit.parent.is_multitool():
-      return '.'
-    return self.prefix(workunit, '[%s]' % workunit.name, with_time_string=True)
-
-  def prefix(self, workunit, s, with_time_string=False):
-    indent = '  ' * (len(workunit.ancestors()) - 1)
-    return self.time_string(workunit, with_time_string) + ' ' + \
-           ('\n' + ' ' * 14 + ' ').join([indent + line for line in s.strip().split('\n')])
-
-
-class NonIndentingPlainTextFormatter(_PlainTextFormatter):
-  def start_workunit(self, workunit):
-    if workunit.parent and workunit.parent.is_multitool():
-      return '.'
-    return self.prefix(workunit, '[%s]' % workunit.get_path(), with_time_string=True)
-
-  def prefix(self, workunit, s, with_time_string=False):
-    return self.time_string(workunit, with_time_string) + ' ' + s
-
-
 class HTMLFormatter(Formatter):
   def __init__(self, template_dir, html_dir):
     Formatter.__init__(self)

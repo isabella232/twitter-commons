@@ -5,8 +5,9 @@ from twitter.common.dirutil import safe_rmtree, safe_mkdir
 
 from twitter.common.lang import Compatibility
 from twitter.common.threading import PeriodicThread
-from twitter.pants.reporting.formatter import HTMLFormatter, IndentingPlainTextFormatter
-from twitter.pants.reporting.reporter import ConsoleReporter, MultiFileReporter
+from twitter.pants.reporting.console_reporter import ConsoleReporter
+from twitter.pants.reporting.formatter import HTMLFormatter
+from twitter.pants.reporting.html_reporter import HtmlReporter
 
 StringIO = Compatibility.StringIO
 
@@ -20,21 +21,24 @@ def default_reporting(config, run_tracker):
   run_id = run_tracker.run_info.get_info('id')
   if run_id is None:
     raise ReportingError('No run_id set')
-  this_run_dir = os.path.join(reports_dir, run_id)
-  safe_rmtree(this_run_dir)
+  run_dir = os.path.join(reports_dir, run_id)
+  safe_rmtree(run_dir)
 
-  this_run_html_dir = os.path.join(this_run_dir, 'html')
-  safe_mkdir(this_run_html_dir)
-  os.symlink(this_run_dir, link_to_latest)
-
-  html_output_path = os.path.join(this_run_html_dir, 'build.html')
-  run_tracker.run_info.add_info('default_report', html_output_path)
+  html_dir = os.path.join(run_dir, 'html')
+  safe_mkdir(html_dir)
+  os.symlink(run_dir, link_to_latest)
 
   report = Report()
-  report.add_reporter(ConsoleReporter(run_tracker, IndentingPlainTextFormatter()))
+
+  console_reporter = ConsoleReporter(run_tracker, indenting=True)
   template_dir = config.get('reporting', 'reports_template_dir')
-  report.add_reporter(MultiFileReporter(run_tracker,
-                      HTMLFormatter(template_dir, this_run_html_dir), this_run_html_dir))
+  html_reporter = HtmlReporter(run_tracker, html_dir, template_dir)
+
+  report.add_reporter(console_reporter)
+  report.add_reporter(html_reporter)
+
+  run_tracker.run_info.add_info('default_report', html_reporter.report_path())
+
   return report
 
 class ReportingError(Exception):

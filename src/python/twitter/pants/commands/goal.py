@@ -35,7 +35,7 @@ from twitter.common.collections import OrderedSet
 from twitter.common.dirutil import safe_mkdir, safe_rmtree
 from twitter.common.lang import Compatibility
 from twitter.pants import get_buildroot, goal, group, is_apt, is_codegen, is_scala
-from twitter.pants.base import Address, BuildFile, Config, ParseContext, Target, Timer
+from twitter.pants.base import Address, BuildFile, Config, ParseContext, Target
 from twitter.pants.base.rcfile import RcFile
 from twitter.pants.commands import Command
 from twitter.pants.reporting import reporting_server
