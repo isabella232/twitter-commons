@@ -25,15 +25,25 @@ class WorkUnit(object):
   SUCCESS = 3
   UNKNOWN = 4
 
-  def __init__(self, run_tracker, parent, name, type='', cmd=''):
+  # The types must be an iterable of these values.
+  SETUP = 0
+  PHASE = 1
+  GOAL = 2
+  GROUP = 3
+  TOOL = 4
+  MULTITOOL = 5
+  TEST = 6
+  JVM = 7
+  NAILGUN = 8
+
+  def __init__(self, run_tracker, parent, name, types=(), cmd=''):
     """
     - run_tracker: The RunTracker that tracks this WorkUnit.
     - parent: The containing workunit, if any. E.g., 'compile' might contain 'java', 'scala' etc.,
               'scala' might contain 'compile', 'split' etc.
     - name: A short name for this work. E.g., 'resolve', 'compile', 'scala', 'zinc'.
-    - type: An optional string that the report formatters can use to decide how to display
-            information about this work. E.g., 'phase', 'goal', 'jvm_tool'. By convention, types
-            ending with '_tool' are assumed to be invocations of external tools.
+    - types: An optional iterable of types. The reporters can use this to decide how to
+             display information about this work.
     - cmd: An optional longer string representing this work.
            E.g., the cmd line of a compiler invocation.
     """
@@ -43,7 +53,7 @@ class WorkUnit(object):
     self.parent = parent
     self.children = []
     self.name = name
-    self.type = type
+    self.types = set(types)
     self.cmd = cmd
     self.id = uuid.uuid4()
     # In seconds since the epoch. Doubles, to account for fractional seconds.
@@ -58,10 +68,13 @@ class WorkUnit(object):
       self.parent.children.append(self)
 
   def is_tool(self):
-    return self.type.endswith('_tool')
+    return WorkUnit.TOOL in self.types
 
   def is_multitool(self):
-    return self.type.endswith('_multitool')
+    return WorkUnit.MULTITOOL in self.types
+
+  def is_test(self):
+    return WorkUnit.TEST in self.types
 
   def start(self):
     self.start_time = time.time()
@@ -74,7 +87,7 @@ class WorkUnit(object):
   def to_dict(self):
     """Useful for providing arguments to templates."""
     ret = {}
-    for key in ['type', 'name', 'cmd', 'id', 'start_time', 'end_time',
+    for key in ['name', 'cmd', 'id', 'start_time', 'end_time',
                 'outcome', 'start_time_string', 'start_delta_string']:
       val = getattr(self, key)
       ret[key] = val() if hasattr(val, '__call__') else val

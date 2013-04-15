@@ -184,7 +184,8 @@ class JUnitRun(JvmTask):
               args=self.flags + all_tests
             )
             cmd_str = ' '.join(cmd)
-            with self.context.new_workunit(name='run', type='test_tool', cmd=cmd_str) as workunit:
+            with self.context.new_workunit(name='run',
+                types=[WorkUnit.JVM, WorkUnit.TOOL, WorkUnit.TEST], cmd=cmd_str) as workunit:
               result = run_java_cmd(cmd, stdout=workunit.output('stdout'),
                                          stderr=workunit.output('stderr'))
               workunit.set_outcome(WorkUnit.FAILURE if result else WorkUnit.SUCCESS)

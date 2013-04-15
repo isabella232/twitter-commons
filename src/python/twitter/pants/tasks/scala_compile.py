@@ -12,13 +12,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# ==================================================================================================
+# ===================================================================================================
 
 __author__ = 'Benjy Weinberger'
 
 import os
 
 from twitter.pants import  is_scalac_plugin, get_buildroot
+from twitter.pants.goal.work_unit import WorkUnit
 from twitter.pants.targets.scala_library import ScalaLibrary
 from twitter.pants.targets.scala_tests import ScalaTests
 from twitter.pants.tasks import Task, TaskError
@@ -155,7 +156,7 @@ class ScalaCompile(NailgunTask):
 
     if cached_vts:
       # Localize the portable analysis files.
-      with self.context.new_workunit('localize', type='jvm_multitool'):
+      with self.context.new_workunit('localize', types=[WorkUnit.MULTITOOL]):
         self._localize_portable_analysis_files(cached_vts)
 
       # Split any merged artifacts.

@@ -26,6 +26,7 @@ from twitter.common.contextutil import temporary_dir
 from twitter.common.dirutil import safe_mkdir, safe_rmtree
 
 from twitter.pants.base.target import Target
+from twitter.pants.goal.work_unit import WorkUnit
 from twitter.pants.targets import resolve_target_sources
 from twitter.pants.targets.scala_library import ScalaLibrary
 from twitter.pants.targets.scala_tests import ScalaTests
@@ -178,7 +179,7 @@ class _MergedZincArtifact(_ZincArtifact):
     """Merge the analysis files from the underlying artifacts into a single file."""
     with temporary_dir(cleanup=False) as tmpdir:
       artifact_analysis_files = []
-      with self.factory.context.new_workunit(name='rebase', type='jvm_multitool'):
+      with self.factory.context.new_workunit(name='rebase', types=[WorkUnit.MULTITOOL]):
         for artifact in self.underlying_artifacts:
           # Rebase a copy of the per-target analysis files to reflect the merged classes dir.
           if os.path.exists(artifact.classes_dir) and os.path.exists(artifact.analysis_file):
@@ -279,7 +280,7 @@ class _MergedZincArtifact(_ZincArtifact):
       raise TaskError('zinc failed to split analysis files %s from %s' % \
                       (':'.join([x.dst_analysis_file for x in splits]), analysis_to_split))
 
-    with self.factory.context.new_workunit(name='rebase', type='jvm_multitool'):
+    with self.factory.context.new_workunit(name='rebase', types=[WorkUnit.MULTITOOL]):
       for split in splits:
         if os.path.exists(split.dst_analysis_file):
           self.log.debug('Rebasing analysis file %s after split' % split.dst_analysis_file)

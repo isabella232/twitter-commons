@@ -14,7 +14,6 @@
 # limitations under the License.
 # ==================================================================================================
 
-__author__ = 'jsirois'
 
 import daemon
 import errno
@@ -38,6 +37,7 @@ from twitter.pants import get_buildroot, goal, group, is_apt, is_codegen, is_sca
 from twitter.pants.base import Address, BuildFile, Config, ParseContext, Target
 from twitter.pants.base.rcfile import RcFile
 from twitter.pants.commands import Command
+from twitter.pants.goal.work_unit import WorkUnit
 from twitter.pants.reporting import reporting_server
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.nailgun_task import NailgunTask
@@ -331,13 +331,13 @@ class Goal(Command):
       goals, specs = Goal.parse_args(args)
       self.requested_goals = goals
 
-      with self.run_tracker.new_workunit(name='setup', type='setup'):
+      with self.run_tracker.new_workunit(name='setup', types=[WorkUnit.SETUP]):
         # TODO(John Sirois): kill PANTS_NEW and its usages when pants.new is rolled out
         ParseContext.enable_pantsnew()
 
         # Bootstrap goals by loading any configured bootstrap BUILD files
         with self.check_errors('The following bootstrap_buildfiles cannot be loaded:') as error:
-          with self.run_tracker.new_workunit(name='bootstrap', type='setup'):
+          with self.run_tracker.new_workunit(name='bootstrap', types=[WorkUnit.SETUP]):
             for path in self.config.getlist('goals', 'bootstrap_buildfiles', default = []):
               try:
                 buildfile = BuildFile(get_buildroot(), os.path.relpath(path, get_buildroot()))
@@ -349,7 +349,7 @@ class Goal(Command):
 
         # Bootstrap user goals by loading any BUILD files implied by targets
         with self.check_errors('The following targets could not be loaded:') as error:
-          with self.run_tracker.new_workunit(name='parse', type='setup'):
+          with self.run_tracker.new_workunit(name='parse', types=[WorkUnit.SETUP]):
             for spec in specs:
               self.parse_spec(error, spec)
 

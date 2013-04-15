@@ -41,7 +41,7 @@ class ConsoleReporter(Reporter):
     pass
 
   def handle_output(self, workunit, label, s):
-    if label == WorkUnit.DEFAULT_OUTPUT_LABEL or label is None or workunit.type.startswith('test_'):
+    if workunit.is_test():
       sys.stdout.write(self._prefix(workunit, s))
 
   def handle_message(self, workunit, *msg_elements):

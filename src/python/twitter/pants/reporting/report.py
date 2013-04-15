@@ -6,13 +6,13 @@ from twitter.common.dirutil import safe_rmtree, safe_mkdir
 from twitter.common.lang import Compatibility
 from twitter.common.threading import PeriodicThread
 from twitter.pants.reporting.console_reporter import ConsoleReporter
-from twitter.pants.reporting.formatter import HTMLFormatter
 from twitter.pants.reporting.html_reporter import HtmlReporter
 
 StringIO = Compatibility.StringIO
 
 
 def default_reporting(config, run_tracker):
+  """Sets up the default reporting configuration."""
   reports_dir = config.get('reporting', 'reports_dir')
   link_to_latest = os.path.join(reports_dir, 'latest')
   if os.path.exists(link_to_latest):
@@ -41,8 +41,52 @@ def default_reporting(config, run_tracker):
 
   return report
 
+
 class ReportingError(Exception):
   pass
+
+
+class Reporter(object):
+  """Formats and emits reports.
+
+  Subclasses implement the call back methods, to provide specific reporting
+  functionality, e.g., to console or to browser.
+  """
+  def __init__(self, run_tracker):
+    self.run_tracker = run_tracker
+    self.formatter = None
+
+  def open(self):
+    """Begin the report."""
+    pass
+
+  def close(self):
+    """End the report."""
+    pass
+
+  def start_workunit(self, workunit):
+    """Enter a new workunit."""
+    pass
+
+  def end_workunit(self, workunit):
+    """Exit the current workunit."""
+    pass
+
+  def handle_message(self, workunit, *msg_elements):
+    """Emit a message reported by pants code.
+
+    msg_elements are either strings or lists (e.g., of targets), which can be specially formatted.
+    """
+    pass
+
+  def handle_output(self, workunit, label, s):
+    """Emit output captured from an invoked tool (e.g., javac).
+
+    label - classifies the output e.g., 'stdout' for output captured from a tool's stdout.
+    Other labels are possible, e.g., if we capture debug output from a tool's logfiles.
+    """
+    pass
+
 
 class Report(object):
   """A report of a pants run."""
@@ -112,3 +156,4 @@ class Report(object):
         if len(s) > 0:
           for reporter in self._reporters:
             reporter.handle_output(workunit, label, s)
+

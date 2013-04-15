@@ -80,7 +80,7 @@ class HtmlReporter(Reporter):
              'aborted': workunit.outcome() == WorkUnit.ABORTED }
 
     s = ''
-    if workunit.type.endswith('_tool'):
+    if workunit.is_tool():
       s += self._renderer.render_name('tool_invocation_end', args)
     s += self._renderer.render_name('workunit_end', args)
     self._emit(s)
