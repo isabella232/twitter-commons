@@ -35,6 +35,7 @@ class WorkUnit(object):
   TEST = 6
   JVM = 7
   NAILGUN = 8
+  REPL = 9
 
   def __init__(self, run_tracker, parent, name, types=(), cmd=''):
     """

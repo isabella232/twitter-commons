@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==================================================================================================
+from twitter.pants.goal.work_unit import WorkUnit
 
 __author__ = 'Benjy Weinberger'
 
 import shlex
 
 from twitter.pants.tasks import Task
-from twitter.pants.tasks.binary_utils import profile_classpath, runjava
+from twitter.pants.tasks.binary_utils import build_java_cmd, profile_classpath, run_java_cmd
 from twitter.pants.tasks.jvm_task import JvmTask
 
 
@@ -47,10 +48,13 @@ class ScalaRepl(JvmTask):
 
   def execute(self, targets):
     self.context.lock.release()
-    runjava(
+    cmd = build_java_cmd(
       jvmargs=self.jvm_args,
       classpath=self.classpath(profile_classpath(self.profile), confs=self.confs),
       main=self.main,
       args=self.args
     )
-
+    cmd_str = ' '.join(cmd)
+    with self.context.new_workunit(name='run',
+        types=[WorkUnit.JVM, WorkUnit.TOOL, WorkUnit.REPL], cmd=cmd_str):
+      run_java_cmd(cmd)

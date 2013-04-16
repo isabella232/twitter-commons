@@ -1,10 +1,11 @@
 import sys
 
-from twitter.pants.goal.work_unit import WorkUnit
-from twitter.pants.reporting.reporter import Reporter
+from twitter.pants.reporting.report import Reporter
 
 
 class ConsoleReporter(Reporter):
+  """Plain-text reporting to stdout."""
+
   def __init__(self, run_tracker, indenting):
     Reporter.__init__(self, run_tracker)
     self._indenting = indenting
@@ -27,7 +28,6 @@ class ConsoleReporter(Reporter):
       print('====================')
       print(self._format_artifact_cache_stats(self.run_tracker.artifact_cache_stats))
     print('')
-    Reporter.close(self)
 
   def start_workunit(self, workunit):
     if workunit.parent and workunit.parent.is_multitool():

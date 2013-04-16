@@ -1,4 +1,46 @@
 
+import os
+
+from twitter.common.dirutil import safe_rmtree, safe_mkdir
+
+from twitter.common.lang import Compatibility
+from twitter.pants.reporting.console_reporter import ConsoleReporter
+from twitter.pants.reporting.html_reporter import HtmlReporter
+from twitter.pants.reporting.report import Report, ReportingError
+
+StringIO = Compatibility.StringIO
+
+
+def default_reporting(config, run_tracker):
+  """Sets up the default reporting configuration."""
+  reports_dir = config.get('reporting', 'reports_dir')
+  link_to_latest = os.path.join(reports_dir, 'latest')
+  if os.path.exists(link_to_latest):
+    os.unlink(link_to_latest)
+
+  run_id = run_tracker.run_info.get_info('id')
+  if run_id is None:
+    raise ReportingError('No run_id set')
+  run_dir = os.path.join(reports_dir, run_id)
+  safe_rmtree(run_dir)
+
+  html_dir = os.path.join(run_dir, 'html')
+  safe_mkdir(html_dir)
+  os.symlink(run_dir, link_to_latest)
+
+  report = Report()
+
+  console_reporter = ConsoleReporter(run_tracker, indenting=True)
+  template_dir = config.get('reporting', 'reports_template_dir')
+  html_reporter = HtmlReporter(run_tracker, html_dir, template_dir)
+
+  report.add_reporter(console_reporter)
+  report.add_reporter(html_reporter)
+
+  run_tracker.run_info.add_info('default_report', html_reporter.report_path())
+
+  return report
+
 def list_to_report_element(items, item_type):
   items = [str(x) for x in items]
   return '%d %s%s' % (len(items), item_type, 's' if len(items) > 1 else ''), '\n'.join(items)

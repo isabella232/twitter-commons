@@ -19,7 +19,7 @@ import getpass
 import os
 import socket
 import subprocess
-from time import strftime, localtime
+from time import localtime, strftime, time
 
 def safe_call(cmd):
   po = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -36,7 +36,7 @@ def get_build_root():
     build_root = os.path.dirname(build_root)
   return os.path.realpath(build_root)
 
-BuildInfo = namedtuple('BuildInfo', 'date time timestamp branch tag sha name machine path')
+BuildInfo = namedtuple('BuildInfo', 'epochtime date time timestamp branch tag sha name machine path')
 
 def get_build_info():
   buildroot = get_build_root()
@@ -50,8 +50,10 @@ def get_build_info():
       branchname = branchname[2:].strip().decode('utf-8')
       break
 
-  now = localtime()
+  epochnow = time()
+  now = localtime(epochnow)
   return BuildInfo(
+    epochtime=str(int(epochnow)),
     date=strftime('%A %b %d, %Y', now),
     time=strftime('%H:%M:%S', now),
     timestamp=strftime('%m.%d.%Y %H:%M', now),

@@ -10,11 +10,12 @@ from twitter.pants import get_buildroot
 from twitter.pants.base.build_file import BuildFile
 from twitter.pants.base.mustache import MustacheRenderer
 from twitter.pants.goal.work_unit import WorkUnit
-from twitter.pants.reporting.reporter import Reporter
+from twitter.pants.reporting.report import Reporter
 
 
 class HtmlReporter(Reporter):
-  """Writes all default output to one file, and all other output to separate files per (workunit, label)."""
+  """HTML reporting to files."""
+
   def __init__(self, run_tracker, html_dir, template_dir):
     Reporter.__init__(self, run_tracker)
     self._html_dir = html_dir

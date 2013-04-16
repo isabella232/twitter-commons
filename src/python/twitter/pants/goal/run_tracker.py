@@ -5,25 +5,32 @@ import time
 
 from contextlib import contextmanager
 
+from twitter.pants.base.build_info import get_build_info
 from twitter.pants.goal.artifact_cache_stats import ArtifactCacheStats
 from twitter.pants.goal.run_info import RunInfo
 from twitter.pants.goal.aggregated_timings import AggregatedTimings
 from twitter.pants.goal.work_unit import WorkUnit
-from twitter.pants.reporting.report import default_reporting
+from twitter.pants.reporting.reporting_utils import default_reporting
 
 
 class RunTracker(object):
   """Tracks and times the execution of a pants run."""
   def __init__(self, config):
-    run_timestamp = time.time()
+    bi = get_build_info()
+    run_timestamp = int(bi.epochtime)
     # run_id is safe for use in paths.
     millis = (run_timestamp * 1000) % 1000
     run_id = 'pants_run_%s_%d' %\
              (time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(run_timestamp)), millis)
     cmd_line = ' '.join(['pants'] + sys.argv[1:])
     info_dir = config.getdefault('info_dir')
+
     self.run_info = RunInfo(os.path.join(info_dir, '%s.info' % run_id))
-    self.run_info.add_infos([('id', run_id), ('timestamp', run_timestamp), ('cmd_line', cmd_line)])
+    self.run_info.add_infos([
+      ('id', run_id), ('timestamp', run_timestamp), ('cmd_line', cmd_line),
+      ('branch', bi.branch), ('tag', bi.tag), ('sha', bi.sha), ('name', bi.name),
+      ('machine', bi.machine), ('buildroot', bi.path)])
+
     # Create a 'latest' symlink, after we add_infos, so we're guaranteed that the file exists.
     link_to_latest = os.path.join(info_dir, 'latest.info')
     if os.path.exists(link_to_latest):
