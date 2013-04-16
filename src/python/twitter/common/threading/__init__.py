@@ -38,7 +38,7 @@ class StoppableThread(threading.Thread):
             return
 
     threading.Thread.__init__(self, group=group, target=stoppable_target, name=name, args=args, kwargs=kwargs)
-    self._lock = threading.Lock()
+    self._lock = threading.Lock()  # Protects self._stopped.
     self._stopped = False
 
   def stop(self):

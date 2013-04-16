@@ -36,6 +36,7 @@ class ConsoleReporter(Reporter):
       sys.stdout.write(self._prefix(workunit,
         '[%s]' % workunit.name if self._indenting else workunit.get_path(),
         with_time_string=True))
+    sys.stdout.flush()
 
   def end_workunit(self, workunit):
     pass

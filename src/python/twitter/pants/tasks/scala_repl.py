@@ -55,6 +55,6 @@ class ScalaRepl(JvmTask):
       args=self.args
     )
     cmd_str = ' '.join(cmd)
-    with self.context.new_workunit(name='run',
+    with self.context.new_workunit(name=self.main,
         types=[WorkUnit.JVM, WorkUnit.TOOL, WorkUnit.REPL], cmd=cmd_str):
       run_java_cmd(cmd)

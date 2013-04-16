@@ -53,9 +53,9 @@ class Report(object):
   """A report of a pants run."""
 
   def __init__(self):
-    # We periodically emit newly reported data.
+    # We periodically emit newly gathered output from tool invocations.
     self._emitter_thread = \
-      PeriodicThread(target=self._lock_and_notify, name='report-emitter', period_secs=0.1)
+      PeriodicThread(target=self.flush, name='output-emitter', period_secs=0.1)
     self._emitter_thread.daemon = True
 
     # Map from workunit id to workunit.
@@ -64,22 +64,19 @@ class Report(object):
     # We report to these reporters.
     self._reporters = []
 
-    # We synchronize our state on this.
+    # We synchronize on this, to support parallel execution.
     self._lock = threading.Lock()
 
   def open(self):
-    with self._lock:
-      for reporter in self._reporters:
-        reporter.open()
+    for reporter in self._reporters:
+      reporter.open()
     self._emitter_thread.start()
 
   def add_reporter(self, reporter):
-    with self._lock:
-      self._reporters.append(reporter)
+    self._reporters.append(reporter)
 
   def start_workunit(self, workunit):
     with self._lock:
-      self._notify()  # Make sure we flush everything reported until now.
       self._workunits[workunit.id] = workunit
       for reporter in self._reporters:
         reporter.start_workunit(workunit)
@@ -87,7 +84,6 @@ class Report(object):
   def message(self, workunit, *msg_elements):
     """Report a message."""
     with self._lock:
-      self._notify()  # Make sure we flush everything reported until now.
       for reporter in self._reporters:
         reporter.handle_message(workunit, *msg_elements)
 
@@ -98,15 +94,16 @@ class Report(object):
         reporter.end_workunit(workunit)
       del self._workunits[workunit.id]
 
+  def flush(self):
+    with self._lock:
+      self._notify()
+
   def close(self):
     self._emitter_thread.stop()
     with self._lock:
+      self._notify()  # One final time.
       for reporter in self._reporters:
         reporter.close()
-
-  def _lock_and_notify(self):
-    with self._lock:
-      self._notify()
 
   def _notify(self):
     # Notify for output in all workunits. Note that output may be coming in from workunits other
@@ -117,4 +114,3 @@ class Report(object):
         if len(s) > 0:
           for reporter in self._reporters:
             reporter.handle_output(workunit, label, s)
-
