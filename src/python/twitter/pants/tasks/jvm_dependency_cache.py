@@ -483,7 +483,7 @@ class JvmDependencyCache(object):
             self.check_target_unnecessary_deps(target, computed_deps)
 
       if len(all_undeclared_deps) > 0 or \
-        (self.check_intransitive_deps and len(all_intransitive_undeclared_deps) > 0):
+        (self.check_intransitive_deps is not 'none' and len(all_intransitive_undeclared_deps) > 0):
         raise TaskError('Missing dependencies detected.')
 
   def check_target_unnecessary_deps(self, target, computed_deps):
@@ -504,7 +504,6 @@ class JvmDependencyCache(object):
           if isinstance(deptarget, JvmTarget) and not deptarget.has_label('synthetic'):
             self.context.report("Warning: target %s declares un-needed dependency on: %s" %
               (target, deptarget))
-
 
   def _dependency_walk_work(self, deps, jar_deps, target):
     if target in deps:

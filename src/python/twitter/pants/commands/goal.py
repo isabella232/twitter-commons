@@ -115,6 +115,8 @@ class Goal(Command):
   GLOBAL_OPTIONS = [
     Option("-x", "--time", action="store_true", dest="time", default=False,
            help="Times goal phases and outputs a report."),
+    Option("-k", "--kill-nailguns", action="store_true", dest="cleanup_nailguns", default=False,
+           help="Kill nailguns before exiting"),
     Option("-v", "--log", action="store_true", dest="log", default=False,
            help="[%default] Logs extra build output."),
     Option("-d", "--logdir", dest="logdir",
@@ -436,9 +438,17 @@ class Goal(Command):
       if logger:
         logger.debug('Operating on targets: %s', self.targets)
 
-      return Phase.attempt(context, self.phases)
+      ret = Phase.attempt(context, self.phases)
     finally:
       self.run_tracker.close()
+
+    if self.options.cleanup_nailguns or self.config.get('nailgun', 'autokill', default = False):
+      if log:
+        log.debug('auto-killing nailguns')
+      if NailgunTask.killall:
+        NailgunTask.killall(log)
+
+    return ret
 
   def cleanup(self):
     # TODO: Make this more selective? Only kill nailguns that affect state? E.g., checkstyle
