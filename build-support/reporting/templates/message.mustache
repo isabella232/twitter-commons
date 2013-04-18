@@ -1,6 +1,6 @@
 <div>
 {{#elements}}{{#detail?}}<a href="#" onclick="{{#detail-ids}}$('#{{.}}').not('#{{detail-id}}').hide(); {{/detail-ids}}$('#{{detail-id}}').toggle(); return false;">{{{text}}}</a>{{/detail?}}{{^detail?}}{{{text}}}{{/detail?}}{{/elements}}
 {{#elements}}{{#detail?}}
-<div id="{{detail-id}}" class="nodisplay">{{{detail}}}</div>
+<div id="{{detail-id}}" {{^detail_initially_visible}}class="nodisplay">{{/detail_initially_visible}}{{{detail}}}</div>
 {{/detail?}}{{/elements}}
 </div>

@@ -33,7 +33,11 @@
     pants.poller.startPolling('run_{{id}}_self_timings', '{{self_timings_path}}', '#self-timings-collapsible-content', function() { pants.collapsible.hasContent('self-timings-collapsible'); });
   });
   $(function() {
-    pants.poller.startPolling('run_{{id}}_artifact_cache_stats', '{{artifact_cache_stats_path}}', '#artifact-cache-stats-collapsible-content', function() { pants.collapsible.hasContent('artifact-cache-stats-collapsible'); });
+    var initFunc = function() { pants.collapsible.hasContent('artifact-cache-stats-collapsible'); };
+    // Only update if the hit and miss details are both closed. Otherwise the update will lose that state and force them
+    // closed, which will be annoying to the user.
+    var predicate = function() { return !($('#cache-hit-details').is(':visible') || $('#cache-miss-details').is(':visible')); };
+    pants.poller.startPolling('run_{{id}}_artifact_cache_stats', '{{artifact_cache_stats_path}}', '#artifact-cache-stats-collapsible-content', initFunc, predicate);
   });
 </script>
 {{/run_info}}

@@ -11,6 +11,7 @@ from twitter.pants.base.build_file import BuildFile
 from twitter.pants.base.mustache import MustacheRenderer
 from twitter.pants.goal.work_unit import WorkUnit
 from twitter.pants.reporting.report import Reporter
+from twitter.pants.reporting.reporting_utils import list_to_report_element
 
 
 class HtmlReporter(Reporter):
@@ -105,10 +106,27 @@ class HtmlReporter(Reporter):
 
     # Update the artifact cache stats.
     def render_cache_stats(artifact_cache_stats):
-      args = {
-        'artifact_cache_stats': artifact_cache_stats.get_all()
-      }
-      return self._renderer.render_name('artifact_cache_stats', args)
+      def set_explicit_detail_id(e, id):
+        if isinstance(e, basestring):
+          return e # No details, so nothing to do.
+        else:
+          return e + (False, id)
+
+      msg_elements = []
+      for cache_name, stat in artifact_cache_stats.stats_per_cache.items():
+        msg_elements.extend([
+          cache_name + ' artifact cache: ',
+          # Explicitly set the detail ids, so we can check from JS whether they are visible.
+          set_explicit_detail_id(list_to_report_element(stat.hit_targets, 'hit'),
+                                 'cache-hit-details'),
+          ', ',
+          set_explicit_detail_id(list_to_report_element(stat.miss_targets, 'miss'),
+                                 'cache-miss-details'),
+          '.'
+        ])
+      if not msg_elements:
+        msg_elements = ['No artifact cache use.']
+      return self._render_message(*msg_elements)
 
     self._overwrite('artifact_cache_stats',
                     render_cache_stats(self.run_tracker.artifact_cache_stats))
@@ -126,21 +144,28 @@ class HtmlReporter(Reporter):
       f.flush()
 
   def handle_message(self, workunit, *msg_elements):
+    s = self._append_to_workunit(workunit, self._render_message(*msg_elements))
+    self._emit(s)
+
+  def _render_message(self, *msg_elements):
     elements = []
     detail_ids = []
     for e in msg_elements:
       if isinstance(e, basestring):
         elements.append({'text': self._htmlify_text(e)})
-      else:  # Assume it's a pair (text, detail).
-        detail_id = uuid.uuid4()
+      elif len(e) == 1:
+        elements.append({'text': self._htmlify_text(e[0])})
+      else:  # Assume it's a tuple (text, detail[, detail_initially_visible[, detail_id]])
+        detail_initially_visible = e[2] if len(e) > 2 else False
+        detail_id = e[3] if len(e) > 3 else uuid.uuid4()
         detail_ids.append(detail_id)
         elements.append({'text': self._htmlify_text(e[0]),
                          'detail': self._htmlify_text(e[1]),
-                         'detail-id': detail_id })
+                         'detail-id': detail_id,
+                         'detail_initially_visible': detail_initially_visible })
     args = { 'elements': elements,
              'detail-ids': detail_ids }
-    s = self._append_to_workunit(workunit, self._renderer.render_name('message', args))
-    self._emit(s)
+    return self._renderer.render_name('message', args)
 
   def _emit(self, s):
     if os.path.exists(self._html_dir):  # Make sure we're not immediately after a clean-all.

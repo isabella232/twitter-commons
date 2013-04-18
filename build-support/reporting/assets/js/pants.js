@@ -112,17 +112,23 @@ pants = {
             $.each(data, function(id, val) {
               if (id in polledFileStates) {
                 var state = polledFileStates[id];
-                if (state.replace) {
-                  $(state.selector).html(val);
-                } else {
-                  $(state.selector).append(val);
-                  state.pos += val.length;
-                }
                 if (!state.hasBeenPolledAtLeastOnce) {
                   if (state.initFunc) {
                     state.initFunc();
                   }
                   state.hasBeenPolledAtLeastOnce = true;
+                }
+                if (state.predicate ? state.predicate(val) : true) {
+                  if (state.replace) {
+                    // Replacing can reset state, so only do it if we have to.
+                    if (val != state.currentVal) {
+                      $(state.selector).html(val);
+                    }
+                  } else {
+                    $(state.selector).append(val);
+                    state.pos += val.length;
+                  }
+                  state.currentVal = val;
                 }
               }
             });
@@ -150,14 +156,16 @@ pants = {
       });
     }
 
-    function doStartPolling(id, path, targetSelector, initFunc, replace) {
+    function doStartPolling(id, path, targetSelector, initFunc, predicate, replace) {
       polledFileStates[id] = {
         path: path,
         pos: 0,
         inFlight: false,
         replace: replace,
+        currentVal: '',
         selector: targetSelector,
         initFunc: initFunc,
+        predicate: predicate,
         hasBeenPolledAtLeastOnce: false,
         toBeStopped: false
       };
@@ -177,15 +185,15 @@ pants = {
       // Call this to start polling the specified file, assigning its content to the element(s)
       // selected by the selector. You must assign some unique id to the request.
       // If initFunc is provided, it is called the first time any content is assigned.
-      startPolling: function(id, path, targetSelector, initFunc) {
-        doStartPolling(id, path, targetSelector, initFunc, true);
+      startPolling: function(id, path, targetSelector, initFunc, predicate) {
+        doStartPolling(id, path, targetSelector, initFunc, predicate, true);
       },
 
       // Call this to start tailing the specified file, appending its content to the element(s)
       // selected by the selector. You must assign some unique id to the request.
       // If initFunc is provided, it is called the first time any content is appended.
-      startTailing: function(id, path, targetSelector, initFunc) {
-        doStartPolling(id, path, targetSelector, initFunc, false);
+      startTailing: function(id, path, targetSelector, initFunc, predicate) {
+        doStartPolling(id, path, targetSelector, initFunc, predicate, false);
       },
 
       // Stop the specified polling.
