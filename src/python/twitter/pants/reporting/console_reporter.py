@@ -11,8 +11,10 @@ class ConsoleReporter(Reporter):
   def __init__(self, run_tracker, indenting):
     Reporter.__init__(self, run_tracker)
     self._indenting = indenting
-    # TODO: protect self._has_content against concurrent access.
-    self._has_content = defaultdict(bool)  # workunit id -> whether it already has any content.
+    # We don't want spurious newlines between nested workunits, so we only emit them
+    # when we need to write content to the workunit.
+    # TODO: protect self._needs_newline against concurrent access.
+    self._needs_newline = defaultdict(bool)  # workunit id -> bool.
 
   def open(self):
     pass
@@ -45,22 +47,23 @@ class ConsoleReporter(Reporter):
     sys.stdout.flush()
 
   def end_workunit(self, workunit):
-    pass
+    if workunit.parent:
+      self._needs_newline[workunit.parent.id] = False
 
   def handle_output(self, workunit, label, s):
     # Emit output from test frameworks, but not from other tools.
     if workunit.is_test():
-      if not self._has_content[workunit.id]:
+      if not self._needs_newline[workunit.id]:
         s = '\n' + s
-        self._has_content[workunit.id] = True
+        self._needs_newline[workunit.id] = True
       sys.stdout.write(self._prefix(workunit, s))
       sys.stdout.flush()
 
   def handle_message(self, workunit, *msg_elements):
     elements = [e if isinstance(e, basestring) else e[0] for e in msg_elements]
-    if not self._has_content[workunit.id]:
+    if not self._needs_newline[workunit.id]:
       elements.insert(0, '\n')
-      self._has_content[workunit.id] = True
+      self._needs_newline[workunit.id] = True
     sys.stdout.write(self._prefix(workunit, ''.join(elements)))
 
   def _format_aggregated_timings(self, aggregated_timings):

@@ -199,10 +199,10 @@ class ScalaCompile(NailgunTask):
       # Invoke the compiler if needed.
       if any([not vt.valid for vt in vts.versioned_targets]):
         # Do some reporting.
-        prefix = 'Operating on partition containing '
+        prefix = 'Operating on a partition containing '
         self.context.report(
           prefix,
-          list_to_report_element([t.address.reference() for t in vts.targets], 'target'))
+          list_to_report_element([t.address.reference() for t in vts.targets], 'target'), '.')
         old_state = current_state
         classpath = [entry for conf, entry in cp if conf in self._confs]
         with self.context.new_workunit('compile'):
