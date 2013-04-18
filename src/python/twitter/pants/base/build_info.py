@@ -53,7 +53,7 @@ def get_build_info():
   epochnow = time()
   now = localtime(epochnow)
   return BuildInfo(
-    epochtime=str(int(epochnow)),
+    epochtime=epochnow,  # A double, so we get subsecond precision for id purposes.
     date=strftime('%A %b %d, %Y', now),
     time=strftime('%H:%M:%S', now),
     timestamp=strftime('%m.%d.%Y %H:%M', now),

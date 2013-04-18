@@ -1,11 +1,10 @@
-
+import os
+import re
 import time
 import uuid
 
-from collections import defaultdict
+from twitter.pants.goal.read_write_buffer import FileBackedRWBuf
 
-
-from twitter.pants.goal.read_write_buffer import ReadWriteBuffer
 
 class WorkUnit(object):
   """A hierarchical unit of work, for the purpose of timing and reporting.
@@ -63,7 +62,7 @@ class WorkUnit(object):
 
     # A workunit may have multiple outputs, which we identify by a label.
     # E.g., a tool invocation may have 'stdout', 'stderr', 'debug_log' etc.
-    self._outputs = defaultdict(ReadWriteBuffer)  # label -> output buffer.
+    self._outputs = {}  # label -> output buffer.
 
     if self.parent:
       self.parent.children.append(self)
@@ -82,6 +81,8 @@ class WorkUnit(object):
 
   def end(self):
     self.end_time = time.time()
+    for output in self._outputs.values():
+      output.close()
     self.run_tracker.cumulative_timings.add_timing(self.get_path(), self.duration(), self.is_tool())
     self.run_tracker.self_timings.add_timing(self.get_path(), self._self_time(), self.is_tool())
 
@@ -109,8 +110,14 @@ class WorkUnit(object):
       self.choose(0, 0, 0, 0, 0)  # Dummy call, to validate.
       if self.parent: self.parent.set_outcome(self._outcome)
 
-  DEFAULT_OUTPUT_LABEL = 'build'
-  def output(self, label=DEFAULT_OUTPUT_LABEL):
+  _valid_label_re = re.compile(r'\w+')
+  def output(self, label):
+    m = WorkUnit._valid_label_re.match(label)
+    if not m or m.group(0) != label:
+      raise Exception('Invalid label: %s' % label)
+    if label not in self._outputs:
+      path = os.path.join(self.run_tracker.info_dir, '%s.%s' % (self.id, label))
+      self._outputs[label] = FileBackedRWBuf(path)
     return self._outputs[label]
 
   def outputs(self):
@@ -119,7 +126,7 @@ class WorkUnit(object):
   def choose(self, aborted_val, failure_val, warning_val, success_val, unknown_val):
     """Returns one of the 5 arguments, depending on our outcome."""
     if self._outcome not in range(0, 5):
-      raise Exception, 'Invalid outcome: %s' % self._outcome
+      raise Exception('Invalid outcome: %s' % self._outcome)
     return (aborted_val, failure_val, warning_val, success_val, unknown_val)[self._outcome]
 
   def outcome_string(self):
@@ -127,7 +134,7 @@ class WorkUnit(object):
 
   def duration(self):
     """Returns the time (in fractional seconds) spent in this workunit and its children."""
-    return self.end_time - self.start_time
+    return (self.end_time or time.time()) - self.start_time
 
   def start_delta(self):
     """How long (in whole seconds) after this run started did this workunit start."""

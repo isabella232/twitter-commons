@@ -221,7 +221,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
              for dt, infos in itertools.groupby(sorted_run_infos, lambda x: keyfunc(x).date()) ]
 
   def _get_run_info_dict(self, run_id):
-    run_info_path = os.path.join(self._settings.info_dir, run_id) + '.info'
+    run_info_path = os.path.join(self._settings.info_dir, run_id, 'info')
     if os.path.exists(run_info_path):
       # We copy the RunInfo as a dict, so we can add stuff to it to pass to the template.
       return RunInfo(run_info_path).get_as_dict()
@@ -233,9 +233,9 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     if not os.path.isdir(info_dir):
       return []
     # We copy the RunInfo as a dict, so we can add stuff to it to pass to the template.
-    return [RunInfo(os.path.join(info_dir, x)).get_as_dict()
-            for x in os.listdir(info_dir)
-            if x.endswith('.info') and not os.path.islink(os.path.join(info_dir, x))]
+    paths = [os.path.join(info_dir, x) for x in os.listdir(info_dir)]
+    return [RunInfo(os.path.join(p, 'info')).get_as_dict()
+            for p in paths if os.path.isdir(p) and not os.path.islink(p)]
 
   def _serve_dir(self, abspath, params):
     relpath = os.path.relpath(abspath, self._root)

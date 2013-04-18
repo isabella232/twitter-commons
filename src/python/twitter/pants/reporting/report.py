@@ -55,7 +55,7 @@ class Report(object):
   def __init__(self):
     # We periodically emit newly gathered output from tool invocations.
     self._emitter_thread = \
-      PeriodicThread(target=self.flush, name='output-emitter', period_secs=0.1)
+      PeriodicThread(target=self.flush, name='output-emitter', period_secs=0.5)
     self._emitter_thread.daemon = True
 
     # Map from workunit id to workunit.

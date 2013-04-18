@@ -20,6 +20,7 @@ __author__ = 'jsirois'
 
 import os
 import subprocess
+import sys
 
 from contextlib import contextmanager
 
@@ -138,16 +139,9 @@ def run_java_cmd(cmd, stdout=None, stderr=None):
   """
   log.debug('Executing: %s' % ' '.join(cmd))
   with safe_classpath():
-    if stdout or stderr:
-      proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-      (stdout_data, stderr_data) = proc.communicate()
-      if stdout:
-        stdout.write(stdout_data)
-      if stderr:
-        stderr.write(stderr_data)
-      return proc.returncode
-    else:  # Don't capture stdout/stderr. This is important e.g., when running a scala repl.
-      return subprocess.call(cmd)
+    proc = subprocess.Popen(cmd, stdout=stdout or sys.stdout, stderr=stderr or sys.stderr)
+    proc.wait()
+    return proc.returncode
 
 def build_java_cmd(jvmargs=None, classpath=None, main=None, args=None):
   """Generates a jvm execution command-line as a list of tokens."""

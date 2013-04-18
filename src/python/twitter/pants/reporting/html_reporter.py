@@ -44,6 +44,7 @@ class HtmlReporter(Reporter):
   def start_workunit(self, workunit):
     is_tool = workunit.is_tool()
     is_multitool = workunit.is_multitool()
+    is_test = workunit.is_test()
     if workunit.parent is None:
       header_text = 'all'
     else:
@@ -55,7 +56,7 @@ class HtmlReporter(Reporter):
              'html_path_base': self._html_path_base,
              'workunit': workunit_dict,
              'header_text': header_text,
-             'initially_open': not (is_tool or is_multitool),
+             'initially_open': not (is_tool or is_multitool) or is_test,
              'is_tool': is_tool,
              'is_multitool': is_multitool }
     args.update({ 'collapsible': lambda x: self._render_callable('collapsible', x, args) })
@@ -71,9 +72,9 @@ class HtmlReporter(Reporter):
     duration = workunit.duration()
     timing = '%.3f' % duration
     unaccounted_time_secs = workunit.unaccounted_time()
-    unaccounted_time = '%.3f' % unaccounted_time_secs\
-    if unaccounted_time_secs >= 1 and unaccounted_time_secs > 0.05 * duration\
-    else None
+    unaccounted_time = '%.3f' % unaccounted_time_secs \
+      if unaccounted_time_secs >= 1 and unaccounted_time_secs > 0.05 * duration \
+      else None
     args = { 'workunit': workunit.to_dict(),
              'status': workunit.choose(*HtmlReporter._status_css_classes),
              'timing': timing,

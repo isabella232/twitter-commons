@@ -4,6 +4,7 @@ import re
 
 from twitter.common.dirutil import safe_mkdir_for
 
+# TODO: Unify with BuildInfo?
 
 class RunInfo(object):
   """A little plaintext file containing very basic info about a pants run.

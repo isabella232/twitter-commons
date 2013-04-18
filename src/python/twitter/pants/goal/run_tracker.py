@@ -17,25 +17,25 @@ class RunTracker(object):
   """Tracks and times the execution of a pants run."""
   def __init__(self, config):
     bi = get_build_info()
-    run_timestamp = int(bi.epochtime)
+    run_timestamp = bi.epochtime
     # run_id is safe for use in paths.
     millis = (run_timestamp * 1000) % 1000
     run_id = 'pants_run_%s_%d' %\
              (time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(run_timestamp)), millis)
     cmd_line = ' '.join(['pants'] + sys.argv[1:])
-    info_dir = config.getdefault('info_dir')
 
-    self.run_info = RunInfo(os.path.join(info_dir, '%s.info' % run_id))
+    self.info_dir = os.path.join(config.getdefault('info_dir'), run_id)
+    self.run_info = RunInfo(os.path.join(self.info_dir, 'info'))
     self.run_info.add_infos([
       ('id', run_id), ('timestamp', run_timestamp), ('cmd_line', cmd_line),
       ('branch', bi.branch), ('tag', bi.tag), ('sha', bi.sha), ('name', bi.name),
       ('machine', bi.machine), ('buildroot', bi.path)])
 
     # Create a 'latest' symlink, after we add_infos, so we're guaranteed that the file exists.
-    link_to_latest = os.path.join(info_dir, 'latest.info')
+    link_to_latest = os.path.join(os.path.dirname(self.info_dir), 'latest')
     if os.path.exists(link_to_latest):
       os.unlink(link_to_latest)
-    os.symlink(self.run_info.path(), link_to_latest)
+    os.symlink(self.info_dir, link_to_latest)
 
     # Time spent in a workunit, including its children.
     self.cumulative_timings = AggregatedTimings()
@@ -58,8 +58,8 @@ class RunTracker(object):
 
   def close(self):
     while self._current_workunit:
-      self._current_workunit.end()
       self.report.end_workunit(self._current_workunit)
+      self._current_workunit.end()
       self._current_workunit = self._current_workunit.parent
     self.report.close()
     try:
@@ -105,6 +105,6 @@ class RunTracker(object):
     else:
       self._current_workunit.set_outcome(WorkUnit.SUCCESS)
     finally:
-      self._current_workunit.end()
       self.report.end_workunit(self._current_workunit)
+      self._current_workunit.end()
       self._current_workunit = self._current_workunit.parent

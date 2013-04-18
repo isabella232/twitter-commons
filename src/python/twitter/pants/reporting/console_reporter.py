@@ -1,5 +1,7 @@
 import sys
 
+from collections import defaultdict
+
 from twitter.pants.reporting.report import Reporter
 
 
@@ -9,6 +11,8 @@ class ConsoleReporter(Reporter):
   def __init__(self, run_tracker, indenting):
     Reporter.__init__(self, run_tracker)
     self._indenting = indenting
+    # TODO: protect self._has_content against concurrent access.
+    self._has_content = defaultdict(bool)  # workunit id -> whether it already has any content.
 
   def open(self):
     pass
@@ -33,20 +37,30 @@ class ConsoleReporter(Reporter):
     if workunit.parent and workunit.parent.is_multitool():
       sys.stdout.write('.')
     else:
-      sys.stdout.write(self._prefix(workunit,
-        '[%s]' % workunit.name if self._indenting else workunit.get_path(),
-        with_time_string=True))
+      sys.stdout.write('\n%s %s %s[%s]' %
+                       (workunit.start_time_string(),
+                        workunit.start_delta_string(),
+                        self._indent(workunit),
+                        workunit.name if self._indenting else workunit.get_path()))
     sys.stdout.flush()
 
   def end_workunit(self, workunit):
     pass
 
   def handle_output(self, workunit, label, s):
+    # Emit output from test frameworks, but not from other tools.
     if workunit.is_test():
+      if not self._has_content[workunit.id]:
+        s = '\n' + s
+        self._has_content[workunit.id] = True
       sys.stdout.write(self._prefix(workunit, s))
+      sys.stdout.flush()
 
   def handle_message(self, workunit, *msg_elements):
     elements = [e if isinstance(e, basestring) else e[0] for e in msg_elements]
+    if not self._has_content[workunit.id]:
+      elements.insert(0, '\n')
+      self._has_content[workunit.id] = True
     sys.stdout.write(self._prefix(workunit, ''.join(elements)))
 
   def _format_aggregated_timings(self, aggregated_timings):
@@ -58,18 +72,13 @@ class ConsoleReporter(Reporter):
     '\n'.join(['%(cache_name)s - Hits: %(num_hits)d Misses: %(num_misses)d' % x
                for x in stats])
 
-  def _prefix(self, workunit, s, with_time_string=False):
+  def _indent(self, workunit):
+    return '  ' * (len(workunit.ancestors()) - 1)
+
+  _time_string_filler = ' ' * 15
+  def _prefix(self, workunit, s):
     if self._indenting:
-      indent = '  ' * (len(workunit.ancestors()) - 1)
-      return self._time_string(workunit, with_time_string) + ' ' + \
-           ('\n' + ' ' * 14 + ' ').join([indent + line for line in s.strip().split('\n')])
+      return s.replace('\n', '\n' + ConsoleReporter._time_string_filler + self._indent(workunit))
     else:
-      return self._time_string(workunit, with_time_string) + ' ' + s
-
-
-  def _time_string(self, workunit, with_time_string):
-    if with_time_string:
-      return '\n' + workunit.start_time_string() + ' ' + workunit.start_delta_string()
-    else:
-      return '\n' + ' ' * 14
+      return ConsoleReporter._time_string_filler + s
 
