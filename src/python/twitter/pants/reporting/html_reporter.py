@@ -56,13 +56,16 @@ class HtmlReporter(Reporter):
              'html_path_base': self._html_path_base,
              'workunit': workunit_dict,
              'header_text': header_text,
-             'initially_open': not (is_tool or is_multitool) or is_test,
+             'initially_open': is_test or not (is_tool or is_multitool),
              'is_tool': is_tool,
              'is_multitool': is_multitool }
     args.update({ 'collapsible': lambda x: self._render_callable('collapsible', x, args) })
 
     s = self._renderer.render_name('workunit_start', args)
     if is_tool:
+      del args['initially_open']
+      if is_test:  # We usually want to see test framework output.
+        args['stdout_initially_open'] = True
       s += self._renderer.render_name('tool_invocation_start', args)
     self._emit(s)
 
@@ -193,7 +196,8 @@ class HtmlReporter(Reporter):
   def _render_callable(self, template_name, arg_string, outer_args):
     rendered_arg_string = self._renderer.render(arg_string, outer_args)
     inner_args = dict([(k, v[0]) for k, v in urlparse.parse_qs(rendered_arg_string).items()])
-    args = dict(inner_args.items() + outer_args.items())
+    # Order matters: lets the inner args override the outer args.
+    args = dict(outer_args.items() + inner_args.items())
     return self._renderer.render_name(template_name, args)
 
   def _htmlify_text(self, s):
