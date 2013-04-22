@@ -3,6 +3,7 @@ import re
 import time
 import uuid
 
+from twitter.common.dirutil import safe_mkdir_for
 from twitter.pants.goal.read_write_buffer import FileBackedRWBuf
 
 
@@ -25,6 +26,7 @@ class WorkUnit(object):
   UNKNOWN = 4
 
   # The types must be an iterable of these values.
+  SETUP = 0
   SETUP = 0
   PHASE = 1
   GOAL = 2
@@ -116,7 +118,8 @@ class WorkUnit(object):
     if not m or m.group(0) != label:
       raise Exception('Invalid label: %s' % label)
     if label not in self._outputs:
-      path = os.path.join(self.run_tracker.info_dir, '%s.%s' % (self.id, label))
+      path = os.path.join(self.run_tracker.info_dir, 'tool_outputs', '%s.%s' % (self.id, label))
+      safe_mkdir_for(path)
       self._outputs[label] = FileBackedRWBuf(path)
     return self._outputs[label]
 

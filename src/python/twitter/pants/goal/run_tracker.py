@@ -72,12 +72,13 @@ class RunTracker(object):
     os.symlink(self.info_dir, link_to_latest)
 
     # Time spent in a workunit, including its children.
-    self.cumulative_timings = AggregatedTimings()
+    self.cumulative_timings = AggregatedTimings(os.path.join(self.info_dir, 'cumulative_timings'))
 
     # Time spent in a workunit, not including its children.
-    self.self_timings = AggregatedTimings()
+    self.self_timings = AggregatedTimings(os.path.join(self.info_dir, 'self_timings'))
 
-    self.artifact_cache_stats = ArtifactCacheStats()
+    self.artifact_cache_stats = \
+      ArtifactCacheStats(os.path.join(self.info_dir, 'artifact_cache_stats'))
 
     self.report = default_reporting(config, self)
     self.report.open()
