@@ -92,7 +92,8 @@ class Report(object):
       self._notify()  # Make sure we flush everything reported until now.
       for reporter in self._reporters:
         reporter.end_workunit(workunit)
-      del self._workunits[workunit.id]
+      if workunit.id in self._workunits:
+        del self._workunits[workunit.id]
 
   def flush(self):
     with self._lock:

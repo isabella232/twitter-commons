@@ -21,13 +21,14 @@ class ArtifactCacheStats(object):
 
   def add_hit(self, cache_name, tgt):
     self.stats_per_cache[cache_name].hit_targets.append(tgt.address.reference())
-    if self._dir:
+    if self._dir and os.path.exists(self._dir):  # Check existence in case of a clean-all.
       with open(os.path.join(self._dir, '%s.hits' % cache_name), 'a') as f:
         f.write(tgt.address.reference())
+        f.write('\n')
 
   def add_miss(self, cache_name, tgt):
     self.stats_per_cache[cache_name].miss_targets.append(tgt.address.reference())
-    if self._dir:
+    if self._dir and os.path.exists(self._dir):  # Check existence in case of a clean-all.
       with open(os.path.join(self._dir, '%s.misses' % cache_name), 'a') as f:
         f.write(tgt.address.reference())
         f.write('\n')

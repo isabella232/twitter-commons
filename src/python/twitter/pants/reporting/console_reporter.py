@@ -28,7 +28,7 @@ class ConsoleReporter(Reporter):
       print('\n')
       print('Self Timings')
       print('============')
-      print(self._format_artifact_cache_stats(self.run_tracker.self_timings))
+      print(self._format_aggregated_timings(self.run_tracker.self_timings))
       print('\n')
       print('Artifact Cache Stats')
       print('====================')
@@ -71,7 +71,7 @@ class ConsoleReporter(Reporter):
 
   def _format_artifact_cache_stats(self, artifact_cache_stats):
     stats = artifact_cache_stats.get_all()
-    return 'Artifact cache reads not enabled.' if not stats else \
+    return 'No artifact cache reads.' if not stats else \
     '\n'.join(['%(cache_name)s - Hits: %(num_hits)d Misses: %(num_misses)d' % x
                for x in stats])
 

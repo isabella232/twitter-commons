@@ -1,3 +1,5 @@
+import os
+
 from collections import defaultdict
 
 from twitter.common.dirutil import safe_mkdir_for
@@ -19,7 +21,9 @@ class AggregatedTimings(object):
     self._timings_by_path[label] += secs
     if is_tool:
       self._tool_labels.add(label)
-    if self._path:
+    # Check existence in case we're a clean-all. We don't want to write anything in
+    # that case, as that would not be 'clean'.
+    if self._path and os.path.exists(os.path.dirname(self._path)):
       with open(self._path, 'w') as f:
         for x in self.get_all():
           f.write('%(label)s: %(timing)s\n' % x)
