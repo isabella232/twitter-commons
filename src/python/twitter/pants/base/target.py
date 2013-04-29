@@ -133,6 +133,11 @@ class Target(object):
       self.register()
       self._initialized = True
 
+      self.declared_exclusives = defaultdict(set)
+      for k in exclusives:
+        self.declared_exclusives[k].add(exclusives[k])
+      self.exclusives = None
+
       # For synthetic codegen targets this will be the original target from which
       # the target was synthesized.
       self.derived_from = self
