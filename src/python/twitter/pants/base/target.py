@@ -18,6 +18,7 @@ import collections
 import copy
 import os
 
+
 from twitter.common.collections import OrderedSet, maybe_list
 from twitter.common.decorators import deprecated_with_warning
 
