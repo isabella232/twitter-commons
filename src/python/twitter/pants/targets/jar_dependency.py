@@ -15,6 +15,7 @@
 # ==================================================================================================
 
 from twitter.pants.targets.exclude import Exclude
+from collections import defaultdict
 
 from .external_dependency import ExternalDependency
 
@@ -113,7 +114,8 @@ class  JarDependency(ExternalDependency):
       self.with_artifact(name=name, type_=type_, ext=ext, url=url, classifier=classifier)
 
     self.id = "%s-%s-%s" % (self.org, self.name, self.rev)
-    self._configurations = ['default']
+    self._configurations = [ 'default' ]
+    self.declared_exclusives = defaultdict(set)
 
     # Support legacy method names
     # TODO(John Sirois): introduce a deprecation cycle for these and then kill
