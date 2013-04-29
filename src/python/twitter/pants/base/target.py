@@ -17,7 +17,12 @@
 import collections
 import os
 
+<<<<<<< HEAD
 from twitter.common.collections import OrderedSet, maybe_list
+=======
+from collections import defaultdict
+from twitter.common.collections import OrderedSet
+>>>>>>> Starting to add support for exclusive tags.
 from twitter.common.decorators import deprecated_with_warning
 
 from twitter.pants import is_concrete
@@ -103,6 +108,7 @@ class Target(object):
       ParseContext(address.buildfile).parse()
       return lookup()
 
+<<<<<<< HEAD
   @classmethod
   def resolve_all(cls, targets, *expected_types):
     """Yield the resolved concrete targets checking each is a subclass of one of the expected types
@@ -116,6 +122,10 @@ class Target(object):
           yield resolved
 
   def __init__(self, name, reinit_check=True):
+=======
+  def __init__(self, name, is_meta, reinit_check=True, exclusives=defaultdict(set)):
+    # See "get_all_exclusives" below for an explanation of the exclusives parameter.
+>>>>>>> Starting to add support for exclusive tags.
     # This check prevents double-initialization in multiple-inheritance situations.
     # TODO(John Sirois): fix target inheritance - use super() to linearize or use alternatives to
     # multiple inheritance.
@@ -132,9 +142,56 @@ class Target(object):
       self.register()
       self._initialized = True
 
+      self.declared_exclusives = defaultdict(set)
+      for k in exclusives:
+        self.declared_exclusives[k].add(exclusives[k])
+      self.exclusives = None
+
       # For synthetic codegen targets this will be the original target from which
       # the target was synthesized.
       self.derived_from = self
+
+
+  def get_declared_exclusives(self):
+    return self.declared_exclusives
+
+  def add_to_exclusives(self, exclusives):
+    if exclusives is not None:
+      for key in exclusives:
+        self.exclusives[key] |= exclusives[key]
+
+  def get_all_exclusives(self):
+    """ Get a map of all exclusives declarations in the transitive dependency graph.
+
+    Exclusives declarations are a mechanism for preventing compilation conflicts.
+    When different code in the same codebase depends on different versions of some
+    component (most common a jar file fetched by ivy), there can be spurious errors
+    caused by the fact that the version of the component fetched during different
+    compilation sessions can end up being different.
+
+    In order to prevent those errors, code can declare that it provides an exclusive
+    marker for some identifier. If two components transitively depended on by the same
+    target declare exclusives for the same id with different values, the compilation
+    should fail. If two different targets declare exclusives for the same identifier
+    with different values, then the compilation task should compile them in different
+    partitions.
+
+    The syntax of the exclusives attribute is:
+      exclusives = {"id": "value", ...}
+
+    """
+    if self.exclusives is None:
+      self.propagate_exclusives()
+    return self.exclusives
+
+  def propagate_exclusives(self):
+    self.exclusives = defaultdict(set)
+    self.walk(lambda t: self._propagate_exclusives_work(t))
+
+  def _propagate_exclusives_work(self, target):
+    ex = target.get_declared_exclusives()
+    self.add_to_exclusives(target.get_declared_exclusives())
+
 
   def _post_construct(self, func, *args, **kwargs):
     """Registers a command to invoke after this target's BUILD file is parsed."""
