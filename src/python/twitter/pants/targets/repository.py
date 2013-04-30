@@ -19,12 +19,16 @@ from twitter.pants.base import Target
 class Repository(Target):
   """Represents an artifact repository.  Typically this is a maven-style artifact repo."""
 
-  def __init__(self, name, url, push_db):
+  def __init__(self, name, url, push_db, exclusives={}):
     """name: an identifier for the repo
     url: the url used to access the repo and retrieve artifacts or artifact metadata
     push_db: the data file associated with this repo that records artifact push history"""
 
+<<<<<<< HEAD
     Target.__init__(self, name)
+=======
+    Target.__init__(self, name, False, exclusives=exclusives)
+>>>>>>> Added a check_exclusives task.
 
     self.name = name
     self.url = url

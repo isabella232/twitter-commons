@@ -18,7 +18,12 @@ from twitter.pants.targets.python_target import PythonTarget
 
 
 class PythonLibrary(PythonTarget):
+<<<<<<< HEAD
   def __init__(self, name, sources=(), resources=(), dependencies=(), provides=None, module=""):
+=======
+  def __init__(self, name, sources=(), resources=(), dependencies=(), module="",
+               exclusives={}):
+>>>>>>> Added a check_exclusives task.
     """
       name = Name of library
       sources = Python source files
@@ -27,7 +32,13 @@ class PythonLibrary(PythonTarget):
         resources in a .zip-module friendly way.)
       dependencies = other PythonLibraries, Eggs or internal Pants targets
       module = everything beneath module is relative to this module name, None if root namespace
+<<<<<<< HEAD
       provides = A Python artifact that this library provides
     """
     PythonTarget.__init__(self, name, sources, resources, dependencies, provides)
+=======
+      exclusives:   An optional map of exclusives tags. See CheckExclusives for details.
+    """
+    PythonTarget.__init__(self, name, sources, resources, dependencies, exclusives=exclusives)
+>>>>>>> Added a check_exclusives task.
     self.module = module

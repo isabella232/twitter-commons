@@ -163,35 +163,30 @@ class Target(object):
   def get_all_exclusives(self):
     """ Get a map of all exclusives declarations in the transitive dependency graph.
 
-    Exclusives declarations are a mechanism for preventing compilation conflicts.
-    When different code in the same codebase depends on different versions of some
-    component (most common a jar file fetched by ivy), there can be spurious errors
-    caused by the fact that the version of the component fetched during different
-    compilation sessions can end up being different.
-
-    In order to prevent those errors, code can declare that it provides an exclusive
-    marker for some identifier. If two components transitively depended on by the same
-    target declare exclusives for the same id with different values, the compilation
-    should fail. If two different targets declare exclusives for the same identifier
-    with different values, then the compilation task should compile them in different
-    partitions.
-
-    The syntax of the exclusives attribute is:
-      exclusives = {"id": "value", ...}
+    For a detailed description of the purpose and use of exclusives tags,
+    see the documentation of the CheckExclusives task.
 
     """
     if self.exclusives is None:
-      self.propagate_exclusives()
+      self._propagate_exclusives()
     return self.exclusives
 
-  def propagate_exclusives(self):
-    self.exclusives = defaultdict(set)
-    self.walk(lambda t: self._propagate_exclusives_work(t))
+  def _propagate_exclusives(self):
+    if self.exclusives is None:
+      self.exclusives = defaultdict(set)
+      self.add_to_exclusives(self.declared_exclusives)
+      self.walk(lambda t: self._propagate_exclusives_work(t))
 
   def _propagate_exclusives_work(self, target):
-    ex = target.get_declared_exclusives()
-    self.add_to_exclusives(target.get_declared_exclusives())
-
+    # Note: this will cause a stack overflow if there is a cycle in
+    # the dependency graph, so exclusives checking should occur after
+    # cycle detection.
+    self.add_to_exclusives(target.get_all_exclusives())
+    # Returning false will cause this to only traverse the immediate
+    # dependencies, which is really what we want; the recursive calls
+    # to target.get_all_exclusives take care of the full traversal of
+    # the dependency graph.
+    return False
 
   def _post_construct(self, func, *args, **kwargs):
     """Registers a command to invoke after this target's BUILD file is parsed."""

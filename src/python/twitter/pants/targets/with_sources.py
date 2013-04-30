@@ -34,8 +34,13 @@ class TargetWithSources(Target):
   def register_source(cls, source, target):
     cls._source_to_targets[source].add(target)
 
+<<<<<<< HEAD
   def __init__(self, name, sources=None):
     Target.__init__(self, name)
+=======
+  def __init__(self, name, is_meta=False, exclusives={}):
+    Target.__init__(self, name, is_meta, exclusives=exclusives)
+>>>>>>> Added a check_exclusives task.
 
     self.add_labels('sources')
     self.target_base = SourceRoot.find(self)

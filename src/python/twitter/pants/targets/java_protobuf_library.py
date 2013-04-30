@@ -20,8 +20,20 @@ from .exportable_jvm_library import ExportableJvmLibrary
 class JavaProtobufLibrary(ExportableJvmLibrary):
   """Defines a target that builds java stubs from a protobuf IDL file."""
 
+<<<<<<< HEAD
   def __init__(self, name, sources, provides=None, dependencies=None, excludes=None,
                buildflags=None):
+=======
+  def __init__(self,
+               name,
+               sources,
+               provides = None,
+               dependencies = None,
+               excludes = None,
+               buildflags = None,
+               is_meta = False,
+               exclusives={}):
+>>>>>>> Added a check_exclusives task.
 
     """name: The name of this module target, addressable via pants via the portion of the spec
         following the colon
@@ -31,12 +43,31 @@ class JavaProtobufLibrary(ExportableJvmLibrary):
         this module.
     excludes: An optional list of dependency exclude patterns to filter all of this module's
         transitive dependencies against.
+<<<<<<< HEAD
     buildflags: DEPRECATED - A list of additional command line arguments to pass to the underlying
         build system for this target - now ignored.
     """
 
     ExportableJvmLibrary.__init__(self, name, sources, provides, dependencies, excludes)
     self.add_labels('java', 'codegen')
+=======
+    buildflags: A list of additional command line arguments to pass to the underlying build system
+        for this target
+    exclusives:   An optional map of exclusives tags. See CheckExclusives for details.
+    """
+
+    ExportableJvmLibrary.__init__(self,
+                                  name,
+                                  sources,
+                                  provides,
+                                  dependencies,
+                                  excludes,
+                                  buildflags,
+                                  is_meta,
+                                  exclusives=exclusives)
+    self.add_label('java')
+    self.add_label('codegen')
+>>>>>>> Added a check_exclusives task.
 
   def _as_jar_dependency(self):
     return ExportableJvmLibrary._as_jar_dependency(self).with_sources()

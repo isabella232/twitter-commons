@@ -25,21 +25,29 @@ class JavaThriftstoreDMLLibrary(ExportableJvmLibrary):
   def __init__(self,
                name,
                sources,
-               dependencies = None):
+               dependencies = None,
+               exclusives={}):
 
     """name: The name of this module target, addressable via pants via the portion of the spec
         following the colon
     sources: A list of paths containing the thriftstore source files this module's jar is compiled from
     dependencies: An optional list of Dependency objects specifying the binary (jar) dependencies of
         this module.
+    exclusives:   An optional map of exclusives tags. See CheckExclusives for details.
     """
 
     ExportableJvmLibrary.__init__(self,
                                   name,
                                   sources,
                                   provides = None,
+<<<<<<< HEAD
                                   dependencies = dependencies)
     self.add_labels('codegen')
+=======
+                                  dependencies = dependencies,
+                                  exclusives=exclusives)
+    self.add_label('codegen')
+>>>>>>> Added a check_exclusives task.
 
   def _as_jar_dependency(self):
     return ExportableJvmLibrary._as_jar_dependency(self).with_sources()

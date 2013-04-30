@@ -32,9 +32,15 @@ class PythonBinary(PythonTarget):
                indices=None,
                ignore_errors=False,
                allow_pypi=False,
+<<<<<<< HEAD
                platforms=(),
                interpreters=(Platform.python(),),
                provides=None):
+=======
+               platforms=(Platform.current(),),
+               interpreters=(sys.version[:3],),
+               exclusives={}):
+>>>>>>> Added a check_exclusives task.
     """
       name: target name
 
@@ -61,6 +67,7 @@ class PythonBinary(PythonTarget):
 
       interpreters: the interpreter versions to target when building this binary.  by default the
                     current interpreter version (specify in the form: '2.6', '2.7', '3.2' etc.)
+      exclusives:   An optional map of exclusives tags. See CheckExclusives for details.
     """
     if source is None and dependencies is None:
       raise TargetDefinitionException(
@@ -82,6 +89,7 @@ class PythonBinary(PythonTarget):
     self._allow_pypi = bool(allow_pypi)
     self._ignore_errors = bool(ignore_errors)
 
+<<<<<<< HEAD
     if isinstance(platforms, Compatibility.string):
       self._platforms = [platforms]
     else:
@@ -95,3 +103,8 @@ class PythonBinary(PythonTarget):
   @property
   def platforms(self):
     return self._platforms
+=======
+    PythonTarget.__init__(self, name, [] if source is None else [source], dependencies=dependencies,
+                          exclusives=exclusives)
+
+>>>>>>> Added a check_exclusives task.
