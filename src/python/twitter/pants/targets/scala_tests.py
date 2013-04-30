@@ -21,21 +21,8 @@ from .resources import Resources
 class ScalaTests(JvmTarget):
   """Defines a target that tests a scala library."""
 
-<<<<<<< HEAD
   def __init__(self, name, sources=None, java_sources=None, dependencies=None, excludes=None,
-               resources=None, buildflags=None):
-=======
-  def __init__(self,
-               name,
-               sources = None,
-               java_sources = None,
-               dependencies = None,
-               excludes = None,
-               buildflags = None,
-               is_meta = False,
-               exclusives=None):
-
->>>>>>> Added a check_exclusives task.
+               resources=None, buildflags=None, exclusives):
     """name: The name of this module target, addressable via pants via the portion of the spec
         following the colon
     sources: A list of paths containing the scala source files this modules tests are compiled from.
@@ -46,35 +33,13 @@ class ScalaTests(JvmTarget):
         this module.
     excludes: An optional list of dependency exclude patterns to filter all of this module's
         transitive dependencies against.
-<<<<<<< HEAD
     resources: An optional list of Resources that should be in this target's classpath.
     buildflags: DEPRECATED - A list of additional command line arguments to pass to the underlying
         build system for this target - now ignored.
-    """
-=======
-    buildflags: A list of additional command line arguments to pass to the underlying build system
-        for this target
     exclusives:   An optional map of exclusives tags. See CheckExclusives for details.
+    """
 
-        """
-
-    JvmTarget.__init__(self,
-                       name,
-                       sources,
-                       dependencies,
-                       excludes,
-                       buildflags,
-                       is_meta,
-                       exclusives=exclusives or {})
-    self.add_label('scala')
-    self.add_label('tests')
-    self.java_sources = java_sources
-
-  def _create_template_data(self):
-    jar_dependency, id, exported = self._get_artifact_info()
->>>>>>> Added a check_exclusives task.
-
-    JvmTarget.__init__(self, name, sources, dependencies, excludes)
+    JvmTarget.__init__(self, name, sources, dependencies, excludes, exclusives=exclusives)
 
     self.add_labels('scala', 'tests')
     self.java_sources = java_sources

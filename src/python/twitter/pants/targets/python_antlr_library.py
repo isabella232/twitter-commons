@@ -44,7 +44,7 @@ class PythonAntlrLibrary(PythonTarget):
       return all_deps
 
     PythonTarget.__init__(self, name, sources, resources, get_all_deps(),
-                          exclusives=exclusives or {})
+                          exclusives=exclusives)
 
     self.module = module
     self.antlr_version = antlr_version

@@ -34,6 +34,7 @@ class JavaTests(JvmTarget):
     resources: An optional list of Resources that should be in this target's classpath.
     buildflags: DEPRECATED - A list of additional command line arguments to pass to the underlying
         build system for this target - now ignored.
+    exclusives:   An optional map of exclusives tags. See CheckExclusives for details.
     """
 
     JvmTarget.__init__(self, name, sources, dependencies, excludes, exclusives=exclusives)

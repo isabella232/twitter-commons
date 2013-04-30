@@ -28,7 +28,6 @@ class PythonTarget(TargetWithSources):
   def __init__(self, name, sources, resources=None, dependencies=None, provides=None,
                exclusives=None):
     TargetWithSources.__init__(self, name, sources, exclusives=exclusives)
-
     processed_dependencies = resolve(dependencies)
 
     self.add_labels('python')

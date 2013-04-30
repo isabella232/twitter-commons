@@ -14,8 +14,8 @@
 # limitations under the License.
 # ==================================================================================================
 
-from twitter.pants.base import Target
 
+from twitter.pants.base import Target, TargetDefinitionException
 from .internal import InternalTarget
 from .pants_target import Pants
 from .with_sources import TargetWithSources

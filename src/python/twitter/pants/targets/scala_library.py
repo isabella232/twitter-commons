@@ -20,7 +20,6 @@ from twitter.pants.base import Target
 
 from .exportable_jvm_library import ExportableJvmLibrary
 from .resources import WithLegacyResources
-
 from . import JavaLibrary
 
 
@@ -47,6 +46,7 @@ class ScalaLibrary(ExportableJvmLibrary, WithLegacyResources):
                   jar - now ignored.
     buildflags:   DEPRECATED - A list of additional command line arguments to pass to the underlying
                   build system for this target - now ignored.
+    exclusives:   An optional list of exclusives tags.
     """
 
     ExportableJvmLibrary.__init__(self, name, sources, provides, dependencies, excludes, exclusives=exclusives)

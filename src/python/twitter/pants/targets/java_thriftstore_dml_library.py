@@ -27,7 +27,6 @@ class JavaThriftstoreDMLLibrary(ExportableJvmLibrary):
                sources,
                dependencies = None,
                exclusives=None):
-
     """name: The name of this module target, addressable via pants via the portion of the spec
         following the colon
     sources: A list of paths containing the thriftstore source files this module's jar is compiled from
@@ -40,14 +39,9 @@ class JavaThriftstoreDMLLibrary(ExportableJvmLibrary):
                                   name,
                                   sources,
                                   provides = None,
-<<<<<<< HEAD
                                   dependencies = dependencies)
+                                  exclusives=exclusives)
     self.add_labels('codegen')
-=======
-                                  dependencies = dependencies,
-                                  exclusives=exclusives or {})
-    self.add_label('codegen')
->>>>>>> Added a check_exclusives task.
 
   def _as_jar_dependency(self):
     return ExportableJvmLibrary._as_jar_dependency(self).with_sources()

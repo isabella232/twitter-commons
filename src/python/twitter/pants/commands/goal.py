@@ -715,14 +715,9 @@ goal(
   dependencies=['gen', 'resolve']
 ).install().with_description('Run checkstyle against java source code.')
 
-<<<<<<< HEAD
-# TODO(John Sirois): These group predicates could simplify to simple has_sources checks except for
-# the fact that sometimes 'aggregator' targets with no sources serve as a dependency link in the
-# wild.  Consider stomping this practice out and simplifying these predicates.
-=======
 goal(name='check_exclusives',
+  dependencies=['gen'],
   action=CheckExclusives).install('check_exclusives')
->>>>>>> Added a check_exclusives task.
 
 def is_java(target):
   return (isinstance(target, JavaLibrary)

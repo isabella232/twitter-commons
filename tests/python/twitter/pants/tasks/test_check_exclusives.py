@@ -29,7 +29,6 @@ class CheckExclusivesTest(unittest.TestCase):
     context = Context(CheckExclusivesTest.config, options={}, target_roots=[d, e])
     check_exclusives_task = CheckExclusives(context, signal_error=True)
 
-
     try:
       check_exclusives_task.execute([d, e])
       self.fail("Expected a conflicting exclusives exception to be thrown.")
