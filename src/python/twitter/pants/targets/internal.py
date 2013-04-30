@@ -150,7 +150,6 @@ class InternalTarget(Target):
 
   def __init__(self, name, dependencies, exclusives=None):
     Target.__init__(self, name, exclusives=exclusives)
-
     self._injected_deps = []
     self.processed_dependencies = resolve(dependencies)
 
@@ -231,8 +230,8 @@ class InternalTarget(Target):
             for additional_target in additional_targets:
               additional_target._walk(walked, work, predicate)
 
-  def propagate_exclusives(self):
-    Target.propagate_exclusives(self)
+  def _propagate_exclusives(self):
+    Target._propagate_exclusives(self)
     # We also need to traverse things like JarDependency, which isn't
     # really a target, and so doesn't get walked by the default method.
     # So we need to additionally do this:

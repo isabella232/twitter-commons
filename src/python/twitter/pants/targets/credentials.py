@@ -19,13 +19,18 @@ from twitter.pants.base import Target
 class Credentials(Target):
   """Supplies credentials for a maven repository on demand."""
 
-  def __init__(self, name, username=None, password=None):
+  def __init__(self, name, username=None, password=None,
+               exclusives={}):
     """
       :name The name of these credentials
       :username Either a constant username value or else a callable that can fetch one
       :password Either a constant password value or else a callable that can fetch one
     """
+<<<<<<< HEAD
     Target.__init__(self, name)
+=======
+    Target.__init__(self, name, False, exclusives=exclusives)
+>>>>>>> Added a check_exclusives task.
     self._username = username if callable(username) else lambda: username
     self._password = password if callable(password) else lambda: password
 

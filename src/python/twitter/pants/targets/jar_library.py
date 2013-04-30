@@ -51,4 +51,9 @@ class JarLibrary(Target):
     yield self
     for dependency in self.dependencies:
       for resolved_dependency in dependency.resolve():
+        # If the dependency is one that supports exclusives, the JarLibrary's
+        # exclusives should be added to it.
+        if hasattr(resolved_dependency, 'declared_exclusives'):
+          for k in self.declared_exclusives:
+            resolved_dependency.declared_exclusives[k] |= self.declared_exclusives[k]
         yield resolved_dependency

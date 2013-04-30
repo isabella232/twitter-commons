@@ -21,8 +21,19 @@ from .resources import Resources
 class JavaTests(JvmTarget):
   """Defines a target that tests a java library."""
 
+<<<<<<< HEAD
   def __init__(self, name, sources=None, dependencies=None, excludes=None, resources=None,
                buildflags=None):
+=======
+  def __init__(self,
+               name,
+               sources = None,
+               dependencies = None,
+               excludes = None,
+               buildflags = None,
+               is_meta = False,
+               exclusives={}):
+>>>>>>> Added a check_exclusives task.
 
     """name: The name of this module target, addressable via pants via the portion of the spec
         following the colon
@@ -32,6 +43,7 @@ class JavaTests(JvmTarget):
         this module.
     excludes: An optional list of dependency exclude patterns to filter all of this module's
         transitive dependencies against.
+<<<<<<< HEAD
     resources: An optional list of Resources that should be in this target's classpath.
     buildflags: DEPRECATED - A list of additional command line arguments to pass to the underlying
         build system for this target - now ignored.
@@ -40,3 +52,36 @@ class JavaTests(JvmTarget):
     JvmTarget.__init__(self, name, sources, dependencies, excludes)
     self.add_labels('java', 'tests')
     self.resources = list(self.resolve_all(resources, Resources))
+=======
+    buildflags: A list of additional command line arguments to pass to the underlying build system
+        for this target
+    exclusives:   An optional map of exclusives tags. See CheckExclusives for details.
+    """
+
+    JvmTarget.__init__(self, name, sources, dependencies, excludes, buildflags, is_meta,
+                       exclusives=exclusives)
+    self.add_label('java')
+    self.add_label('tests')
+
+  def _create_template_data(self):
+    jar_dependency, id, exported = self._get_artifact_info()
+
+    if self.excludes:
+      exclude_template_datas = [exclude._create_template_data() for exclude in self.excludes]
+    else:
+      exclude_template_datas = None
+
+    return TemplateData(
+      id = id,
+      name = self.name,
+      template_base = self.target_base,
+      exported = exported,
+      org = jar_dependency.org,
+      module = jar_dependency.name,
+      version = jar_dependency.rev,
+      sources = self.sources,
+      dependencies = [dep._create_template_data() for dep in self.jar_dependencies],
+      excludes = exclude_template_datas,
+      buildflags = self.buildflags,
+    )
+>>>>>>> Added a check_exclusives task.

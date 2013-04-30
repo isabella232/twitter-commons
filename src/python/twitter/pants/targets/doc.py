@@ -16,9 +16,30 @@
 
 from twitter.pants.base import Target
 
+<<<<<<< HEAD
 from .internal import InternalTarget
 from .pants_target import Pants
 from .with_sources import TargetWithSources
+=======
+from twitter.pants.base import Target, TargetDefinitionException
+from twitter.pants.targets.pants_target import Pants
+from twitter.pants.targets.internal import InternalTarget
+from twitter.pants.targets.with_sources import TargetWithSources
+
+class Doc(InternalTarget, TargetWithSources):
+  """A target that processes documentation in a directory"""
+  def __init__(self, name, dependencies=(), sources=None, resources=None,
+               exclusives={}):
+    InternalTarget.__init__(self, name, dependencies, None,
+      exclusives=exclusives)
+    TargetWithSources.__init__(self, name, exclusives=exclusives)
+    if not sources:
+      raise TargetDefinitionException(self, 'No sources specified')
+    self.add_label('doc')
+    self.name = name
+    self.sources = self._resolve_paths(self.target_base, sources)
+    self.resources = self._resolve_paths(self.target_base, resources) if resources else []
+>>>>>>> Added a check_exclusives task.
 
 
 class Wiki(Target):

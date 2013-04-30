@@ -8,7 +8,6 @@ import string
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.targets import InternalTarget
 
-
 class CheckExclusives(Task):
   """Task for computing transitive exclusive maps.
 
