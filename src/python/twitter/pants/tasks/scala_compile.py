@@ -18,6 +18,7 @@ __author__ = 'Benjy Weinberger'
 
 import os
 
+from collections import defaultdict
 from twitter.pants import has_sources, is_scalac_plugin, get_buildroot
 from twitter.pants.targets.scala_library import ScalaLibrary
 from twitter.pants.tasks import Task, TaskError
@@ -112,16 +113,22 @@ class ScalaCompile(NailgunTask):
     return True
 
   def _check_conflicting_exclusives(self, scala_targets):
-    """ Check if any scala targets contain conflicting exclusives.
-    This is a temporary placeholder for testing purposes. Eventually, it
-    will be promoted to its own build phase, where errors will be generated
-    for all conflicting exclusives.
+    """ Check if the set of targets being compiled have any incompatible exclusives.
+    This is a temporary placeholder for testing purposes: eventually,
+    the compile phase will use exclusives information to invoke separate compilations
+    for targets with incompatible exclusives. For now, generates a warning
+    to the user to let them know that their compilation may have problems due
+    to the incompatible requirements of things being compiled together.
     """
+    all_excls = defaultdict(set)
     for s in scala_targets:
-      all_excl = s.get_all_exclusives()
-      for k in all_excl:
-        if len(all_excl[k]) > 1:
-          print "Warning: target %s has conflicting exclusives %s for key %s" % (s, all_excl[k], k)
+      s_excls =  s.get_all_exclusives()
+      for key in s_excls:
+        all_excls[key] |= s_excls[key]
+    for key in all_excls:
+      if len(all_excls[key]) > 1:
+        print ("Warning: compiling this target list is likely to cause problems " +
+          "due to conflicting exclusives on key %s") % key
 
 
   def execute(self, targets):

@@ -22,8 +22,8 @@ class JavaLibrary(ExportableJvmLibrary, WithLegacyResources):
   """Defines a target that produces a java library."""
 
   def __init__(self, name, sources=None, provides=None, dependencies=None, excludes=None,
-               resources=None, deployjar=False, buildflags=None):
-
+               resources=None, deployjar=False, buildflags=None,
+               exclusives=None):
     """name: The name of this module target, addressable via pants via the portion of the spec
         following the colon
     sources: A list of paths containing the java source files this modules jar is compiled from
@@ -40,7 +40,7 @@ class JavaLibrary(ExportableJvmLibrary, WithLegacyResources):
         build system for this target - now ignored.
     """
 
-    ExportableJvmLibrary.__init__(self, name, sources, provides, dependencies, excludes)
+    ExportableJvmLibrary.__init__(self, name, sources, provides, dependencies, excludes, exclusives=exclusives)
     WithLegacyResources.__init__(self, name, sources=sources, resources=resources)
 
     self.add_labels('java')

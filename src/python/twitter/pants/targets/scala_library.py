@@ -28,7 +28,8 @@ class ScalaLibrary(ExportableJvmLibrary, WithLegacyResources):
   """Defines the source code and dependencies of a scala library."""
 
   def __init__(self, name, sources=None, java_sources=None, provides=None, dependencies=None,
-               excludes=None, resources=None, deployjar=False, buildflags=None):
+               excludes=None, resources=None, deployjar=False, buildflags=None,
+               exclusives=None):
 
     """name:      The name of this target, addressable via pants via the portion of the address spec
                   following the colon.
@@ -47,9 +48,11 @@ class ScalaLibrary(ExportableJvmLibrary, WithLegacyResources):
                   jar - now ignored.
     buildflags:   DEPRECATED - A list of additional command line arguments to pass to the underlying
                   build system for this target - now ignored.
+    exclusives:   An optional list of exclusives tags.
     """
 
-    ExportableJvmLibrary.__init__(self, name, sources, provides, dependencies, excludes)
+    ExportableJvmLibrary.__init__(self, name, sources, provides, dependencies, excludes,
+                                  exclusives=exclusives)
     WithLegacyResources.__init__(self, name, sources=sources, resources=resources)
 
     self.add_labels('scala')

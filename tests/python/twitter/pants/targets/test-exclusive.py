@@ -5,6 +5,7 @@ from twitter.pants.testutils import MockTarget
 import unittest
 
 class ExclusivesTargetTest(unittest.TestCase):
+  """Test exclusives propagation in the dependency graph"""
   def setupTargets(self):
     a = MockTarget('a', exclusives={'a': '1', 'b': '1'})
     b = MockTarget('b', exclusives={'a': '1'})

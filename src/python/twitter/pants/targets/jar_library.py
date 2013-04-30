@@ -27,9 +27,8 @@ class JarLibrary(Target):
         following the colon
     dependencies: one or more JarDependencies this JarLibrary bundles or Pants pointing to other
         JarLibraries or JavaTargets
+    exclusives:   An optional map of exclusives tags. See CheckExclusives for details.
     """
-
-    Target.__init__(self, name, exclusives=exclusives)
 
     if dependencies is None:
       raise TargetDefinitionException(self, "A dependencies list must be supplied even if empty.")
@@ -41,15 +40,14 @@ class JarLibrary(Target):
     for dependency in self.dependencies:
       if hasattr(dependency, 'address'):
         self.dependency_addresses.add(dependency.address)
-      # If the dependency is one that supports exclusives, the JarLibrary's
-      # exclusives should be added to it.
-      # TODO(markcc): should this be moved into resolve?
-      if hasattr(dependency, 'declared_exclusives'):
-        for k in self.declared_exclusives:
-          dependency.declared_exclusives[k] |= self.declared_exclusives[k]
 
   def resolve(self):
     yield self
     for dependency in self.dependencies:
       for resolved_dependency in dependency.resolve():
+        # If the dependency is one that supports exclusives, the JarLibrary's
+        # exclusives should be added to it.
+        if hasattr(resolved_dependency, 'declared_exclusives'):
+          for k in self.declared_exclusives:
+            resolved_dependency.declared_exclusives[k] |= self.declared_exclusives[k]
         yield resolved_dependency

@@ -24,9 +24,10 @@ from .with_sources import TargetWithSources
 class JvmTarget(InternalTarget, TargetWithSources):
   """A base class for all java module targets that provides path and dependency translation."""
 
-  def __init__(self, name, sources, dependencies, excludes=None, configurations=None):
-    InternalTarget.__init__(self, name, dependencies)
-    TargetWithSources.__init__(self, name, sources)
+  def __init__(self, name, sources, dependencies, excludes=None, configurations=None,
+               exclusives=None):
+    InternalTarget.__init__(self, name, dependencies, exclusives=exclusives)
+    TargetWithSources.__init__(self, name, sources, exclusives=exclusives)
 
     self.declared_dependencies = set(dependencies or [])
     self.add_labels('jvm')

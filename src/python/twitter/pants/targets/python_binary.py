@@ -34,7 +34,8 @@ class PythonBinary(PythonTarget):
                allow_pypi=False,
                platforms=(),
                interpreters=(Platform.python(),),
-               provides=None):
+               provides=None,
+               exclusives={}):
     """
       name: target name
 
@@ -61,6 +62,7 @@ class PythonBinary(PythonTarget):
 
       interpreters: the interpreter versions to target when building this binary.  by default the
                     current interpreter version (specify in the form: '2.6', '2.7', '3.2' etc.)
+      exclusives:   An optional map of exclusives tags. See CheckExclusives for details.
     """
     if source is None and dependencies is None:
       raise TargetDefinitionException(
@@ -90,7 +92,7 @@ class PythonBinary(PythonTarget):
 
     PythonTarget.__init__(self, name, [] if source is None else [source],
                           dependencies=dependencies,
-                          provides=provides)
+                          provides=provides, exclusives=exclusives)
 
   @property
   def platforms(self):
