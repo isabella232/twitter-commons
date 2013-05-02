@@ -33,7 +33,7 @@ class ScalaTests(JvmTarget):
                excludes = None,
                buildflags = None,
                is_meta = False,
-               exclusives={}):
+               exclusives=None):
 
 >>>>>>> Added a check_exclusives task.
     """name: The name of this module target, addressable via pants via the portion of the spec
@@ -64,7 +64,8 @@ class ScalaTests(JvmTarget):
                        dependencies,
                        excludes,
                        buildflags,
-                       is_meta)
+                       is_meta,
+                       exclusives=exclusives or {})
     self.add_label('scala')
     self.add_label('tests')
     self.java_sources = java_sources

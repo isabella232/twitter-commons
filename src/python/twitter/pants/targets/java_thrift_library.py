@@ -28,25 +28,13 @@ class JavaThriftLibrary(ExportableJvmLibrary):
   _LANGUAGES = frozenset(['java', 'scala'])
   _LANGUAGE_DEFAULT = 'java'
 
-<<<<<<< HEAD
   _RPC_STYLES = frozenset(['sync', 'finagle', 'ostrich'])
   _RPC_STYLE_DEFAULT = 'sync'
 
   def __init__(self, name, sources, provides=None, dependencies=None, excludes=None,
                compiler=_COMPILER_DEFAULT, language=_LANGUAGE_DEFAULT, rpc_style=_RPC_STYLE_DEFAULT,
-               namespace_map=None, buildflags=None):
-=======
-  def __init__(self,
-               name,
-               sources,
-               provides = None,
-               dependencies = None,
-               excludes = None,
-               buildflags = None,
-               is_meta = False,
-               exclusives={}):
->>>>>>> Added a check_exclusives task.
-
+               namespace_map=None, buildflags=None,
+               exclusives=None):
     """name: The name of this module target, addressable via pants via the portion of the spec
         following the colon
     sources: A list of paths containing the thrift source files this module's jar is compiled from
@@ -55,7 +43,6 @@ class JavaThriftLibrary(ExportableJvmLibrary):
         this module.
     excludes: An optional list of dependency exclude patterns to filter all of this module's
         transitive dependencies against.
-<<<<<<< HEAD
     compiler: An optional compiler used to compile the thrift files {'thrift', 'scrooge',
                                                                                'scrooge-legacy'}.
         Defaults to 'thrift'.
@@ -66,27 +53,11 @@ class JavaThriftLibrary(ExportableJvmLibrary):
     namespace_map: A dictionary of namespaces to remap (old: new)
     buildflags: DEPRECATED - A list of additional command line arguments to pass to the underlying
         build system for this target - now ignored.
-    """
-=======
-    buildflags: A list of additional command line arguments to pass to the underlying build system
-        for this target
     exclusives:   An optional map of exclusives tags. See CheckExclusives for details.
     """
 
-    ExportableJvmLibrary.__init__(self,
-                                  name,
-                                  sources,
-                                  provides,
-                                  dependencies,
-                                  excludes,
-                                  buildflags,
-                                  is_meta,
+    ExportableJvmLibrary.__init__(self, name, sources, provides, dependencies, excludes,
                                   exclusives=exclusives)
-    self.add_label('java')
-    self.add_label('codegen')
->>>>>>> Added a check_exclusives task.
-
-    ExportableJvmLibrary.__init__(self, name, sources, provides, dependencies, excludes)
     self.add_labels('codegen', 'java')
 
     def check_value_for_arg(arg, value, values):

@@ -24,17 +24,13 @@ class PythonRequirement(Target, ExternalDependency):
   """Pants wrapper around pkg_resources.Requirement"""
 
   def __init__(self, requirement, dynamic=False, repository=None, name=None, version_filter=None,
-               exclusives={}):
+               exclusives=None):
     self._requirement = Requirement.parse(requirement)
     self._name = name or self._requirement.project_name
     self._dynamic = dynamic
     self._repository = repository
     self._version_filter = version_filter or (lambda: True)
-<<<<<<< HEAD
-    Target.__init__(self, self._name)
-=======
-    Target.__init__(self, self._name, False, exclusives=exclusives)
->>>>>>> Added a check_exclusives task.
+    Target.__init__(self, self._name, exclusives=exclusives)
 
   def size(self):
     return 1

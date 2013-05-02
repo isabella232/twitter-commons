@@ -26,7 +26,7 @@ class JavaThriftstoreDMLLibrary(ExportableJvmLibrary):
                name,
                sources,
                dependencies = None,
-               exclusives={}):
+               exclusives=None):
 
     """name: The name of this module target, addressable via pants via the portion of the spec
         following the colon
@@ -45,7 +45,7 @@ class JavaThriftstoreDMLLibrary(ExportableJvmLibrary):
     self.add_labels('codegen')
 =======
                                   dependencies = dependencies,
-                                  exclusives=exclusives)
+                                  exclusives=exclusives or {})
     self.add_label('codegen')
 >>>>>>> Added a check_exclusives task.
 

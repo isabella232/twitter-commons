@@ -21,19 +21,8 @@ from .resources import WithLegacyResources
 class AnnotationProcessor(ExportableJvmLibrary, WithLegacyResources):
   """Defines a target that produces a java library containing one or more annotation processors."""
 
-<<<<<<< HEAD
   def __init__(self, name, sources, provides=None, dependencies=None, excludes=None, resources=None,
-               processors=None):
-=======
-  def __init__(self, name, sources,
-               provides = None,
-               dependencies = None,
-               excludes = None,
-               resources = None,
-               processors = None,
-               is_meta = False,
-               exclusives={}):
->>>>>>> Added a check_exclusives task.
+               processors=None, exclusives=None):
 
     """name: The name of this module target, addressable via pants via the portion of the spec
         following the colon
@@ -47,29 +36,12 @@ class AnnotationProcessor(ExportableJvmLibrary, WithLegacyResources):
         this module's jar
     processors: a list of the fully qualified class names of the annotation processors this library
         exports
-<<<<<<< HEAD
-    """
-
-    ExportableJvmLibrary.__init__(self, name, sources, provides, dependencies, excludes)
-    WithLegacyResources.__init__(self, name, sources=sources, resources=resources)
-    self.add_labels('java', 'apt')
-=======
     exclusives:   An optional map of exclusives tags. See CheckExclusives for details.
     """
 
-    ExportableJvmLibrary.__init__(self,
-                                  name,
-                                  sources,
-                                  provides,
-                                  dependencies,
-                                  excludes,
-                                  (),
-                                  is_meta,
+    ExportableJvmLibrary.__init__(self, name, sources, provides, dependencies, excludes,
                                   exclusives=exclusives)
-
-    self.add_label('java')
-    self.add_label('apt')
-    self.sibling_resources_base = os.path.join(os.path.dirname(self.target_base), 'resources')
-    self.resources = self._resolve_paths(self.sibling_resources_base, resources)
->>>>>>> Added a check_exclusives task.
+    WithLegacyResources.__init__(self, name, sources=sources, resources=resources,
+                                 exclusives=exclusives)
+    self.add_labels('java', 'apt')
     self.processors = processors

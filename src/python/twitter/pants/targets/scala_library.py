@@ -41,7 +41,7 @@ class ScalaLibrary(ExportableJvmLibrary, WithLegacyResources):
                deployjar = False,
                buildflags = None,
                is_meta = False,
-               exclusives={}):
+               exclusives=None):
 
     """name: The name of this module target, addressable via pants via the portion of the spec
         following the colon
@@ -68,7 +68,7 @@ class ScalaLibrary(ExportableJvmLibrary, WithLegacyResources):
                                   excludes,
                                   buildflags,
                                   is_meta,
-                                  exclusives=exclusives)
+                                  exclusives=exclusives or {})
     self.add_label('scala')
     self.java_sources = java_sources
 >>>>>>> Added a check_exclusives task.

@@ -88,7 +88,6 @@ class  JarDependency(ExternalDependency):
   to include multiple artifacts with differing classifiers, use with_artifact.
   """
 
-<<<<<<< HEAD
   _HASH_KEYS = (
     'org',
     'name',
@@ -100,12 +99,7 @@ class  JarDependency(ExternalDependency):
   )
 
   def __init__(self, org, name, rev=None, force=False, ext=None, url=None, apidocs=None,
-               type_=None, classifier=None, mutable=None):
-=======
-  def __init__(self, org, name, rev = None, force = False, ext = None, url = None,
-               apidocs = None, type_ = None, classifier = None,
-               exclusives={}):
->>>>>>> Added a check_exclusives task.
+               type_=None, classifier=None, mutable=None, exclusives=None):
     self.org = org
     self.name = name
     self.rev = rev
@@ -122,8 +116,9 @@ class  JarDependency(ExternalDependency):
     self.id = "%s-%s-%s" % (self.org, self.name, self.rev)
     self._configurations = ['default']
     self.declared_exclusives = defaultdict(set)
-    for k in exclusives:
-      self.declared_exclusives[k] |= exclusives[k]
+    if exclusives is not None:
+      for k in exclusives:
+        self.declared_exclusives[k] |= exclusives[k]
 
     # Support legacy method names
     # TODO(John Sirois): introduce a deprecation cycle for these and then kill

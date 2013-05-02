@@ -24,13 +24,9 @@ class PythonTests(PythonTarget):
                resources=None,
                dependencies=None,
                timeout=Amount(2, Time.MINUTES),
-<<<<<<< HEAD
                coverage=None,
-               soft_dependencies=False):
-=======
                soft_dependencies=False,
-               exclusives={}):
->>>>>>> Added a check_exclusives task.
+               exclusives=None):
     """
       name / sources / resources / dependencies: See PythonLibrary target
 
@@ -38,25 +34,15 @@ class PythonTests(PythonTarget):
                 [Default: 2 minutes]
       soft_dependencies: Whether or not we should ignore dependency resolution
                          errors for this test.  [Default: False]
-<<<<<<< HEAD
       coverage: the module(s) whose coverage should be generated, e.g.
                 'twitter.common.log' or ['twitter.common.log', 'twitter.common.http']
-    """
-    self._timeout = timeout
-    self._soft_dependencies = bool(soft_dependencies)
-    self._coverage = maybe_list(coverage) if coverage is not None else []
-    PythonTarget.__init__(self, name, sources, resources, dependencies)
-    self.add_labels('python', 'tests')
-=======
       exclusives:   An optional map of exclusives tags. See CheckExclusives for details.
     """
     self._timeout = timeout
     self._soft_dependencies = bool(soft_dependencies)
-    PythonTarget.__init__(self, name, sources, resources, dependencies,
-                          exclusives=exclusives)
-    self.add_label('python')
-    self.add_label('tests')
->>>>>>> Added a check_exclusives task.
+    self._coverage = maybe_list(coverage) if coverage is not None else []
+    PythonTarget.__init__(self, name, sources, resources, dependencies, exclusives=exclusives)
+    self.add_labels('python', 'tests')
 
   @property
   def timeout(self):

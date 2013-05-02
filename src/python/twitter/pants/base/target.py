@@ -15,14 +15,12 @@
 # ==================================================================================================
 
 import collections
+import copy
 import os
 
-<<<<<<< HEAD
 from twitter.common.collections import OrderedSet, maybe_list
-=======
 from collections import defaultdict
 from twitter.common.collections import OrderedSet
->>>>>>> Starting to add support for exclusive tags.
 from twitter.common.decorators import deprecated_with_warning
 
 from twitter.pants import is_concrete
@@ -108,7 +106,6 @@ class Target(object):
       ParseContext(address.buildfile).parse()
       return lookup()
 
-<<<<<<< HEAD
   @classmethod
   def resolve_all(cls, targets, *expected_types):
     """Yield the resolved concrete targets checking each is a subclass of one of the expected types
@@ -121,11 +118,9 @@ class Target(object):
             raise TypeError('%s requires types: %s and found %s' % (cls, expected_types, resolved))
           yield resolved
 
-  def __init__(self, name, reinit_check=True):
-=======
-  def __init__(self, name, is_meta, reinit_check=True, exclusives=defaultdict(set)):
+  def __init__(self, name, reinit_check=True, exclusives=None):
     # See "get_all_exclusives" below for an explanation of the exclusives parameter.
->>>>>>> Starting to add support for exclusive tags.
+
     # This check prevents double-initialization in multiple-inheritance situations.
     # TODO(John Sirois): fix target inheritance - use super() to linearize or use alternatives to
     # multiple inheritance.
@@ -143,8 +138,9 @@ class Target(object):
       self._initialized = True
 
       self.declared_exclusives = defaultdict(set)
-      for k in exclusives:
-        self.declared_exclusives[k].add(exclusives[k])
+      if exclusives is not None:
+        for k in exclusives:
+          self.declared_exclusives[k].add(exclusives[k])
       self.exclusives = None
 
       # For synthetic codegen targets this will be the original target from which

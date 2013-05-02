@@ -32,15 +32,10 @@ class PythonBinary(PythonTarget):
                indices=None,
                ignore_errors=False,
                allow_pypi=False,
-<<<<<<< HEAD
                platforms=(),
                interpreters=(Platform.python(),),
-               provides=None):
-=======
-               platforms=(Platform.current(),),
-               interpreters=(sys.version[:3],),
-               exclusives={}):
->>>>>>> Added a check_exclusives task.
+               provides=None,
+               exclusives=None):
     """
       name: target name
 
@@ -89,7 +84,6 @@ class PythonBinary(PythonTarget):
     self._allow_pypi = bool(allow_pypi)
     self._ignore_errors = bool(ignore_errors)
 
-<<<<<<< HEAD
     if isinstance(platforms, Compatibility.string):
       self._platforms = [platforms]
     else:
@@ -98,13 +92,8 @@ class PythonBinary(PythonTarget):
 
     PythonTarget.__init__(self, name, [] if source is None else [source],
                           dependencies=dependencies,
-                          provides=provides)
+                          provides=provides, exclusives=exclusives)
 
   @property
   def platforms(self):
     return self._platforms
-=======
-    PythonTarget.__init__(self, name, [] if source is None else [source], dependencies=dependencies,
-                          exclusives=exclusives)
-
->>>>>>> Added a check_exclusives task.

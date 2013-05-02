@@ -19,31 +19,14 @@ from .jvm_target import JvmTarget
 
 class ExportableJvmLibrary(JvmTarget):
   """A baseclass for java targets that support being exported to an artifact repository."""
-<<<<<<< HEAD
-=======
-  def __init__(self,
-               name,
-               sources,
-               provides = None,
-               dependencies = None,
-               excludes = None,
-               buildflags = None,
-               is_meta = False,
-               exclusives={}):
->>>>>>> Added a check_exclusives task.
 
-  def __init__(self, name, sources, provides=None, dependencies=None, excludes=None):
+  def __init__(self, name, sources, provides=None, dependencies=None, excludes=None,
+               exclusives=exclusives):
     # It's critical that provides is set 1st since _provides() is called elsewhere in the
     # constructor flow.
     self.provides = provides
-
-<<<<<<< HEAD
-    JvmTarget.__init__(self, name, sources, dependencies, excludes)
+    JvmTarget.__init__(self, name, sources, dependencies, excludes, exclusives=exclusives)
     self.add_labels('exportable')
-=======
-    JvmTarget.__init__(self, name, sources, dependencies, excludes, buildflags, is_meta, exclusives=exclusives)
-    self.add_label('exportable')
->>>>>>> Added a check_exclusives task.
 
   def _provides(self):
     return self.provides

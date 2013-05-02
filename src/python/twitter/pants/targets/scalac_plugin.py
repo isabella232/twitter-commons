@@ -27,7 +27,7 @@ class ScalacPlugin(ScalaLibrary):
                dependencies=None,
                excludes=None,
                resources=None,
-               exclusives={}):
+               exclusives=None):
 
     """
       name:         The name of this module target, addressable via pants via the portion of the
@@ -48,12 +48,7 @@ class ScalacPlugin(ScalaLibrary):
     """
 
     ScalaLibrary.__init__(self, name, sources, java_sources, provides, dependencies, excludes,
-<<<<<<< HEAD
-                          resources)
-    self.add_labels('scalac_plugin')
-=======
                           resources, exclusives=exclusives)
-    self.add_label('scalac_plugin')
->>>>>>> Added a check_exclusives task.
+    self.add_labels('scalac_plugin')
     self.plugin = plugin or name
     self.classname = classname

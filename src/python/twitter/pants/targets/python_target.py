@@ -23,14 +23,9 @@ from .with_sources import TargetWithSources
 
 
 class PythonTarget(TargetWithSources):
-<<<<<<< HEAD
-  def __init__(self, name, sources, resources=None, dependencies=None, provides=None):
-    TargetWithSources.__init__(self, name, sources)
-=======
-  def __init__(self, name, sources, resources=None, dependencies=None,
-               exclusives={}):
-    TargetWithSources.__init__(self, name, exclusives=exclusives)
->>>>>>> Added a check_exclusives task.
+  def __init__(self, name, sources, resources=None, dependencies=None, provides=None,
+               exclusives=None):
+    TargetWithSources.__init__(self, name, sources, exclusives=exclusives)
 
     processed_dependencies = resolve(dependencies)
 

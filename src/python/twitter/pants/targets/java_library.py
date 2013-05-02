@@ -21,21 +21,8 @@ from .resources import WithLegacyResources
 class JavaLibrary(ExportableJvmLibrary, WithLegacyResources):
   """Defines a target that produces a java library."""
 
-<<<<<<< HEAD
   def __init__(self, name, sources=None, provides=None, dependencies=None, excludes=None,
-               resources=None, deployjar=False, buildflags=None):
-=======
-  def __init__(self, name,
-               sources = None,
-               provides = None,
-               dependencies = None,
-               excludes = None,
-               resources = None,
-               deployjar = False,
-               buildflags = None,
-               is_meta = False,
-               exclusives={}):
->>>>>>> Added a check_exclusives task.
+               resources=None, deployjar=False, buildflags=None, exclusives = None):
 
     """name: The name of this module target, addressable via pants via the portion of the spec
         following the colon
@@ -47,31 +34,15 @@ class JavaLibrary(ExportableJvmLibrary, WithLegacyResources):
         transitive dependencies against.
     resources: An optional list of paths containing (filterable) text file resources to place in
         this module's jar
-<<<<<<< HEAD
     deployjar: DEPRECATED - An optional boolean that turns on generation of a monolithic deploy
         jar - now ignored.
     buildflags: DEPRECATED - A list of additional command line arguments to pass to the underlying
         build system for this target - now ignored.
-    """
-
-    ExportableJvmLibrary.__init__(self, name, sources, provides, dependencies, excludes)
-    WithLegacyResources.__init__(self, name, sources=sources, resources=resources)
-=======
-    deployjar: An optional boolean that turns on generation of a monolithic deploy jar
-    buildflags: A list of additional command line arguments to pass to the underlying build system
-        for this target
     exclusives:   An optional map of exclusives tags. See CheckExclusives for details.
     """
 
-    ExportableJvmLibrary.__init__(self,
-                                  name,
-                                  sources,
-                                  provides,
-                                  dependencies,
-                                  excludes,
-                                  buildflags,
-                                  is_meta,
+    ExportableJvmLibrary.__init__(self, name, sources, provides, dependencies, excludes,
                                   exclusives=exclusives)
->>>>>>> Added a check_exclusives task.
-
+    WithLegacyResources.__init__(self, name, sources=sources, resources=resources,
+                                 exclusives=exclusives)
     self.add_labels('java')
