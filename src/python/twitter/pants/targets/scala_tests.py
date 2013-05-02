@@ -22,7 +22,7 @@ class ScalaTests(JvmTarget):
   """Defines a target that tests a scala library."""
 
   def __init__(self, name, sources=None, java_sources=None, dependencies=None, excludes=None,
-               resources=None, buildflags=None, exclusives):
+               resources=None, buildflags=None, exclusives=None):
     """name: The name of this module target, addressable via pants via the portion of the spec
         following the colon
     sources: A list of paths containing the scala source files this modules tests are compiled from.

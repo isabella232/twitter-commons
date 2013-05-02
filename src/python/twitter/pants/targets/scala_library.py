@@ -22,7 +22,6 @@ from .exportable_jvm_library import ExportableJvmLibrary
 from .resources import WithLegacyResources
 from . import JavaLibrary
 
-
 class ScalaLibrary(ExportableJvmLibrary, WithLegacyResources):
   """Defines the source code and dependencies of a scala library."""
 

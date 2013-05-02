@@ -22,7 +22,6 @@ class JavaProtobufLibrary(ExportableJvmLibrary):
 
   def __init__(self, name, sources, provides=None, dependencies=None, excludes=None,
                buildflags=None, exclusives=None):
-
     """name: The name of this module target, addressable via pants via the portion of the spec
         following the colon
     sources: A list of paths containing the protobuf source files this modules jar is compiled from
