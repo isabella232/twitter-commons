@@ -20,17 +20,13 @@ class Credentials(Target):
   """Supplies credentials for a maven repository on demand."""
 
   def __init__(self, name, username=None, password=None,
-               exclusives={}):
+               exclusives=None):
     """
       :name The name of these credentials
       :username Either a constant username value or else a callable that can fetch one
       :password Either a constant password value or else a callable that can fetch one
     """
-<<<<<<< HEAD
-    Target.__init__(self, name)
-=======
-    Target.__init__(self, name, False, exclusives=exclusives)
->>>>>>> Added a check_exclusives task.
+    Target.__init__(self, name, exclusives=exclusives)
     self._username = username if callable(username) else lambda: username
     self._password = password if callable(password) else lambda: password
 

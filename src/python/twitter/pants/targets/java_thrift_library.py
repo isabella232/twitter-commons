@@ -33,6 +33,8 @@ class JavaThriftLibrary(ExportableJvmLibrary):
 
   def __init__(self, name, sources, provides=None, dependencies=None, excludes=None,
                compiler=_COMPILER_DEFAULT, language=_LANGUAGE_DEFAULT, rpc_style=_RPC_STYLE_DEFAULT,
+               namespace_map=None, buildflags=None,
+               exclusives=None):
     """name: The name of this module target, addressable via pants via the portion of the spec
         following the colon
     sources: A list of paths containing the thrift source files this module's jar is compiled from

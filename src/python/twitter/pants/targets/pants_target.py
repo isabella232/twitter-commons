@@ -21,7 +21,7 @@ from twitter.pants.base import ParseContext, Target, Address
 class Pants(Target):
   """A pointer to a pants target."""
 
-  def __init__(self, spec, exclusives={}):
+  def __init__(self, spec, exclusives=None):
     # it's critical the spec is parsed 1st, the results are needed elsewhere in constructor flow
     parse_context = ParseContext.locate()
 
@@ -37,12 +37,8 @@ class Pants(Target):
 
     # We must disable the re-init check, because our funky __getattr__ breaks it.
     # We're not involved in any multiple inheritance, so it's OK to disable it here.
-<<<<<<< HEAD
-    Target.__init__(self, self.address.target_name, reinit_check=False)
-=======
-    Target.__init__(self, self.address.target_name, False, reinit_check=False,
-                    exclusives=exclusives)
->>>>>>> Added a check_exclusives task.
+
+    Target.__init__(self, self.address.target_name, reinit_check=False, exclusives=exclusives)
 
   def register(self):
     # A pants target is a pointer, do not register it as an actual target (see resolve).

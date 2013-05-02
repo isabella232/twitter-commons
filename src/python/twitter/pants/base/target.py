@@ -15,6 +15,7 @@
 # ==================================================================================================
 
 import collections
+import copy
 import os
 
 from twitter.common.collections import OrderedSet, maybe_list
@@ -134,8 +135,9 @@ class Target(object):
       self._initialized = True
 
       self.declared_exclusives = defaultdict(set)
-      for k in exclusives:
-        self.declared_exclusives[k].add(exclusives[k])
+      if exclusives is not None:
+        for k in exclusives:
+          self.declared_exclusives[k].add(exclusives[k])
       self.exclusives = None
 
       # For synthetic codegen targets this will be the original target from which

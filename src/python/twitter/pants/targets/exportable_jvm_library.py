@@ -29,3 +29,4 @@ class ExportableJvmLibrary(JvmTarget):
 
   def _provides(self):
     return self.provides
+
