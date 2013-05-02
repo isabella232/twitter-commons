@@ -27,7 +27,7 @@ class ScalacPlugin(ScalaLibrary):
                dependencies=None,
                excludes=None,
                resources=None,
-               exclusives={}):
+               exclusives=None):
 
     """
       name:         The name of this module target, addressable via pants via the portion of the

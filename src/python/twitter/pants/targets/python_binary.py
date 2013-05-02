@@ -35,7 +35,7 @@ class PythonBinary(PythonTarget):
                platforms=(),
                interpreters=(Platform.python(),),
                provides=None,
-               exclusives={}):
+               exclusives=None):
     """
       name: target name
 

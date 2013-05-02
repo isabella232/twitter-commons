@@ -26,7 +26,7 @@ class JavaThriftstoreDMLLibrary(ExportableJvmLibrary):
                name,
                sources,
                dependencies = None,
-               exclusives={}):
+               exclusives=None):
 
     """name: The name of this module target, addressable via pants via the portion of the spec
         following the colon

@@ -40,14 +40,15 @@ class JarLibrary(Target):
     for dependency in self.dependencies:
       if hasattr(dependency, 'address'):
         self.dependency_addresses.add(dependency.address)
+      # If the dependency is one that supports exclusives, the JarLibrary's
+      # exclusives should be added to it.
+      if hasattr(dependency, 'declared_exclusives'):
+        for k in self.declared_exclusives:
+          dependency.declared_exclusives[k] |= self.declared_exclusives[k]
+
 
   def resolve(self):
     yield self
     for dependency in self.dependencies:
       for resolved_dependency in dependency.resolve():
-        # If the dependency is one that supports exclusives, the JarLibrary's
-        # exclusives should be added to it.
-        if hasattr(resolved_dependency, 'declared_exclusives'):
-          for k in self.declared_exclusives:
-            resolved_dependency.declared_exclusives[k] |= self.declared_exclusives[k]
         yield resolved_dependency

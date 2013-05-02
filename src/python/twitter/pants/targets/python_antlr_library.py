@@ -24,7 +24,7 @@ class PythonAntlrLibrary(PythonTarget):
                sources = None,
                resources = None,
                dependencies = None,
-               exclusives={}):
+               exclusives=None):
     """
       name = Name of library
       package = Python package to generate the parser in (there is no directive for this in ANTLR)
@@ -44,7 +44,7 @@ class PythonAntlrLibrary(PythonTarget):
       return all_deps
 
     PythonTarget.__init__(self, name, sources, resources, get_all_deps(),
-                          exclusives=exclusives)
+                          exclusives=exclusives or {})
 
     self.module = module
     self.antlr_version = antlr_version

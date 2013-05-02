@@ -26,7 +26,7 @@ class PythonTests(PythonTarget):
                timeout=Amount(2, Time.MINUTES),
                coverage=None,
                soft_dependencies=False):
-               exclusives={}):
+               exclusives=None):
     """
       name / sources / resources / dependencies: See PythonLibrary target
 

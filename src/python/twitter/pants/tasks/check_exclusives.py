@@ -11,19 +11,6 @@ class CheckExclusives(Task):
   any collisions where a single target contains multiple tag values for a single
   exclusives key, then it generates an error and the compilation will fail.
 
-  Exclusives declarations are a mechanism for preventing compilation conflicts.
-  When different code in the same codebase depends on different versions of some
-  component (most common a jar file fetched by ivy), there can be spurious errors
-  caused by the fact that the version of the component fetched during different
-  compilation sessions can end up being different.
-
-  In order to prevent those errors, code can declare that it provides an exclusive
-  marker for some identifier. If two components transitively depended on by the same
-  target declare exclusives for the same id with different values, the compilation
-  should fail. If two different targets declare exclusives for the same identifier
-  with different values, then the compilation task should compile them in different
-  partitions.
-
   The syntax of the exclusives attribute is:
       exclusives = {"id": "value", ...}
 
@@ -53,17 +40,17 @@ class CheckExclusives(Task):
   @classmethod
   def setup_parser(cls, option_group, args, mkflag):
     Task.setup_parser(option_group, args, mkflag)
-    option_group.add_option(mkflag('error_on_collision'), mkflag('error_on_collision', negate=True),
+    option_group.add_option(mkflag('error_on_collision'),
+                            mkflag('error_on_collision', negate=True),
                             dest='exclusives_error_on_collision', default=True,
                             action='callback', callback=mkflag.set_bool,
-                            help="[%default] Signal an error and abort the build if an exclusives collision is detected")
+                            help=("[%default] Signal an error and abort the build if an " +
+                                  "exclusives collision is detected"))
 
-  def __init__(self, context, is_test=False):
+  def __init__(self, context, signal_error=None):
     Task.__init__(self, context)
-    if is_test:
-      self.signal_error = True
-    else:
-      self.signal_error = context.options.exclusives_error_on_collision
+    self.signal_error = (context.options.exclusives_error_on_collision
+                         if signal_error is None else signal_error)
 
   def execute(self, targets):
     # compute transitive exclusives

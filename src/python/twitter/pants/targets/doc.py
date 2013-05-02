@@ -23,10 +23,10 @@ from .with_sources import TargetWithSources
 class Doc(InternalTarget, TargetWithSources):
   """A target that processes documentation in a directory"""
   def __init__(self, name, dependencies=(), sources=None, resources=None,
-               exclusives={}):
+               exclusives=None):
     InternalTarget.__init__(self, name, dependencies, None,
-      exclusives=exclusives)
-    TargetWithSources.__init__(self, name, exclusives=exclusives)
+      exclusives=exclusives or {})
+    TargetWithSources.__init__(self, name, exclusives=exclusives or {})
     if not sources:
       raise TargetDefinitionException(self, 'No sources specified')
     self.add_label('doc')
@@ -37,10 +37,10 @@ class Doc(InternalTarget, TargetWithSources):
 class Wiki(Target):
   """A target that identifies a wiki where pages can be published"""
 
-  def __init__(self, name, url_builder):
+  def __init__(self, name, url_builder, exclusives=None):
     """:url_builder a function that accepts a page target and an optional wiki :config dict and
     returns a tuple of (alias, fully qualified url)."""
-    Target.__init__(self, name)
+    Target.__init__(self, name, is_meta=False, exclusives=exclusives)
     self.url_builder = url_builder
 
 

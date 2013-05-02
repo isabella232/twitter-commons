@@ -24,7 +24,7 @@ class PythonThriftLibrary(PythonTarget):
                dependencies = None,
                thrift_version = None,
                provides=None,
-               exclusives={}):
+               exclusives=None):
     """
       name = Name of library
       source = thrift source file

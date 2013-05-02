@@ -15,6 +15,7 @@
 # ==================================================================================================
 
 import collections
+import copy
 import os
 
 
@@ -116,7 +117,7 @@ class Target(object):
             raise TypeError('%s requires types: %s and found %s' % (cls, expected_types, resolved))
           yield resolved
 
-  def __init__(self, name, is_meta, reinit_check=True, exclusives=collections.defaultdict(set)):
+  def __init__(self, name, is_meta, reinit_check=True, exclusives=None):
     # See "get_all_exclusives" below for an explanation of the exclusives parameter.
     # This check prevents double-initialization in multiple-inheritance situations.
     # TODO(John Sirois): fix target inheritance - use super() to linearize or use alternatives to
@@ -134,9 +135,10 @@ class Target(object):
       self.register()
       self._initialized = True
 
-      self.declared_exclusives = collecions.defaultdict(set)
-      for k in exclusives:
-        self.declared_exclusives[k].add(exclusives[k])
+      self.declared_exclusives = defaultdict(set)
+      if exclusives is not None:
+        for k in exclusives:
+          self.declared_exclusives[k].add(exclusives[k])
       self.exclusives = None
 
       # For synthetic codegen targets this will be the original target from which

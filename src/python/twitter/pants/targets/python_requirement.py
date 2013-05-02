@@ -24,7 +24,7 @@ class PythonRequirement(Target, ExternalDependency):
   """Pants wrapper around pkg_resources.Requirement"""
 
   def __init__(self, requirement, dynamic=False, repository=None, name=None, version_filter=None,
-               exclusives={}):
+               exclusives=None):
     self._requirement = Requirement.parse(requirement)
     self._name = name or self._requirement.project_name
     self._dynamic = dynamic

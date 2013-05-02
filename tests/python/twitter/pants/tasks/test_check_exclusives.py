@@ -27,7 +27,7 @@ class CheckExclusivesTest(unittest.TestCase):
   def test_check_exclusives(self):
     a, b, c, d, e = self.setupTargets()
     context = Context(CheckExclusivesTest.config, options={}, target_roots=[d, e])
-    check_exclusives_task = CheckExclusives(context, is_test=True)
+    check_exclusives_task = CheckExclusives(context, signal_error=True)
 
 
     try:

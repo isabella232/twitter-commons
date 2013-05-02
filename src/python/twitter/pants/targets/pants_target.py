@@ -21,7 +21,7 @@ from twitter.pants.base import ParseContext, Target, Address
 class Pants(Target):
   """A pointer to a pants target."""
 
-  def __init__(self, spec, exclusives={}):
+  def __init__(self, spec, exclusives=None):
     # it's critical the spec is parsed 1st, the results are needed elsewhere in constructor flow
     parse_context = ParseContext.locate()
 

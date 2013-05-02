@@ -16,6 +16,7 @@
 
 import collections
 from collections import defaultdict
+import copy
 
 from twitter.common.collections import OrderedSet
 
@@ -215,13 +216,21 @@ class InternalTarget(Target):
               additional_target._walk(walked, work, predicate)
 
   def _propagate_exclusives(self):
-    Target._propagate_exclusives(self)
-    # We also need to traverse things like JarDependency, which isn't
-    # really a target, and so doesn't get walked by the default method.
-    # So we need to additionally do this:
+    # Note: this overrides Target._propagate_exclusives without
+    # calling the supermethod. Targets in pants do not necessarily
+    # have a dependencies field, or ever have their dependencies
+    # available at all pre-resolve. Subtypes of InternalTarget, however,
+    # do have well-defined dependency lists in their dependencies field,
+    # so we can do a better job propagating their exclusives quickly.
+    if self.exclusives is not None:
+      return
+    self.exclusives = copy.deepcopy(self.declared_exclusives)
     for t in self.dependencies:
-      if not isinstance(t, Target) and hasattr(t, "declared_exclusives"):
+      if isinstance(t, Target):
+        t._propagate_exclusives()
+        for k in t.exclusives:
+          self.exclusives[k] |= t.exclusives[k]
+      elif hasattr(t, "declared_exclusives"):
         for k in t.declared_exclusives:
           self.exclusives[k] |= t.declared_exclusives[k]
-
 
