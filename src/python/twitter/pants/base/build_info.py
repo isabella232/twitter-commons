@@ -35,19 +35,19 @@ def safe_call(cmd):
 BuildInfo = namedtuple('BuildInfo', 'epochtime date time timestamp branch tag sha user machine path')
 
 
-def get_build_info(scm=None):
+def get_build_info(scm=None, epochtime=None):
   """Calculates the current BuildInfo using the supplied scm or else the globally configured one."""
   buildroot = get_buildroot()
   scm = scm or get_scm()
 
-  epochnow = time()
-  now = localtime(epochnow)
+  epochtime = epochtime or time()
+  now = localtime(epochtime)
   revision = scm.commit_id
   tag = scm.tag_name or 'none'
   branchname = scm.branch_name or revision
 
   return BuildInfo(
-    epochtime=epochnow,  # A double, so we get subsecond precision for id purposes.
+    epochtime=epochtime,  # A double, so we get subsecond precision for id purposes.
     date=strftime('%A %b %d, %Y', now),
     time=strftime('%H:%M:%S', now),
     timestamp=strftime('%m.%d.%Y %H:%M', now),

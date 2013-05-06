@@ -50,20 +50,17 @@ def default_reporting(config, run_tracker):
 class RunTracker(object):
   """Tracks and times the execution of a pants run."""
   def __init__(self, config):
-    bi = get_build_info()
-    run_timestamp = bi.epochtime
+    self.run_timestamp = time.time()
     # run_id is safe for use in paths.
-    millis = (run_timestamp * 1000) % 1000
+    millis = (self.run_timestamp * 1000) % 1000
     run_id = 'pants_run_%s_%d' %\
-             (time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(run_timestamp)), millis)
+             (time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime(self.run_timestamp)), millis)
     cmd_line = ' '.join(['pants'] + sys.argv[1:])
 
     self.info_dir = os.path.join(config.getdefault('info_dir'), run_id)
     self.run_info = RunInfo(os.path.join(self.info_dir, 'info'))
-    self.run_info.add_infos([
-      ('id', run_id), ('timestamp', run_timestamp), ('cmd_line', cmd_line),
-      ('branch', bi.branch), ('tag', bi.tag), ('sha', bi.sha), ('user', bi.user),
-      ('machine', bi.machine), ('buildroot', bi.path)])
+    self.run_info.add_infos(
+      [('id', run_id), ('timestamp', self.run_timestamp), ('cmd_line', cmd_line)])
 
     # Create a 'latest' symlink, after we add_infos, so we're guaranteed that the file exists.
     link_to_latest = os.path.join(os.path.dirname(self.info_dir), 'latest')
@@ -90,6 +87,13 @@ class RunTracker(object):
     self._current_workunit = self.root_workunit
 
     self.options = None  # Set later, after options are parsed.
+
+  def add_scm_info(self):
+    """Call this after parsing the bootstrap BUILD files, so we know about the SCM system."""
+    bi = get_build_info(epochtime=self.run_timestamp)
+    self.run_info.add_infos([
+      ('branch', bi.branch), ('tag', bi.tag), ('sha', bi.sha), ('user', bi.user),
+      ('machine', bi.machine), ('buildroot', bi.path)])
 
   def close(self):
     while self._current_workunit:
