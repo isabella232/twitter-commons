@@ -14,6 +14,8 @@
 # limitations under the License.
 # ==================================================================================================
 
+from collections import defaultdict
+
 from twitter.common.collections import OrderedSet
 
 from twitter.pants.base import Target
@@ -35,6 +37,20 @@ class PythonTarget(TargetWithSources):
     self.provides = provides
     if self.provides:
       self.provides.library = self
+
+  def _propagate_exclusives(self):
+    self.exclusives = defaultdict(set)
+    for k in self.declared_exclusives:
+      self.exclusives[k] = self.declared_exclusives[k]
+    for t in self.dependencies:
+      if isinstance(t, Target):
+        t._propagate_exclusives()
+        for k in t.exclusives:
+          self.exclusives[k] |= t.exclusives[k]
+      elif hasattr(t, "declared_exclusives"):
+        for k in t.declared_exclusives:
+          self.exclusives[k] |= t.declared_exclusives[k]
+
 
   def _walk(self, walked, work, predicate = None):
     Target._walk(self, walked, work, predicate)
