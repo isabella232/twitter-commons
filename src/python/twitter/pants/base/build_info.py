@@ -14,12 +14,15 @@
 # limitations under the License.
 # ==================================================================================================
 
-from collections import namedtuple
 import getpass
-import os
 import socket
 import subprocess
+
+from collections import namedtuple
 from time import localtime, strftime, time
+
+from twitter.pants import get_buildroot, get_scm
+
 
 def safe_call(cmd):
   po = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -28,30 +31,21 @@ def safe_call(cmd):
     return so
   return ""
 
-def get_build_root():
-  build_root = os.path.abspath(os.getcwd())
-  while not os.path.exists(os.path.join(build_root, '.git')):
-    if build_root == os.path.dirname(build_root):
-      break
-    build_root = os.path.dirname(build_root)
-  return os.path.realpath(build_root)
 
-BuildInfo = namedtuple('BuildInfo', 'epochtime date time timestamp branch tag sha name machine path')
+BuildInfo = namedtuple('BuildInfo', 'epochtime date time timestamp branch tag sha user machine path')
 
-def get_build_info():
-  buildroot = get_build_root()
 
-  revision = safe_call(['git', 'rev-parse', 'HEAD']).strip().decode('utf-8')
-  tag = safe_call(['git', 'describe', '--always']).strip()
-  tag = 'none' if b'cannot' in tag else tag.decode('utf-8')
-  branchname = revision
-  for branchname in safe_call(['git', 'branch']).splitlines():
-    if branchname.startswith(b'* '):
-      branchname = branchname[2:].strip().decode('utf-8')
-      break
+def get_build_info(scm=None):
+  """Calculates the current BuildInfo using the supplied scm or else the globally configured one."""
+  buildroot = get_buildroot()
+  scm = scm or get_scm()
 
   epochnow = time()
   now = localtime(epochnow)
+  revision = scm.commit_id
+  tag = scm.tag_name or 'none'
+  branchname = scm.branch_name or revision
+
   return BuildInfo(
     epochtime=epochnow,  # A double, so we get subsecond precision for id purposes.
     date=strftime('%A %b %d, %Y', now),
@@ -60,6 +54,6 @@ def get_build_info():
     branch=branchname,
     tag=tag,
     sha=revision,
-    name=getpass.getuser(),
+    user=getpass.getuser(),
     machine=socket.gethostname(),
     path=buildroot)

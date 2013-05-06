@@ -19,11 +19,13 @@ from __future__ import print_function
 import pprint
 import pystache
 
+from twitter.common.lang import Compatibility
 from twitter.pants.base.mustache import MustacheRenderer
 
 
 class TemplateData(dict):
-  """Encapsulates data for a mustache template as a property-addressable read-only map-like struct."""
+  """Encapsulates data for a mustache template as a property-addressable read-only map-like struct.
+  """
 
   def __init__(self, **kwargs):
     dict.__init__(self, MustacheRenderer.expand(kwargs))
@@ -52,11 +54,15 @@ class Generator(object):
   """Generates pants intermediary output files using a configured mustache template."""
 
   def __init__(self, template_text, **template_data):
-    self._template =  pystache.parse(unicode(template_text))
+    # pystache does a typecheck for unicode in python 2.x but rewrites its sources to deal unicode
+    # via str in python 3.x.
+    if Compatibility.PY2:
+      template_text = unicode(template_text)
+    self._template =  pystache.parse(template_text)
     self.template_data = template_data
 
   def write(self, stream):
     """Applies the template to the template data and writes the result to the given file-like
     stream."""
-    stream.write(pystache.render(self._template, self.template_data))
 
+    stream.write(pystache.render(self._template, self.template_data))

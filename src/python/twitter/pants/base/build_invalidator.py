@@ -1,5 +1,5 @@
 # ==================================================================================================
-# Copyright 2011 Twitter, Inc.
+# Copyright 2012 Twitter, Inc.
 # --------------------------------------------------------------------------------------------------
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this work except in compliance with the License.
@@ -19,11 +19,12 @@ import hashlib
 import itertools
 import os
 
-from abc import ABCMeta, abstractmethod
+from abc import abstractmethod
 from collections import namedtuple
 
 from twitter.common.dirutil import safe_mkdir
-from twitter.common.lang import Compatibility
+from twitter.common.lang import Compatibility, Interface
+
 from twitter.pants.base.hash_utils import hash_all
 from twitter.pants.base.target import Target
 
@@ -40,34 +41,45 @@ from twitter.pants.base.target import Target
 CacheKey = namedtuple('CacheKey', ['id', 'hash', 'num_sources', 'sources'])
 
 
-class SourceScope(object):
+class SourceScope(Interface):
   """Selects sources of a given scope from targets."""
-
-  __metaclass__ = ABCMeta
-
-  @staticmethod
-  def for_selector(selector):
-    class Scope(SourceScope):
-      def select(self, target):
-        return selector(target)
-    return Scope()
 
   @abstractmethod
   def select(self, target):
     """Selects source files from the given target and returns them as absolute paths."""
 
+  @abstractmethod
   def valid(self, target):
     """Returns True if the given target can be used with this SourceScope."""
+
+
+class NoSources(SourceScope):
+  """A SourceScope where all targets are valid but no sources are ever selected."""
+
+  def select(self, target):
+    return []
+
+  def valid(self, target):
+    return True
+
+NO_SOURCES = NoSources()
+
+
+class DefaultSourceScope(SourceScope):
+  """Selects sources from subclasses of TargetWithSources."""
+
+  def __init__(self, recursive, include_buildfile):
+    self._recursive = recursive
+    self._include_buildfile = include_buildfile
+
+  def select(self, tgt):
+    return tgt.expand_files(self._recursive, self._include_buildfile)
+
+  def valid(self, target):
     return hasattr(target, 'expand_files')
 
-
-NO_SOURCES = SourceScope.for_selector(lambda t: ())
-TARGET_SOURCES = SourceScope.for_selector(
-  lambda t: t.expand_files(recursive=False, include_buildfile=False)
-)
-TRANSITIVE_SOURCES = SourceScope.for_selector(
-  lambda t: t.expand_files(recursive=True, include_buildfile=False)
-)
+TARGET_SOURCES = DefaultSourceScope(recursive=False, include_buildfile=False)
+TRANSITIVE_SOURCES = DefaultSourceScope(recursive=True, include_buildfile=False)
 
 
 class CacheKeyGenerator(object):
@@ -132,7 +144,6 @@ class CacheKeyGenerator(object):
 
     :returns: Iterable of (relative_path, absolute_path).
     """
-    assert not isinstance(paths, Compatibility.string)
     for path in sorted(paths):
       if os.path.isdir(path):
         for dir_name, _, filenames in sorted(os.walk(path)):
@@ -165,7 +176,7 @@ class BuildInvalidator(object):
   VERSION = 0
 
   def __init__(self, root):
-    self._root = os.path.join(root, str(BuildInvalidator.VERSION))
+    self._root = os.path.join(root, str(self.VERSION))
     safe_mkdir(self._root)
 
   def needs_update(self, cache_key):
@@ -174,8 +185,7 @@ class BuildInvalidator(object):
     :param cache_key: A CacheKey object (as returned by BuildInvalidator.key_for().
     :returns: True if the cached version of the item is out of date.
     """
-    cached_sha = self._read_sha(cache_key)
-    return cached_sha != cache_key.hash
+    return self._read_sha(cache_key) != cache_key.hash
 
   def update(self, cache_key):
     """Makes cache_key the valid version of the corresponding target set.
@@ -195,7 +205,8 @@ class BuildInvalidator(object):
   def existing_hash(self, id):
     """Returns the existing hash for the specified id.
 
-    Returns None if there is no existing hash for this id."""
+    Returns None if there is no existing hash for this id.
+    """
     return self._read_sha_by_id(id)
 
   def _sha_file(self, cache_key):

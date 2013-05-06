@@ -62,7 +62,7 @@ class RunTracker(object):
     self.run_info = RunInfo(os.path.join(self.info_dir, 'info'))
     self.run_info.add_infos([
       ('id', run_id), ('timestamp', run_timestamp), ('cmd_line', cmd_line),
-      ('branch', bi.branch), ('tag', bi.tag), ('sha', bi.sha), ('name', bi.name),
+      ('branch', bi.branch), ('tag', bi.tag), ('sha', bi.sha), ('user', bi.user),
       ('machine', bi.machine), ('buildroot', bi.path)])
 
     # Create a 'latest' symlink, after we add_infos, so we're guaranteed that the file exists.

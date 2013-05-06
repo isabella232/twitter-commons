@@ -14,7 +14,6 @@
 # limitations under the License.
 # ==================================================================================================
 
-
 import daemon
 import errno
 import inspect
@@ -29,11 +28,20 @@ import traceback
 from contextlib import contextmanager
 from optparse import Option, OptionParser
 
+try:
+  from colors import yellow, green, cyan
+except ImportError:
+  turn_off_colored_logging = True
+else:
+  turn_off_colored_logging = False
+
+from functools import wraps
+
 from twitter.common import log
 from twitter.common.collections import OrderedSet
 from twitter.common.dirutil import safe_mkdir, safe_rmtree
 from twitter.common.lang import Compatibility
-from twitter.pants import get_buildroot, goal, group, is_apt, is_codegen, is_scala
+from twitter.pants import get_buildroot, goal, group, has_sources, is_apt
 from twitter.pants.base import Address, BuildFile, Config, ParseContext, Target
 from twitter.pants.base.rcfile import RcFile
 from twitter.pants.commands import Command
@@ -45,6 +53,7 @@ from twitter.pants.goal import Context, GoalError, Phase, RunTracker
 
 
 StringIO = Compatibility.StringIO
+
 
 class List(Task):
   @classmethod
@@ -80,7 +89,7 @@ class Help(Task):
     if len(args) > 1 and (not args[1].startswith('-')):
       default = args[1]
       del args[1]
-    option_group.add_option(mkflag("goal"), dest = "help_goal", default=default)
+    option_group.add_option(mkflag("goal"), dest="help_goal", default=default)
 
   def execute(self, targets):
     goal = self.context.options.help_goal
@@ -104,8 +113,52 @@ class Help(Task):
 
 goal(name='help', action=Help).install().with_description('Provide help for the specified goal.')
 
+
 def _set_bool(option, opt_str, value, parser):
   setattr(parser.values, option.dest, not opt_str.startswith("--no"))
+
+
+class SpecParser(object):
+  """Parses goal target specs; either simple target addresses or else sibling (:) or descendant
+  (::) selector forms
+  """
+
+  def __init__(self, root_dir):
+    self._root_dir = root_dir
+
+  def _get_dir(self, spec):
+    path = spec.split(':', 1)[0]
+    if os.path.isdir(path):
+      return path
+    else:
+      if os.path.isfile(path):
+        return os.path.dirname(path)
+      else:
+        return spec
+
+  def _parse_addresses(self, spec):
+    if spec.endswith('::'):
+      dir = self._get_dir(spec[:-len('::')])
+      for buildfile in BuildFile.scan_buildfiles(self._root_dir, os.path.join(self._root_dir, dir)):
+        for address in Target.get_all_addresses(buildfile):
+          yield address
+    elif spec.endswith(':'):
+      dir = self._get_dir(spec[:-len(':')])
+      for address in Target.get_all_addresses(BuildFile(self._root_dir, dir)):
+        yield address
+    else:
+      yield Address.parse(self._root_dir, spec)
+
+  def parse(self, spec):
+    """Parses the given target spec into one or more targets.
+
+    Returns a generator of target, address pairs in which the target may be None if the address
+    points to a non-existent target.
+    """
+    for address in self._parse_addresses(spec):
+      target = Target.get(address)
+      yield target, address
+
 
 class Goal(Command):
   """Lists installed goals or else executes a named goal."""
@@ -113,8 +166,13 @@ class Goal(Command):
   __command__ = 'goal'
 
   GLOBAL_OPTIONS = [
+    Option("-t", "--timeout", dest="conn_timeout", type='int',
+           default=Config.load().getdefault('connection_timeout'),
+           help="Number of seconds to wait for http connections."),
     Option("-x", "--time", action="store_true", dest="time", default=False,
            help="Times goal phases and outputs a report."),
+    Option("-e", "--explain", action="store_true", dest="explain", default=False,
+           help="Explain the execution of goals."),
     Option("-k", "--kill-nailguns", action="store_true", dest="cleanup_nailguns", default=False,
            help="Kill nailguns before exiting"),
     Option("-v", "--log", action="store_true", dest="log", default=False,
@@ -123,7 +181,9 @@ class Goal(Command):
            help="[%default] Forks logs to files under this directory."),
     Option("-l", "--level", dest="log_level", type="choice", choices=['debug', 'info', 'warn'],
            help="[info] Sets the logging level to one of 'debug', 'info' or 'warn', implies -v "
-                  "if set."),
+                "if set."),
+    Option("--no-colors", dest="no_color", action="store_true", default=turn_off_colored_logging,
+           help="Do not colorize log messages."),
     Option("-n", "--dry-run", action="store_true", dest="dry_run", default=False,
       help="Print the commands that would be run, without actually running them."),
     Option("--read-from-artifact-cache", "--no-read-from-artifact-cache", action="callback",
@@ -137,12 +197,12 @@ class Goal(Command):
       help="Whether to verify that cached artifacts are identical after rebuilding them."),
     Option("--all", dest="target_directory", action="append",
            help="DEPRECATED: Use [dir]: with no flag in a normal target position on the command "
-                  "line. (Adds all targets found in the given directory's BUILD file. Can be "
-                  "specified more than once.)"),
+                "line. (Adds all targets found in the given directory's BUILD file. Can be "
+                "specified more than once.)"),
     Option("--all-recursive", dest="recursive_directory", action="append",
            help="DEPRECATED: Use [dir]:: with no flag in a normal target position on the command "
-                  "line. (Adds all targets found recursively under the given directory. Can be "
-                  "specified more than once to add more than one root target directory to scan.)"),
+                "line. (Adds all targets found recursively under the given directory. Can be "
+                "specified more than once to add more than one root target directory to scan.)"),
   ]
 
   output = None
@@ -180,7 +240,6 @@ class Goal(Command):
 
     return goals, specs
 
-  # TODO(John Sirois): revisit wholesale locking when we move py support into pants new
   @classmethod
   def serialized(cls):
     # Goal serialization is now handled in goal execution during group processing.
@@ -199,11 +258,11 @@ class Goal(Command):
       exc_type, exc_value, _ = sys.exc_info()
       msg = StringIO()
       if include_traceback:
-        frame = inspect.trace()[-1]
+        frame = inspect.trace()[-2]
         filename = frame[1]
         lineno = frame[2]
         funcname = frame[3]
-        code = ''.join(frame[4])
+        code = ''.join(frame[4]) if frame[4] else None
         traceback.print_list([(filename, lineno, funcname, code)], file=msg)
       if exc_type:
         msg.write(''.join(traceback.format_exception_only(exc_type, exc_value)))
@@ -223,65 +282,7 @@ class Goal(Command):
           msg.write('\n  %s =>\n    %s' % (key, '\n      '.join(exc.splitlines())))
       # The help message for goal is extremely verbose, and will obscure the
       # actual error message, so we don't show it in this case.
-      self.error(msg.getvalue(), show_help = False)
-
-  def add_targets(self, error, dir, buildfile):
-    try:
-      self.targets.extend(Target.get(addr) for addr in Target.get_all_addresses(buildfile))
-    except (TypeError, ImportError):
-      error(dir, include_traceback=True)
-    except (IOError, SyntaxError):
-      error(dir)
-
-  def get_dir(self, spec):
-    path = spec.split(':', 1)[0]
-    if os.path.isdir(path):
-      return path
-    else:
-      if os.path.isfile(path):
-        return os.path.dirname(path)
-      else:
-        return spec
-
-  def add_target_recursive(self, *specs):
-    with self.check_errors('There was a problem scanning the '
-                           'following directories for targets:') as error:
-      for spec in specs:
-        dir = self.get_dir(spec)
-        for buildfile in BuildFile.scan_buildfiles(self.root_dir, dir):
-          self.add_targets(error, dir, buildfile)
-
-  def add_target_directory(self, *specs):
-    with self.check_errors("There was a problem loading targets "
-                           "from the following directory's BUILD files") as error:
-      for spec in specs:
-        dir = self.get_dir(spec)
-        try:
-          self.add_targets(error, dir, BuildFile(self.root_dir, dir))
-        except IOError:
-          error(dir)
-
-  def parse_spec(self, error, spec):
-    if spec.endswith('::'):
-      self.add_target_recursive(spec[:-len('::')])
-    elif spec.endswith(':'):
-      self.add_target_directory(spec[:-len(':')])
-    else:
-      try:
-        address = Address.parse(get_buildroot(), spec)
-        ParseContext(address.buildfile).parse()
-        target = Target.get(address)
-        if target:
-          self.targets.append(target)
-        else:
-          siblings = Target.get_all_addresses(address.buildfile)
-          prompt = 'did you mean' if len(siblings) == 1 else 'maybe you meant one of these'
-          error('%s => %s?:\n    %s' % (address, prompt,
-                                        '\n    '.join(str(a) for a in siblings)))
-      except (TypeError, ImportError, TaskError, GoalError):
-        error(spec, include_traceback=True)
-      except (IOError, SyntaxError):
-        error(spec)
+      self.error(msg.getvalue(), show_help=False)
 
   def setup_parser(self, parser, args):
     self.config = Config.load()
@@ -334,9 +335,6 @@ class Goal(Command):
       self.requested_goals = goals
 
       with self.run_tracker.new_workunit(name='setup', types=[WorkUnit.SETUP]):
-        # TODO(John Sirois): kill PANTS_NEW and its usages when pants.new is rolled out
-        ParseContext.enable_pantsnew()
-
         # Bootstrap goals by loading any configured bootstrap BUILD files
         with self.check_errors('The following bootstrap_buildfiles cannot be loaded:') as error:
           with self.run_tracker.new_workunit(name='bootstrap', types=[WorkUnit.SETUP]):
@@ -349,11 +347,26 @@ class Goal(Command):
               except (IOError, SyntaxError):
                 error(path)
 
-        # Bootstrap user goals by loading any BUILD files implied by targets
+        # Bootstrap user goals by loading any BUILD files implied by targets.
+        spec_parser = SpecParser(self.root_dir)
         with self.check_errors('The following targets could not be loaded:') as error:
           with self.run_tracker.new_workunit(name='parse', types=[WorkUnit.SETUP]):
             for spec in specs:
-              self.parse_spec(error, spec)
+              try:
+                for target, address in spec_parser.parse(spec):
+                  if target:
+                    self.targets.append(target)
+                    # Force early BUILD file loading if this target is an alias that expands to others.
+                    unused = list(target.resolve())
+                  else:
+                    siblings = Target.get_all_addresses(address.buildfile)
+                    prompt = 'did you mean' if len(siblings) == 1 else 'maybe you meant one of these'
+                    error('%s => %s?:\n    %s' % (address, prompt,
+                                                  '\n    '.join(str(a) for a in siblings)))
+              except (TypeError, ImportError, TaskError, GoalError):
+                error(spec, include_traceback=True)
+              except (IOError, SyntaxError):
+                error(spec)
 
       self.phases = [Phase(goal) for goal in goals]
 
@@ -379,7 +392,7 @@ class Goal(Command):
         if augmented_args != args:
           del args[:]
           args.extend(augmented_args)
-          print("(using pantsrc expansion: pants goal %s)" % ' '.join(augmented_args))
+          sys.stderr.write("(using pantsrc expansion: pants goal %s)\n" % ' '.join(augmented_args))
 
       Phase.setup_parser(parser, args, self.phases)
 
@@ -394,17 +407,26 @@ class Goal(Command):
 
       logger = None
       if self.options.log or self.options.log_level:
-        from twitter.common.log import init
-        from twitter.common.log.options import LogOptions
-        LogOptions.set_stderr_log_level((self.options.log_level or 'info').upper())
+        log.LogOptions.set_stderr_log_level((self.options.log_level or 'info').upper())
         logdir = self.options.logdir or self.config.get('goals', 'logdir', default=None)
         if logdir:
           safe_mkdir(logdir)
-          LogOptions.set_log_dir(logdir)
-          init('goals')
+          log.LogOptions.set_log_dir(logdir)
+          log.init('goals')
         else:
-          init()
+          log.init()
         logger = log
+
+        if not self.options.no_color:
+          def colorwrapper(func, clrname):
+            @wraps(func)
+            def wrapper(msg, *args, **kwargs):
+              return func(clrname(msg), *args, **kwargs)
+            return wrapper
+
+          log.info = colorwrapper(log.info, green)
+          log.warn = colorwrapper(log.warn, yellow)
+          log.debug = colorwrapper(log.debug, cyan)
 
       if self.options.recursive_directory:
         log.warn('--all-recursive is deprecated, use a target spec with the form [dir]:: instead')
@@ -459,26 +481,40 @@ class Goal(Command):
 
 
 # Install all default pants provided goals
-from twitter.pants.targets import JavaLibrary, JavaTests
+from twitter.pants import junit_tests
+from twitter.pants.targets import (
+  Benchmark,
+  JavaLibrary,
+  JvmBinary,
+  ScalaLibrary,
+  ScalaTests,
+  ScalacPlugin)
+from twitter.pants.tasks.antlr_gen import AntlrGen
+from twitter.pants.tasks.benchmark_run import BenchmarkRun
 from twitter.pants.tasks.binary_create import BinaryCreate
 from twitter.pants.tasks.build_lint import BuildLint
 from twitter.pants.tasks.bundle_create import BundleCreate
 from twitter.pants.tasks.checkstyle import Checkstyle
+from twitter.pants.tasks.extract import Extract
 from twitter.pants.tasks.filedeps import FileDeps
+from twitter.pants.tasks.idl_resolve import IdlResolve
 from twitter.pants.tasks.ivy_resolve import IvyResolve
 from twitter.pants.tasks.jar_create import JarCreate
-from twitter.pants.tasks.jar_publish import JarPublish
 from twitter.pants.tasks.java_compile import JavaCompile
 from twitter.pants.tasks.javadoc_gen import JavadocGen
+from twitter.pants.tasks.scaladoc_gen import ScaladocGen
 from twitter.pants.tasks.junit_run import JUnitRun
 from twitter.pants.tasks.jvm_run import JvmRun
 from twitter.pants.tasks.markdown_to_html import MarkdownToHtml
+from twitter.pants.tasks.listtargets import ListTargets
 from twitter.pants.tasks.pathdeps import PathDeps
+from twitter.pants.tasks.prepare_resources import PrepareResources
 from twitter.pants.tasks.protobuf_gen import ProtobufGen
 from twitter.pants.tasks.scala_compile import ScalaCompile
 from twitter.pants.tasks.scala_repl import ScalaRepl
 from twitter.pants.tasks.specs_run import SpecsRun
 from twitter.pants.tasks.thrift_gen import ThriftGen
+from twitter.pants.tasks.scrooge_gen import ScroogeGen
 
 
 class Invalidator(Task):
@@ -500,38 +536,43 @@ goal(
   dependencies=['invalidate']
 ).install().with_description('Cleans all intermediate build output')
 
-def async_safe_rmtree(root):
-  new_path = root + '.deletable.%f' % time.time()
-  if os.path.exists(root):
-    os.rename(root, new_path)
-    with daemon.DaemonContext():
-      safe_rmtree(new_path)
 
-goal(
-  name='clean-all-async',
-  action=lambda ctx: async_safe_rmtree(ctx.config.getdefault('pants_workdir')),
-  dependencies=['invalidate']
-).install().with_description('Cleans all intermediate build output in a background process')
+try:
+  import daemon
+
+  def async_safe_rmtree(root):
+    if os.path.exists(root):
+      new_path = root + '.deletable.%f' % time.time()
+      os.rename(root, new_path)
+      with daemon.DaemonContext():
+        safe_rmtree(new_path)
+
+  goal(
+    name='clean-all-async',
+    action=lambda ctx: async_safe_rmtree(ctx.config.getdefault('pants_workdir')),
+    dependencies=['invalidate']
+  ).install().with_description('Cleans all intermediate build output in a background process')
+except ImportError:
+  pass
 
 
-class NailgunKillall(Task):
-  @classmethod
-  def setup_parser(cls, option_group, args, mkflag):
-    option_group.add_option(mkflag("everywhere"), dest="ng_killall_everywhere",
-                            default=False, action="store_true",
-                            help="[%default] Kill all nailguns servers launched by pants for "
-                                 "all workspaces on the system.")
+if NailgunTask.killall:
+  class NailgunKillall(Task):
+    @classmethod
+    def setup_parser(cls, option_group, args, mkflag):
+      option_group.add_option(mkflag("everywhere"), dest="ng_killall_everywhere",
+                              default=False, action="store_true",
+                              help="[%default] Kill all nailguns servers launched by pants for "
+                                   "all workspaces on the system.")
 
-  def execute(self, targets):
-    if NailgunTask.killall:
-      NailgunTask.killall(self.context.log, everywhere=self.context.options.ng_killall_everywhere)
-    else:
-      raise NotImplementedError, 'NailgunKillall not implemented on this platform'
+    def execute(self, targets):
+      if NailgunTask.killall:
+        NailgunTask.killall(self.context.log, everywhere=self.context.options.ng_killall_everywhere)
 
-ng_killall = goal(name='ng-killall', action=NailgunKillall)
-ng_killall.install().with_description('Kill any running nailgun servers spawned by pants.')
+  ng_killall = goal(name='ng-killall', action=NailgunKillall)
+  ng_killall.install().with_description('Kill any running nailgun servers spawned by pants.')
 
-ng_killall.install('clean-all', first=True)
+  ng_killall.install('clean-all', first=True)
 
 
 def get_port_and_pidfile(context):
@@ -646,12 +687,26 @@ goal(
   dependencies=['gen']
 ).install('resolve').with_description('Resolves jar dependencies and produces dependency reports.')
 
+goal(
+  name='idl',
+  action=IdlResolve,
+).install('resolve-idl').with_description('Resolves idl jar dependencies.')
+
+goal(
+  name='extract',
+  action=Extract,
+).install('resolve-idl')
 
 # TODO(John Sirois): gen attempted as the sole Goal should gen for all known gen types but
 # recognize flags to narrow the gen set
-goal(name='thrift', action=ThriftGen).install('gen').with_description('Generate code.')
-goal(name='protoc', action=ProtobufGen).install('gen')
-
+goal(name='thrift', action=ThriftGen,
+  dependencies=['resolve-idl']).install('gen').with_description('Generate code.')
+goal(name='scrooge', action=ScroogeGen,
+  dependencies=['resolve-idl']).install('gen')
+goal(name='protoc', action=ProtobufGen,
+  dependencies=['resolve-idl']).install('gen')
+goal(name='antlr', action=AntlrGen,
+  dependencies=['resolve-idl']).install('gen')
 
 goal(
   name='checkstyle',
@@ -659,17 +714,20 @@ goal(
   dependencies=['gen', 'resolve']
 ).install().with_description('Run checkstyle against java source code.')
 
-
-# Support straight up checkstyle runs in addition to checkstyle as last phase of compile below
-goal(name='java',
-     action=JavaCompile,
-     group=group('gen', lambda target: is_codegen(target)),
-     dependencies=['gen', 'resolve']).install('checkstyle')
-
+# TODO(John Sirois): These group predicates could simplify to simple has_sources checks except for
+# the fact that sometimes 'aggregator' targets with no sources serve as a dependency link in the
+# wild.  Consider stomping this practice out and simplifying these predicates.
 
 def is_java(target):
- return isinstance(target, JavaLibrary) or \
-        isinstance(target, JavaTests)
+  return (isinstance(target, JavaLibrary)
+          or (isinstance(target, (JvmBinary, junit_tests, Benchmark))
+              and has_sources(target, '.java')))
+
+def is_scala(target):
+  return (isinstance(target, (ScalaLibrary, ScalaTests, ScalacPlugin))
+          or (isinstance(target, (JvmBinary, junit_tests, Benchmark))
+              and has_sources(target, '.scala')))
+
 
 goal(name='scala',
      action=ScalaCompile,
@@ -687,10 +745,16 @@ goal(name='java',
      dependencies=['gen', 'resolve']).install('compile')
 
 
-# TODO(John Sirois): Create scaladoc and pydoc in a doc phase
+goal(name='prepare', action=PrepareResources).install('resources')
+
+
+# TODO(John Sirois): pydoc also
 goal(name='javadoc',
      action=JavadocGen,
-     dependencies=['compile']).install('javadoc').with_description('Create javadoc.')
+     dependencies=['compile']).install('doc').with_description('Create documentation.')
+goal(name='scaladoc',
+     action=ScaladocGen,
+     dependencies=['compile']).install('doc')
 
 
 if MarkdownToHtml.AVAILABLE:
@@ -701,22 +765,19 @@ if MarkdownToHtml.AVAILABLE:
 
 goal(name='jar',
      action=JarCreate,
-     dependencies=['compile']).install('jar').with_description('Create one or more jars.')
+     dependencies=['compile', 'resources']).install('jar').with_description('Create one or more jars.')
 
-# TODO(John Sirois): Publish eggs in the publish phase
-goal(name='publish',
-     action=JarPublish,
-     dependencies=[
-       'javadoc',
-       'jar'
-     ]).install().with_description('Publish one or more artifacts.')
 
 goal(name='junit',
      action=JUnitRun,
-     dependencies=['compile']).install('test').with_description('Test compiled code.')
+     dependencies=['compile', 'resources']).install('test').with_description('Test compiled code.')
 goal(name='specs',
      action=SpecsRun,
-     dependencies=['compile']).install('test')
+     dependencies=['compile', 'resources']).install('test')
+
+goal(name='bench',
+     action=BenchmarkRun,
+     dependencies=['compile', 'resources']).install('bench')
 
 # TODO(John Sirois): Create pex's in binary phase
 goal(
@@ -735,7 +796,7 @@ goal(
 goal(
   name='jvm-run',
   action=JvmRun,
-  dependencies=['compile'],
+  dependencies=['compile', 'resources'],
   serialize=False,
 ).install('run').with_description('Run a (currently JVM only) binary target.')
 
@@ -743,15 +804,15 @@ goal(
   name='jvm-run-dirty',
   action=JvmRun,
   serialize=False,
-  ).install('run-dirty').with_description('Run a (currently JVM only) binary target, using\n' +
-    'only currently existing binaries, skipping compilation')
+).install('run-dirty').with_description('Run a (currently JVM only) binary target, using\n' +
+  'only currently existing binaries, skipping compilation')
 
 # repl doesn't need the serialization lock. It's reasonable to have
 # a repl running in a workspace while there's a compile going on unrelated code.
 goal(
   name='scala-repl',
   action=ScalaRepl,
-  dependencies=['compile'],
+  dependencies=['compile', 'resources'],
   serialize=False,
 ).install('repl').with_description(
   'Run a (currently Scala only) REPL with the classpath set according to the targets.')
@@ -762,7 +823,7 @@ goal(
   serialize=False,
 ).install('repl-dirty').with_description(
   'Run a (currently Scala only) REPL with the classpath set according to the targets, \n' +
-    'using the currently existing binaries, skipping compilation')
+  'using the currently existing binaries, skipping compilation')
 
 goal(
   name='filedeps',
@@ -774,6 +835,11 @@ goal(
   action=PathDeps
 ).install('pathdeps').with_description(
   'Print out a list of all paths containing build files the target depends on')
+
+goal(
+  name='list',
+  action=ListTargets
+).install('list').with_description('List available BUILD targets.')
 
 goal(
   name='buildlint',
@@ -828,3 +894,53 @@ goal(
   name='paths',
   action=Paths,
 ).install().with_description('Find all dependency paths from one target to another')
+
+
+from twitter.pants.tasks.dependees import ReverseDepmap
+
+goal(
+  name='dependees',
+  action=ReverseDepmap
+).install().with_description('Print a reverse dependency mapping for the given targets')
+
+
+from twitter.pants.tasks.depmap import Depmap
+
+goal(
+  name='depmap',
+  action=Depmap
+).install().with_description('Generates either a textual dependency tree or a graphviz'
+                             ' digraph dotfile for the dependency set of a target')
+
+
+from twitter.pants.tasks.dependencies import Dependencies
+
+goal(
+  name='dependencies',
+  action=Dependencies
+).install().with_description('Extract textual infomation about the dependencies of a target')
+
+
+from twitter.pants.tasks.filemap import Filemap
+
+goal(
+  name='filemap',
+  action=Filemap
+).install().with_description('Outputs a mapping from source file to'
+                             ' the target that owns the source file')
+
+
+from twitter.pants.tasks.minimal_cover import MinimalCover
+
+goal(
+  name='minimize',
+  action=MinimalCover
+).install().with_description('Print the minimal cover of the given targets.')
+
+
+from twitter.pants.tasks.filter import Filter
+
+goal(
+  name='filter',
+  action=Filter
+).install().with_description('Filter the input targets based on various criteria.')

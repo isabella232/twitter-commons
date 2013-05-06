@@ -1,4 +1,6 @@
 
+from collections import defaultdict
+
 from twitter.common.collections import OrderedDict, OrderedSet
 from twitter.pants import is_internal
 from twitter.pants.goal.work_unit import WorkUnit
@@ -14,10 +16,27 @@ class Group(object):
     def execute_task(name, task, targets):
       """Execute and time a single goal that has had all of its dependencies satisfied."""
       try:
-        task.execute(targets)
+        # TODO (Senthil Kumaran):
+        # Possible refactoring of the Task Execution Logic (AWESOME-1019)
+        if getattr(context.options, 'explain', None):
+          context.log.debug("Skipping execution of %s in explain mode" % name)
+        else:
+          task.execute(targets)
       finally:
         if phase not in executed:
           executed[phase] = OrderedDict()
+
+    tasks_by_goalname = dict((goal.name, task.__class__.__name__)
+                             for goal, task in tasks_by_goal.items())
+
+    def expand_goal(goal):
+      if len(goal) == 2: # goal is (group, goal)
+        group_name, goal_name = goal
+        task_name = tasks_by_goalname[goal_name]
+        return "%s:%s->%s" % (group_name, goal_name, task_name)
+      else:
+        task_name = tasks_by_goalname[goal]
+        return "%s->%s" % (goal, task_name)
 
     if phase not in executed:
       # Note the locking strategy: We lock the first time we need to, and hold the lock until
@@ -52,11 +71,15 @@ class Group(object):
           runqueue.append((None, [goal]))
 
       with context.new_workunit(name=phase.name, types=[WorkUnit.PHASE]):
+        # OrderedSet takes care of not repeating chunked task execution mentions
+        execution_phases = defaultdict(OrderedSet)
+
         # Note that we don't explicitly set the outcome at the phase level. We just take
         # the outcomes that propagate up from the goal workunits.
         for group_name, goals in runqueue:
           if not group_name:
             goal = goals[0]
+            execution_phases[phase].add(goal.name)
             with context.new_workunit(name=goal.name, types=[WorkUnit.GOAL]):
               execute_task(goal.name, tasks_by_goal[goal], context.targets())
           else:
@@ -65,8 +88,14 @@ class Group(object):
                 for goal in goals:
                   goal_chunk = filter(goal.group.predicate, chunk)
                   if len(goal_chunk) > 0:
+                    execution_phases[phase].add((group_name, goal.name))
                     with context.new_workunit(name=goal.name, types=[WorkUnit.GOAL]):
                       execute_task(goal.name, tasks_by_goal[goal], goal_chunk)
+
+      if getattr(context.options, 'explain', None):
+        for phase, goals in execution_phases.items():
+          goal_to_task = ", ".join(expand_goal(goal) for goal in goals)
+          print("%s [%s]" % (phase, goal_to_task))
 
       # Can't put this in a finally block because some tasks fork, and the forked processes would
       # execute this block as well.
