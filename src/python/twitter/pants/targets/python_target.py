@@ -14,6 +14,8 @@
 # limitations under the License.
 # ==================================================================================================
 
+from collections import defaultdict
+
 from twitter.common.collections import OrderedSet
 
 from twitter.pants.base import Target
@@ -35,7 +37,6 @@ class PythonTarget(TargetWithSources):
     self.provides = provides
     if self.provides:
       self.provides.library = self
-
 
   def _propagate_exclusives(self):
     self.exclusives = defaultdict(set)
