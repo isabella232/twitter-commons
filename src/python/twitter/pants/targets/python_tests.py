@@ -25,7 +25,7 @@ class PythonTests(PythonTarget):
                dependencies=None,
                timeout=Amount(2, Time.MINUTES),
                coverage=None,
-               soft_dependencies=False):
+               soft_dependencies=False,
                exclusives=None):
     """
       name / sources / resources / dependencies: See PythonLibrary target
@@ -43,7 +43,7 @@ class PythonTests(PythonTarget):
     self._coverage = maybe_list(coverage) if coverage is not None else []
     PythonTarget.__init__(self, name, sources, resources, dependencies, exclusives=exclusives)
     self.add_labels('python', 'tests')
-  
+
   @property
   def timeout(self):
     return self._timeout

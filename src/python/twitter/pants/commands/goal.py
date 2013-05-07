@@ -489,11 +489,8 @@ from twitter.pants.tasks.binary_create import BinaryCreate
 from twitter.pants.tasks.build_lint import BuildLint
 from twitter.pants.tasks.bundle_create import BundleCreate
 from twitter.pants.tasks.checkstyle import Checkstyle
-<<<<<<< HEAD
 from twitter.pants.tasks.extract import Extract
-=======
 from twitter.pants.tasks.check_exclusives import CheckExclusives
->>>>>>> Added a check_exclusives task.
 from twitter.pants.tasks.filedeps import FileDeps
 from twitter.pants.tasks.idl_resolve import IdlResolve
 from twitter.pants.tasks.ivy_resolve import IvyResolve
@@ -609,7 +606,8 @@ goal(
 ).install().with_description('Run checkstyle against java source code.')
 
 goal(name='check_exclusives',
-  action=CheckExclusives).install('check_exclusives')
+  action=CheckExclusives).install('check_exclusives').with_description(
+  'Check exclusives declarations to verify that dependencies are consistent.')
 
 # TODO(John Sirois): These group predicates could simplify to simple has_sources checks except for
 # the fact that sometimes 'aggregator' targets with no sources serve as a dependency link in the

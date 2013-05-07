@@ -18,7 +18,6 @@ import collections
 import copy
 import os
 
-
 from twitter.common.collections import OrderedSet, maybe_list
 from twitter.common.decorators import deprecated_with_warning
 
@@ -117,7 +116,7 @@ class Target(object):
             raise TypeError('%s requires types: %s and found %s' % (cls, expected_types, resolved))
           yield resolved
 
-  def __init__(self, name, is_meta, reinit_check=True, exclusives=None):
+  def __init__(self, name, reinit_check=True, exclusives=None):
     # See "get_all_exclusives" below for an explanation of the exclusives parameter.
     # This check prevents double-initialization in multiple-inheritance situations.
     # TODO(John Sirois): fix target inheritance - use super() to linearize or use alternatives to
@@ -135,7 +134,7 @@ class Target(object):
       self.register()
       self._initialized = True
 
-      self.declared_exclusives = defaultdict(set)
+      self.declared_exclusives = collections.defaultdict(set)
       if exclusives is not None:
         for k in exclusives:
           self.declared_exclusives[k].add(exclusives[k])
@@ -167,20 +166,21 @@ class Target(object):
 
   def _propagate_exclusives(self):
     if self.exclusives is None:
-      self.exclusives = defaultdict(set)
+      self.exclusives = collections.defaultdict(set)
       self.add_to_exclusives(self.declared_exclusives)
+    # This may perform more work than necessary.
+    # We want to just traverse the immediate dependencies of this target,
+    # but for a general target, we can't do that. _propagate_exclusives is overridden
+    # in subclasses when possible to avoid the extra work.
       self.walk(lambda t: self._propagate_exclusives_work(t))
 
   def _propagate_exclusives_work(self, target):
     # Note: this will cause a stack overflow if there is a cycle in
     # the dependency graph, so exclusives checking should occur after
     # cycle detection.
-    self.add_to_exclusives(target.get_all_exclusives())
-    # Returning false will cause this to only traverse the immediate
-    # dependencies, which is really what we want; the recursive calls
-    # to target.get_all_exclusives take care of the full traversal of
-    # the dependency graph.
-    return False
+    if hasattr(target, "declared_exclusives"):
+      self.add_to_exclusives(target.declared_exclusives)
+    return None
 
   def _post_construct(self, func, *args, **kwargs):
     """Registers a command to invoke after this target's BUILD file is parsed."""

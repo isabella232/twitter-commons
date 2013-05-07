@@ -51,7 +51,7 @@ class JvmBinary(JvmTarget):
                        dependencies=dependencies,
                        excludes=excludes,
                        configurations=configurations,
-                       exclusives=exclusives or {})
+                       exclusives=exclusives)
 
     if main and not isinstance(main, Compatibility.string):
       raise TargetDefinitionException(self, 'main must be a fully qualified classname')

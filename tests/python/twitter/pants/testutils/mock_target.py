@@ -13,7 +13,7 @@ class MockTarget(InternalTarget, TargetWithSources):
       InternalTarget.__init__(self, name, dependencies)
       TargetWithSources.__init__(self, name)
       self.declared_exclusives = defaultdict(set)
-        for k in exclusives:
+      for k in exclusives:
         self.declared_exclusives[k] = set(exclusives[k])
       self.exclusives = None
     self.num_sources = num_sources
