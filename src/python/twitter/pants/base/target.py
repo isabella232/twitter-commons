@@ -18,7 +18,6 @@ import collections
 import copy
 import os
 
-
 from twitter.common.collections import OrderedSet, maybe_list
 from twitter.common.decorators import deprecated_with_warning
 
@@ -135,7 +134,7 @@ class Target(object):
       self.register()
       self._initialized = True
 
-      self.declared_exclusives = defaultdict(set)
+      self.declared_exclusives = collections.defaultdict(set)
       if exclusives is not None:
         for k in exclusives:
           self.declared_exclusives[k].add(exclusives[k])
