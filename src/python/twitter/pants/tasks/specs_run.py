@@ -75,7 +75,8 @@ class SpecsRun(JvmTask):
           jvmargs=self.java_args,
           classpath=self.classpath(profile_classpath(self.profile), confs=self.confs),
           main='com.twitter.common.testing.ExplicitSpecsRunnerMain',
-          opts=opts
+          opts=opts,
+          workunit_name='specs'
         )
         if result != 0:
           raise TaskError()

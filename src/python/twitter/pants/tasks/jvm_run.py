@@ -88,7 +88,8 @@ class JvmRun(JvmTask):
           classpath=(self.classpath(confs=self.confs)),
           main=main,
           args=self.args,
-          dryrun=dryrun
+          dryrun=dryrun,
+          workunit_name='run'
         )
         if dryrun:
           return result

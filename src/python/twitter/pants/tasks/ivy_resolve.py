@@ -299,7 +299,8 @@ class IvyResolve(NailgunTask):
       #xml = self._ivy_utils.xml_report_path(conf)
       out = os.path.join(self._outdir, '%(org)s-%(name)s-%(conf)s.html' % params)
       opts = ['-IN', xml, '-XSL', xsl, '-OUT', out]
-      if 0 != self.runjava_indivisible('org.apache.xalan.xslt.Process', classpath=classpath, opts=opts):
+      if 0 != self.runjava_indivisible('org.apache.xalan.xslt.Process', classpath=classpath,
+                                       opts=opts, workunit_name='report'):
         raise TaskError
       reports.append(out)
 

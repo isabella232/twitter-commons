@@ -17,8 +17,7 @@
 import shlex
 import subprocess
 
-from twitter.pants.binary_util import profile_classpath, runjava_cmd_str, runjava_indivisible
-from twitter.pants.goal.work_unit import WorkUnit
+from twitter.pants.binary_util import profile_classpath, runjava_indivisible
 from twitter.pants.tasks import Task
 from twitter.pants.tasks.jvm_task import JvmTask
 
@@ -50,17 +49,14 @@ class ScalaRepl(JvmTask):
     # period.
     self.context.lock.release()
     self.save_stty_options()
-    cp = self.classpath(profile_classpath(self.profile), confs=self.confs)
-    cmd_str = runjava_cmd_str(jvmargs=self.jvm_args, classpath=cp, main=self.main, args=self.args)
     try:
-      with self.context.new_workunit(name=self.main,
-        types=[WorkUnit.JVM, WorkUnit.TOOL, WorkUnit.REPL], cmd=cmd_str):
-        runjava_indivisible(
-          jvmargs=self.jvm_args,
-          classpath=cp,
-          main=self.main,
-          args=self.args
-        )
+      runjava_indivisible(
+        jvmargs=self.jvm_args,
+        classpath=self.classpath(profile_classpath(self.profile), confs=self.confs),
+        main=self.main,
+        args=self.args,
+        workunit_name='repl'
+      )
     except KeyboardInterrupt:
       # TODO(John Sirois): Confirm with Steve Gury that finally does not work on mac and an
       # explicit catch of KeyboardInterrupt is required.

@@ -28,6 +28,7 @@ from twitter.common import log
 from twitter.common.contextutil import environment_as, temporary_file, temporary_dir
 from twitter.common.dirutil import chmod_plus_x, safe_delete, safe_mkdir, safe_open, touch
 from twitter.common.lang import Compatibility
+from twitter.pants.goal.work_unit import WorkUnit
 
 if Compatibility.PY3:
   import urllib.request as urllib_request
@@ -231,9 +232,9 @@ def runjava_cmd_str(jvmargs=None, classpath=None, main=None, opts=None, args=Non
 
 
 def runjava_indivisible(jvmargs=None, classpath=None, main=None, opts=None, args=None, dryrun=False,
-                        **kwargs):
+                        workunit_factory=None, workunit_name=None, **kwargs):
   """Spawns a java process with the supplied configuration and returns its exit code.
-  The args list is indivisable so it can't be split across multiple invocations of the command
+  The args list is indivisible so it can't be split across multiple invocations of the command
   similiar to xargs.
   Passes kwargs through to subproccess.call.
   """
@@ -243,10 +244,12 @@ def runjava_indivisible(jvmargs=None, classpath=None, main=None, opts=None, args
     return _runjava_cmd_to_str(cmd_with_args)
   else:
     with safe_classpath():
-      return _subprocess_call(cmd_with_args, **kwargs)
+      return _subprocess_call(cmd_with_args, workunit_factory=workunit_factory,
+                              workunit_name=workunit_name or main, **kwargs)
 
 
-def runjava(jvmargs=None, classpath=None, main=None, opts=None, args=None, dryrun=False, **kwargs):
+def runjava(jvmargs=None, classpath=None, main=None, opts=None, args=None, dryrun=False,
+            workunit_factory=None, workunit_name=None, **kwargs):
   """Spawns a java process with the supplied configuration and returns its exit code.
   The args list is divisable so it can be split across multiple invocations of the command
   similiar to xargs.
@@ -254,10 +257,11 @@ def runjava(jvmargs=None, classpath=None, main=None, opts=None, args=None, dryru
   """
   cmd = _runjava_cmd(jvmargs=jvmargs, classpath=classpath, main=main, opts=opts)
   if dryrun:
-    return ' '.join(cmd)
+    return _runjava_cmd_to_str(cmd)
   else:
     with safe_classpath():
-      return _subprocess_call_with_args(cmd, args, **kwargs)
+      return _subprocess_call_with_args(cmd, args, workunit_factory=workunit_factory,
+                                        workunit_name=workunit_name or main, **kwargs)
 
 
 def _split_args(i):
@@ -266,18 +270,35 @@ def _split_args(i):
   return l[:half], l[half:]
 
 
-def _subprocess_call(cmd_with_args, call=subprocess.call, **kwargs):
+def _subprocess_call(cmd_with_args, call=subprocess.call, workunit_factory=None,
+                     workunit_name=None, **kwargs):
   log.debug('Executing: %s' % ' '.join(cmd_with_args))
-  return call(cmd_with_args, **kwargs)
+  if workunit_factory:
+    workunit_types = [WorkUnit.TOOL, WorkUnit.JVM]
+    with workunit_factory(name=workunit_name, types=workunit_types, cmd=cmd_str) as workunit:
+      try:
+        ret = call(cmd_with_args, stdout=workunit.output('stdout'), stderr=workunit.output('stderr'),
+                   **kwargs)
+        workunit.set_outcome(WorkUnit.FAILURE if ret else WorkUnit.SUCCESS)
+        return ret
+      except OSError as e:
+        if errno.E2BIG == e.errno:
+          # _subprocess_call_with_args will split and retry,
+          # so we want this to appear to have succeeded.
+          workunit.set_outcome(WorkUnit.SUCCESS)
+  else:
+    return call(cmd_with_args, **kwargs)
 
 
-def _subprocess_call_with_args(cmd, args, call=subprocess.call, **kwargs):
+def _subprocess_call_with_args(cmd, args, call=subprocess.call,
+                               workunit_factory=None, workunit_name=None, **kwargs):
   cmd_with_args = cmd[:]
   if args:
     cmd_with_args.extend(args)
   try:
     with safe_classpath():
-      return _subprocess_call(cmd_with_args, call=call, **kwargs)
+      return _subprocess_call(cmd_with_args, call=call, workunit_factory=workunit_factory,
+                              workunit_name=workunit_name, **kwargs)
   except OSError as e:
     if errno.E2BIG == e.errno and args and len(args) > 1:
       args1, args2 = _split_args(args)
@@ -292,17 +313,20 @@ def _subprocess_call_with_args(cmd, args, call=subprocess.call, **kwargs):
       raise e
 
 
-def nailgun_profile_classpath(nailgun_task, profile, ivy_jar=None, ivy_settings=None):
+def nailgun_profile_classpath(nailgun_task, profile, ivy_jar=None, ivy_settings=None,
+                              workunit_factory=None):
   return profile_classpath(
     profile,
     java_runner=nailgun_task.runjava_indivisible,
     config=nailgun_task.context.config,
     ivy_jar=ivy_jar,
-    ivy_settings=ivy_settings
+    ivy_settings=ivy_settings,
+    workunit_factory=workunit_factory
   )
 
 
-def profile_classpath(profile, java_runner=None, config=None, ivy_jar=None, ivy_settings=None):
+def profile_classpath(profile, java_runner=None, config=None, ivy_jar=None, ivy_settings=None,
+                      workunit_factory=None):
   # TODO(John Sirois): consider rework when ant backend is gone and there is no more need to share
   # path structure
 
@@ -333,7 +357,8 @@ def profile_classpath(profile, java_runner=None, config=None, ivy_jar=None, ivy_
       '-types', 'jar', 'bundle',
       '-confs', 'default'
     ]
-    result = java_runner(classpath=ivy_classpath, main='org.apache.ivy.Main', opts=ivy_opts)
+    result = java_runner(classpath=ivy_classpath, main='org.apache.ivy.Main',
+                         workunit_factory=workunit_factory, workunit_name='profile', opts=ivy_opts)
     if result != 0:
       raise TaskError('Failed to load profile %s, ivy exit code %d' % (profile, result))
     touch(profile_check)

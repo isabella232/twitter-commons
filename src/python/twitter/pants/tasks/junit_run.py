@@ -21,7 +21,6 @@ import sys
 from twitter.common.dirutil import safe_mkdir, safe_open
 
 from twitter.pants import binary_util, is_codegen, is_java, is_scala, is_test, junit_tests
-from twitter.pants.goal.work_unit import WorkUnit
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.jvm_task import JvmTask
 
@@ -214,22 +213,16 @@ class JUnitRun(JvmTask):
           result = 0
           for batch in self._partition(tests):
             with binary_util.safe_args(batch) as batch_tests:
-              cmd_str = binary_util.runjava_cmd_str(jvmargs=(jvmargs or []) + self.java_args,
-                classpath=classpath, main=main, opts=self.opts, args=batch_tests)
-              with self.context.new_workunit(name='run',
-                  types=[WorkUnit.JVM, WorkUnit.TOOL, WorkUnit.TEST], cmd=cmd_str) as workunit:
-                my_result = binary_util.runjava_indivisible(
-                  jvmargs=(jvmargs or []) + self.java_args,
-                  classpath=classpath,
-                  main=main,
-                  opts=self.opts, args=batch_tests,
-                  stdout=workunit.output('stdout'),
-                  stderr=workunit.output('stderr')
-                )
-                workunit.set_outcome(WorkUnit.FAILURE if my_result else WorkUnit.SUCCESS)
-                result += abs(my_result)
-                if result != 0 and self.fail_fast:
-                  break
+              result += abs(binary_util.runjava_indivisible(
+                jvmargs=(jvmargs or []) + self.java_args,
+                classpath=classpath,
+                main=main,
+                opts=self.opts,
+                args=batch_tests,
+                workunit_name='run'
+              ))
+              if result != 0 and self.fail_fast:
+                break
           if result != 0:
             raise TaskError()
 
@@ -249,7 +242,7 @@ class JUnitRun(JvmTask):
               for pattern in patterns:
                 opts.extend(['-filter', pattern])
               result = binary_util.runjava_indivisible(classpath=emma_classpath, main='emma',
-                                                       opts=opts)
+                                                       opts=opts, workunit_name='emma')
               if result != 0:
                 raise TaskError('Emma instrumentation failed with: %d' % result)
 
@@ -283,7 +276,8 @@ class JUnitRun(JvmTask):
             result = binary_util.runjava_indivisible(
               classpath=emma_classpath,
               main='emma',
-              opts=opts
+              opts=opts,
+              workunit_name='emma'
             )
             if result != 0:
               raise TaskError('Failed to emma generate code coverage reports: %d' % result)

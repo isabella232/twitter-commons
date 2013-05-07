@@ -187,11 +187,12 @@ class Phase(PhaseBase):
 
   @staticmethod
   def execute(context, *names):
+    # TODO(benjy): Is this code ever used?
     parser = OptionParser()
     phases = [Phase(name) for name in names]
     Phase.setup_parser(parser, [], phases)
     options, _ = parser.parse_args([])
-    context = Context(context.config, options, context.target_roots, log=context.log)
+    context = Context(context.config, options, None, context.target_roots, log=context.log)
     return Phase.attempt(context, phases)
 
   @staticmethod

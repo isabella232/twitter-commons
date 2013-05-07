@@ -96,8 +96,8 @@ class NailgunTask(Task):
     cmd_str = \
       binary_util.runjava_cmd_str(jvmargs=jvmargs, classpath=cp, main=main, opts=opts, args=args)
     if self._daemon:
-      with self.context.new_workunit(name=workunit_name, types=[WorkUnit.TOOL, WorkUnit.NAILGUN],
-        cmd=cmd_str) as workunit:
+      with self.context.new_workunit(name=workunit_name or main,
+        types=[WorkUnit.TOOL, WorkUnit.NAILGUN], cmd=cmd_str) as workunit:
         nailgun = self._get_nailgun_client(workunit)
 
         def call_nailgun(main_class, *args):
@@ -122,17 +122,14 @@ class NailgunTask(Task):
           self._ng_shutdown()
           raise e
     else:
-      with self.context.new_workunit(name=workunit_name, types=[WorkUnit.TOOL, WorkUnit.JVM],
-        cmd=cmd_str) as workunit:
-        ret = runjava(main=main, classpath=cp, opts=opts, args=args, jvmargs=jvmargs,
-                      dryrun=self.dry_run, stdout=workunit.output('stdout'),
-                      stderr=workunit.output('stderr'))
-        workunit.set_outcome(WorkUnit.FAILURE if ret else WorkUnit.SUCCESS)
-        if self.dry_run:
-          print('********** Direct Java dry run: %s' % ret)
-          return 0
-        else:
-          return ret
+      ret = runjava(main=main, classpath=cp, opts=opts, args=args, jvmargs=jvmargs,
+                    workunit_factory=self.context.new_workunit, workunit_name=workunit_name,
+                    dryrun=self.dry_run)
+      if self.dry_run:
+        print('********** Direct Java dry run: %s' % ret)
+        return 0
+      else:
+        return ret
 
   def runjava(self, main, classpath=None, opts=None, args=None, jvmargs=None, workunit_name=None):
     """Runs the java main using the given classpath and args.
