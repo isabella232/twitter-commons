@@ -95,9 +95,11 @@ class NailgunTask(Task):
     cp = (self._classpath or []) + (classpath or [])
     cmd_str = \
       binary_util.runjava_cmd_str(jvmargs=jvmargs, classpath=cp, main=main, opts=opts, args=args)
+    workunit_name = workunit_name or main
     if self._daemon:
-      with self.context.new_workunit(name=workunit_name or main,
-        types=[WorkUnit.TOOL, WorkUnit.NAILGUN], cmd=cmd_str) as workunit:
+      workunit_types = [WorkUnit.TOOL, WorkUnit.NAILGUN]
+      with self.context.new_workunit(name=workunit_name, types=workunit_types, cmd=cmd_str) \
+          as workunit:
         nailgun = self._get_nailgun_client(workunit)
 
         def call_nailgun(main_class, *args):
@@ -162,8 +164,15 @@ class NailgunTask(Task):
 
     profile: The name of the tool profile classpath to ensure.
     """
+    # binary_util.profile_classpath wants to pass the workunit_factory into the runner,
+    # so we give it a wrapper method that accepts that argument.
+    def java_runner(main, classpath=None, opts=None, args=None, jvmargs=None,
+                    workunit_factory=None, workunit_name=None):
+      assert workunit_factory is None
+      return self.runjava_indivisible(main, classpath=classpath, opts=opts, args=args,
+                                      jvmargs=jvmargs, workunit_name=workunit_name)
     return binary_util.profile_classpath(profile,
-                                         java_runner=self.runjava_indivisible,
+                                         java_runner=java_runner,
                                          config=self.context.config)
 
   def _ng_shutdown(self):
@@ -276,7 +285,8 @@ class NailgunTask(Task):
       args.extend(self._ng_server_args)
     args.append(NailgunTask.PANTS_NG_ARG)
     args.append(NailgunTask.create_pidfile_arg(self._pidfile))
-    ng_classpath = os.pathsep.join(binary_util.profile_classpath(self._nailgun_profile))
+    ng_classpath = os.pathsep.join(binary_util.profile_classpath(self._nailgun_profile,
+      workunit_factory=self.context.new_workunit))
     args.extend(['-cp', ng_classpath, 'com.martiansoftware.nailgun.NGServer', ':0'])
     log.debug('Executing: %s' % ' '.join(args))
 

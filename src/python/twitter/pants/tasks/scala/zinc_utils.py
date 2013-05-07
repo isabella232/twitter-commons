@@ -29,7 +29,7 @@ from twitter.common.dirutil import  safe_open
 
 from twitter.pants import get_buildroot
 from twitter.pants.tasks import TaskError
-from twitter.pants.binary_util import find_java_home, profile_classpath
+from twitter.pants.binary_util import find_java_home
 
 
 # Well known metadata file required to register scalac plugins with nsc.
@@ -40,9 +40,9 @@ class ZincUtils(object):
 
   Instances are immutable, and all methods are reentrant (assuming that the java_runner is).
   """
-  def __init__(self, context, java_runner, color):
+  def __init__(self, context, nailgun_task, color):
     self._context = context
-    self._java_runner = java_runner
+    self._nailgun_task = nailgun_task  # We run zinc on this task's behalf.
     self._color = color
 
     self._pants_home = get_buildroot()
@@ -61,9 +61,7 @@ class ZincUtils(object):
     else:
       self._scalac_args.extend(context.config.getlist('scala-compile', 'no_warning_args'))
 
-    def cp_for_profile(profile):
-      return profile_classpath(profile, java_runner=self._java_runner, config=self._context.config)
-
+    cp_for_profile = self._nailgun_task.profile_classpath
     self._zinc_classpath = cp_for_profile(self._zinc_profile)
     self._compiler_classpath = cp_for_profile(self._compile_profile)
     self._plugin_jars = cp_for_profile(self._plugins_profile) if self._plugins_profile else []
@@ -102,7 +100,7 @@ class ZincUtils(object):
       zinc_args.append('-no-color')
     zinc_args.extend(self._zinc_jar_args)
     zinc_args.extend(args)
-    return self._java_runner(self._main, classpath=self._zinc_classpath,
+    return self._nailgun_task.runjava_indivisible(self._main, classpath=self._zinc_classpath,
                              args=zinc_args, jvmargs=self._jvm_args, workunit_name=workunit_name)
 
   def compile(self, classpath, sources, output_dir, analysis_file, upstream_analysis_files):
@@ -114,7 +112,8 @@ class ZincUtils(object):
       # For the command-line argument here, we need to change that to map the same keys
       # to just the artifact_file.
       args.extend(
-        ['-analysis-map', ','.join(['%s:%s' % (kv[0], kv[1].analysis_file) for kv in upstream_analysis_files.items()])])
+        ['-analysis-map', ','.join(['%s:%s' % (kv[0], kv[1].analysis_file)
+                                    for kv in upstream_analysis_files.items()])])
 
     args.extend([
       '-analysis-cache', analysis_file,

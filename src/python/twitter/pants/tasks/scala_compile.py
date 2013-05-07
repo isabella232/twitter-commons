@@ -68,7 +68,7 @@ class ScalaCompile(NailgunTask):
     color = (context.options.scala_compile_color if context.options.scala_compile_color is not None
              else context.config.getbool('scala-compile', 'color', default=True))
 
-    self._zinc_utils = ZincUtils(context=context, java_runner=self.runjava, color=color)
+    self._zinc_utils = ZincUtils(context=context, nailgun_task=self, color=color)
 
     # The rough number of source files to build in each compiler pass.
     self._partition_size_hint = (context.options.scala_compile_partition_size_hint

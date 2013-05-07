@@ -272,13 +272,14 @@ def _split_args(i):
 
 def _subprocess_call(cmd_with_args, call=subprocess.call, workunit_factory=None,
                      workunit_name=None, **kwargs):
-  log.debug('Executing: %s' % ' '.join(cmd_with_args))
+  cmd_str = ' '.join(cmd_with_args)
+  log.debug('Executing: %s' % cmd_str)
   if workunit_factory:
     workunit_types = [WorkUnit.TOOL, WorkUnit.JVM]
     with workunit_factory(name=workunit_name, types=workunit_types, cmd=cmd_str) as workunit:
       try:
-        ret = call(cmd_with_args, stdout=workunit.output('stdout'), stderr=workunit.output('stderr'),
-                   **kwargs)
+        ret = call(cmd_with_args, stdout=workunit.output('stdout'),
+                   stderr=workunit.output('stderr'), **kwargs)
         workunit.set_outcome(WorkUnit.FAILURE if ret else WorkUnit.SUCCESS)
         return ret
       except OSError as e:
@@ -358,7 +359,8 @@ def profile_classpath(profile, java_runner=None, config=None, ivy_jar=None, ivy_
       '-confs', 'default'
     ]
     result = java_runner(classpath=ivy_classpath, main='org.apache.ivy.Main',
-                         workunit_factory=workunit_factory, workunit_name='profile', opts=ivy_opts)
+                         workunit_factory=workunit_factory,
+                         workunit_name='%s:bootstrap' % profile, opts=ivy_opts)
     if result != 0:
       raise TaskError('Failed to load profile %s, ivy exit code %d' % (profile, result))
     touch(profile_check)
