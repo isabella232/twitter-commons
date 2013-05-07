@@ -347,7 +347,7 @@ class Goal(Command):
               except (IOError, SyntaxError):
                 error(path)
         # Now that we've parsed the bootstrap BUILD files, and know about the SCM system.
-        self.run_tracker.add_scm_info()
+        self.run_tracker.run_info.add_scm_info()
 
         # Bootstrap user goals by loading any BUILD files implied by targets.
         spec_parser = SpecParser(self.root_dir)
