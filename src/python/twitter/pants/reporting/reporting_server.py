@@ -232,10 +232,13 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     info_dir = self._settings.info_dir
     if not os.path.isdir(info_dir):
       return []
-    # We copy the RunInfo as a dict, so we can add stuff to it to pass to the template.
     paths = [os.path.join(info_dir, x) for x in os.listdir(info_dir)]
-    return [RunInfo(os.path.join(p, 'info')).get_as_dict()
-            for p in paths if os.path.isdir(p) and not os.path.islink(p)]
+
+    # We copy the RunInfo as a dict, so we can add stuff to it to pass to the template.
+    # We filter only those that have a timestamp, to avoid a race condition with writing
+    # that field.
+    return filter(lambda d: 'timestamp' in d, [RunInfo(os.path.join(p, 'info')).get_as_dict()
+            for p in paths if os.path.isdir(p) and not os.path.islink(p)])
 
   def _serve_dir(self, abspath, params):
     relpath = os.path.relpath(abspath, self._root)
