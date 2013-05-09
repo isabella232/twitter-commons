@@ -28,7 +28,7 @@ class RunInfo(object):
   def get_info(self, key):
     return self._info.get(key, None)
 
-  def __getattr__(self, key):
+  def __getitem__(self, key):
     ret = self.get_info(key)
     if ret is None:
       raise KeyError(key)
@@ -43,6 +43,8 @@ class RunInfo(object):
   def add_infos(self, *keyvals):
     with open(self._info_file, 'a') as outfile:
       for key, val in keyvals:
+        key = key.strip()
+        val = val.strip()
         if ':' in key:
           raise Exception, 'info key must not contain a colon'
         outfile.write('%s: %s\n' % (key, val))
