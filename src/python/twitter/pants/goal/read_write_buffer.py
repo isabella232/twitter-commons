@@ -24,7 +24,7 @@ class _RWBuf(object):
 
   def write(self, s):
     with self._lock:
-      self.do_write(s)
+      self.do_write(str(s))
       self._io.flush()
 
   def flush(self):
@@ -49,7 +49,7 @@ class InMemoryRWBuf(_RWBuf):
 
   def do_write(self, s):
     self._io.seek(self._writepos)
-    self._io.write(str(s))
+    self._io.write(s)
     self._writepos = self._io.tell()
 
 
@@ -64,4 +64,4 @@ class FileBackedRWBuf(_RWBuf):
     self.fileno = self._io.fileno
 
   def do_write(self, s):
-    self._io.write(str(s))
+    self._io.write(s)
