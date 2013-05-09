@@ -1,5 +1,5 @@
-
 import os
+
 from collections import defaultdict, namedtuple
 
 from twitter.common.dirutil import safe_mkdir
@@ -20,21 +20,13 @@ class ArtifactCacheStats(object):
     safe_mkdir(self._dir)
 
   def add_hit(self, cache_name, tgt):
-    self.stats_per_cache[cache_name].hit_targets.append(tgt.address.reference())
-    if self._dir and os.path.exists(self._dir):  # Check existence in case of a clean-all.
-      with open(os.path.join(self._dir, '%s.hits' % cache_name), 'a') as f:
-        f.write(tgt.address.reference())
-        f.write('\n')
+    self._add_stat(0, cache_name, tgt)
 
   def add_miss(self, cache_name, tgt):
-    self.stats_per_cache[cache_name].miss_targets.append(tgt.address.reference())
-    if self._dir and os.path.exists(self._dir):  # Check existence in case of a clean-all.
-      with open(os.path.join(self._dir, '%s.misses' % cache_name), 'a') as f:
-        f.write(tgt.address.reference())
-        f.write('\n')
+    self._add_stat(1, cache_name, tgt)
 
   def get_all(self):
-    """Returns the  cache stats as a list of dicts."""
+    """Returns the cache stats as a list of dicts."""
     ret = []
     for cache_name, stat in self.stats_per_cache.items():
       ret.append({
@@ -45,3 +37,12 @@ class ArtifactCacheStats(object):
         'misses': stat.miss_targets
       })
     return ret
+
+  # hit_or_miss is the appropriate index in CacheStat, i.e., 0 for hit, 1 for miss.
+  def _add_stat(self, hit_or_miss, cache_name, tgt):
+    self.stats_per_cache[cache_name][hit_or_miss].append(tgt.address.reference())
+    if self._dir and os.path.exists(self._dir):  # Check existence in case of a clean-all.
+      suffix = 'misses' if hit_or_miss else 'hits'
+      with open(os.path.join(self._dir, '%s.%s' % (cache_name, suffix)), 'a') as f:
+        f.write(tgt.address.reference())
+        f.write('\n')

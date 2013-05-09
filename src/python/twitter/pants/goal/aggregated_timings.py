@@ -17,12 +17,15 @@ class AggregatedTimings(object):
     safe_mkdir_for(self._path)
 
   def add_timing(self, label, secs, is_tool=False):
-    """Aggregate timings by label."""
+    """Aggregate timings by label.
+
+    secs - a double, so fractional seconds are allowed.
+    is_tool - whether this label represents a tool invocation.
+    """
     self._timings_by_path[label] += secs
     if is_tool:
       self._tool_labels.add(label)
-    # Check existence in case we're a clean-all. We don't want to write anything in
-    # that case, as that would not be 'clean'.
+    # Check existence in case we're a clean-all. We don't want to write anything in that case.
     if self._path and os.path.exists(os.path.dirname(self._path)):
       with open(self._path, 'w') as f:
         for x in self.get_all():
