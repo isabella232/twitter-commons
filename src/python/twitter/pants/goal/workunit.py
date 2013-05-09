@@ -4,7 +4,7 @@ import time
 import uuid
 
 from twitter.common.dirutil import safe_mkdir_for
-from twitter.pants.goal.read_write_buffer import FileBackedRWBuf
+from twitter.common.rwbuf.read_write_buffer import FileBackedRWBuf
 
 
 class WorkUnit(object):
