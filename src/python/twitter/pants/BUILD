@@ -50,6 +50,7 @@ python_library(
     pants('src/python/twitter/common/lang'),
     pants('src/python/twitter/common/process'),
     pants('src/python/twitter/common/python'),
+    pants('src/python/twitter/common/rwbuf'),
     pants('src/python/twitter/thrift/text'),
     pants('src/python/twitter/common/threading'),
     pants('src/python/twitter/common/util'),
