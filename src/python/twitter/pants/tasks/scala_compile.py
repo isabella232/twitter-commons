@@ -19,7 +19,7 @@ __author__ = 'Benjy Weinberger'
 import os
 
 from twitter.pants import has_sources, is_scalac_plugin
-from twitter.pants.goal.work_unit import WorkUnit
+from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.targets.scala_library import ScalaLibrary
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.jvm_dependency_cache import JvmDependencyCache

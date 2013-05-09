@@ -26,7 +26,7 @@ from twitter.common.contextutil import temporary_dir
 from twitter.common.dirutil import safe_mkdir, safe_rmtree
 
 from twitter.pants.base.target import Target
-from twitter.pants.goal.work_unit import WorkUnit
+from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.targets import resolve_target_sources
 from twitter.pants.targets.scala_library import ScalaLibrary
 from twitter.pants.targets.scala_tests import ScalaTests

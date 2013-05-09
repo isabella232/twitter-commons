@@ -9,7 +9,7 @@ from twitter.common.dirutil import safe_mkdir, safe_rmtree
 from twitter.pants.goal.artifact_cache_stats import ArtifactCacheStats
 from twitter.pants.base.run_info import RunInfo
 from twitter.pants.goal.aggregated_timings import AggregatedTimings
-from twitter.pants.goal.work_unit import WorkUnit
+from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.reporting.console_reporter import ConsoleReporter
 from twitter.pants.reporting.html_reporter import HtmlReporter
 from twitter.pants.reporting.report import ReportingError, Report
@@ -99,7 +99,7 @@ class RunTracker(object):
     except IOError:
       pass  # If the goal is clean-all then the run info dir no longer exists...
 
-  def current_work_unit(self):
+  def current_workunit(self):
     return self._current_workunit
 
   @contextmanager

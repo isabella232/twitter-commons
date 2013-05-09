@@ -9,7 +9,7 @@ from twitter.common.dirutil import safe_mkdir
 from twitter.pants import get_buildroot
 from twitter.pants.base.build_file import BuildFile
 from twitter.pants.base.mustache import MustacheRenderer
-from twitter.pants.goal.work_unit import WorkUnit
+from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.reporting.report import Reporter
 from twitter.pants.reporting.reporting_utils import list_to_report_element
 

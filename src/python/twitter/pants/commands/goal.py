@@ -45,7 +45,7 @@ from twitter.pants import get_buildroot, goal, group, has_sources, is_apt
 from twitter.pants.base import Address, BuildFile, Config, ParseContext, Target
 from twitter.pants.base.rcfile import RcFile
 from twitter.pants.commands import Command
-from twitter.pants.goal.work_unit import WorkUnit
+from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.reporting import reporting_server
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.nailgun_task import NailgunTask
