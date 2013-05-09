@@ -11,41 +11,44 @@ class WorkUnit(object):
   """A hierarchical unit of work, for the purpose of timing and reporting.
 
   A WorkUnit can be subdivided into further WorkUnits. The WorkUnit concept is deliberately
-  decoupled from the phase/task hierarchy, although it will typically be used to represent it in
-  reports. This allows some flexibility in having, say, sub-units inside a task. E.g., there might
-  be one WorkUnit representing an entire pants run, and that can be subdivided into WorkUnits for
-  each phase. Each of those can be subdivided into WorkUnits for each task, and a task can
-  subdivide that into further work units, if finer-grained timing and reporting is needed.
+  decoupled from the phase/task hierarchy. This allows some flexibility in having, say,
+  sub-units inside a task. E.g., there might be one WorkUnit representing an entire pants run,
+  and that can be subdivided into WorkUnits for each phase. Each of those can be subdivided into
+  WorkUnits for each task, and a task can subdivide that into further work units, if finer-grained
+  timing and reporting is needed.
   """
 
-  # The outcome must be one of these values. It can only be set to a new value <= an old one.
+  # The outcome of a workunit.
+  # It can only be set to a new value <= the old one.
   ABORTED = 0
   FAILURE = 1
   WARNING = 2
   SUCCESS = 3
   UNKNOWN = 4
 
-  # The types must be an iterable of these values.
-  SETUP = 0
-  SETUP = 0
-  PHASE = 1
-  GOAL = 2
-  GROUP = 3
-  TOOL = 4
-  MULTITOOL = 5
-  TEST = 6
-  JVM = 7
-  NAILGUN = 8
+  # Labels describing a workunit.  Reporting code can use this to decide how to display
+  # information about this workunit.
+  #
+  # Note that a workunit can have multiple labels where this makes sense, e.g., TOOL and NAILGUN.
+  SETUP = 0      # Parsing build files etc.
+  PHASE = 1      # Executing a phase.
+  GOAL = 2       # Executing a goal.
+  GROUP = 3      # Executing a group.
+  TOOL = 4       # Single invocations of a tool.
+  MULTITOOL = 5  # Multiple consecutive invocations of the same tool.
+  TEST = 6       # Running a test.
+  JVM = 7        # Running via the JVM.
+  NAILGUN = 8    # Running via nailgun.
   REPL = 9
 
-  def __init__(self, run_tracker, parent, name, types=(), cmd=''):
+  def __init__(self, run_tracker, parent, name, labels=(), cmd=''):
     """
     - run_tracker: The RunTracker that tracks this WorkUnit.
     - parent: The containing workunit, if any. E.g., 'compile' might contain 'java', 'scala' etc.,
               'scala' might contain 'compile', 'split' etc.
     - name: A short name for this work. E.g., 'resolve', 'compile', 'scala', 'zinc'.
-    - types: An optional iterable of types. The reporters can use this to decide how to
-             display information about this work.
+    - labels: An optional iterable of labels. The reporters can use this to decide how to
+              display information about this work.
     - cmd: An optional longer string representing this work.
            E.g., the cmd line of a compiler invocation.
     """
@@ -55,7 +58,7 @@ class WorkUnit(object):
     self.parent = parent
     self.children = []
     self.name = name
-    self.types = set(types)
+    self.labels = set(labels)
     self.cmd = cmd
     self.id = uuid.uuid4()
     # In seconds since the epoch. Doubles, to account for fractional seconds.
@@ -69,14 +72,17 @@ class WorkUnit(object):
     if self.parent:
       self.parent.children.append(self)
 
+  def has_label(self, label):
+    return label in self.labels
+
   def is_tool(self):
-    return WorkUnit.TOOL in self.types
+    return self.has_label(WorkUnit.TOOL)
 
   def is_multitool(self):
-    return WorkUnit.MULTITOOL in self.types
+    return self.has_label(WorkUnit.MULTITOOL)
 
   def is_test(self):
-    return WorkUnit.TEST in self.types
+    return self.has_label(WorkUnit.TEST)
 
   def start(self):
     self.start_time = time.time()

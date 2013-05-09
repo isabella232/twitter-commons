@@ -81,7 +81,7 @@ class RunTracker(object):
     self.report.open()
 
     self.root_workunit = WorkUnit(run_tracker=self, parent=None,
-                                  types=[], name='all', cmd=None)
+                                  labels=[], name='all', cmd=None)
     self.root_workunit.start()
     self.report.start_workunit(self.root_workunit)
     self._current_workunit = self.root_workunit
@@ -103,18 +103,18 @@ class RunTracker(object):
     return self._current_workunit
 
   @contextmanager
-  def new_workunit(self, name, types=list(), cmd=''):
+  def new_workunit(self, name, labels=list(), cmd=''):
     """Creates a (hierarchical) subunit of work for the purpose of timing and reporting.
 
     - name: A short name for this work. E.g., 'resolve', 'compile', 'scala', 'zinc'.
-    - types: An optional iterable of types. The reporters can use this to decide how to
-             display information about this work.
+    - labels: An optional iterable of labels. The reporters can use this to decide how to
+              display information about this work.
     - cmd: An optional longer string representing this work.
            E.g., the cmd line of a compiler invocation.
 
     Use like this:
 
-    with context.new_workunit(name='compile', types=[WorkUnit.GOAL]) as workunit:
+    with context.new_workunit(name='compile', labels=[WorkUnit.GOAL]) as workunit:
       <do scoped work here>
       <set the outcome on workunit if necessary>
 
@@ -123,7 +123,7 @@ class RunTracker(object):
     outcome explicitly if you want to set it to warning.
     """
     self._current_workunit = WorkUnit(run_tracker=self, parent=self._current_workunit,
-                                      name=name, types=types, cmd=cmd)
+                                      name=name, labels=labels, cmd=cmd)
     self._current_workunit.start()
     try:
       self.report.start_workunit(self._current_workunit)

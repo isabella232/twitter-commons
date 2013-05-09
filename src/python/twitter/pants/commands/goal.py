@@ -334,10 +334,10 @@ class Goal(Command):
       goals, specs = Goal.parse_args(args)
       self.requested_goals = goals
 
-      with self.run_tracker.new_workunit(name='setup', types=[WorkUnit.SETUP]):
+      with self.run_tracker.new_workunit(name='setup', labels=[WorkUnit.SETUP]):
         # Bootstrap goals by loading any configured bootstrap BUILD files
         with self.check_errors('The following bootstrap_buildfiles cannot be loaded:') as error:
-          with self.run_tracker.new_workunit(name='bootstrap', types=[WorkUnit.SETUP]):
+          with self.run_tracker.new_workunit(name='bootstrap', labels=[WorkUnit.SETUP]):
             for path in self.config.getlist('goals', 'bootstrap_buildfiles', default = []):
               try:
                 buildfile = BuildFile(get_buildroot(), os.path.relpath(path, get_buildroot()))
@@ -352,7 +352,7 @@ class Goal(Command):
         # Bootstrap user goals by loading any BUILD files implied by targets.
         spec_parser = SpecParser(self.root_dir)
         with self.check_errors('The following targets could not be loaded:') as error:
-          with self.run_tracker.new_workunit(name='parse', types=[WorkUnit.SETUP]):
+          with self.run_tracker.new_workunit(name='parse', labels=[WorkUnit.SETUP]):
             for spec in specs:
               try:
                 for target, address in spec_parser.parse(spec):

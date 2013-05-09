@@ -169,7 +169,7 @@ class ScalaCompile(NailgunTask):
 
     if cached_vts:
       # Localize the portable analysis files.
-      with self.context.new_workunit('localize', types=[WorkUnit.MULTITOOL]):
+      with self.context.new_workunit('localize', labels=[WorkUnit.MULTITOOL]):
         self._localize_portable_analysis_files(cached_vts)
 
       # Split any merged artifacts.

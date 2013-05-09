@@ -70,7 +70,7 @@ class Group(object):
         else:
           runqueue.append((None, [goal]))
 
-      with context.new_workunit(name=phase.name, types=[WorkUnit.PHASE]):
+      with context.new_workunit(name=phase.name, labels=[WorkUnit.PHASE]):
         # OrderedSet takes care of not repeating chunked task execution mentions
         execution_phases = defaultdict(OrderedSet)
 
@@ -80,16 +80,16 @@ class Group(object):
           if not group_name:
             goal = goals[0]
             execution_phases[phase].add(goal.name)
-            with context.new_workunit(name=goal.name, types=[WorkUnit.GOAL]):
+            with context.new_workunit(name=goal.name, labels=[WorkUnit.GOAL]):
               execute_task(goal.name, tasks_by_goal[goal], context.targets())
           else:
-            with context.new_workunit(name=group_name, types=[WorkUnit.GROUP]):
+            with context.new_workunit(name=group_name, labels=[WorkUnit.GROUP]):
               for chunk in Group._create_chunks(context, goals):
                 for goal in goals:
                   goal_chunk = filter(goal.group.predicate, chunk)
                   if len(goal_chunk) > 0:
                     execution_phases[phase].add((group_name, goal.name))
-                    with context.new_workunit(name=goal.name, types=[WorkUnit.GOAL]):
+                    with context.new_workunit(name=goal.name, labels=[WorkUnit.GOAL]):
                       execute_task(goal.name, tasks_by_goal[goal], goal_chunk)
 
       if getattr(context.options, 'explain', None):

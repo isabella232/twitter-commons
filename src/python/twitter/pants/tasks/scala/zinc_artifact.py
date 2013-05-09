@@ -181,7 +181,7 @@ class _MergedZincArtifact(_ZincArtifact):
       return
     with temporary_dir() as tmpdir:
       artifact_analysis_files = []
-      with self.factory.context.new_workunit(name='rebase', types=[WorkUnit.MULTITOOL]):
+      with self.factory.context.new_workunit(name='rebase', labels=[WorkUnit.MULTITOOL]):
         for artifact in self.underlying_artifacts:
           # Rebase a copy of the per-target analysis files to reflect the merged classes dir.
           if os.path.exists(artifact.classes_dir) and os.path.exists(artifact.analysis_file):
@@ -284,7 +284,7 @@ class _MergedZincArtifact(_ZincArtifact):
       raise TaskError('zinc failed to split analysis files %s from %s' % \
                       (':'.join([x.dst_analysis_file for x in splits]), analysis_to_split))
 
-    with self.factory.context.new_workunit(name='rebase', types=[WorkUnit.MULTITOOL]):
+    with self.factory.context.new_workunit(name='rebase', labels=[WorkUnit.MULTITOOL]):
       for split in splits:
         if os.path.exists(split.dst_analysis_file):
           self.log.debug('Rebasing analysis file %s after split' % split.dst_analysis_file)

@@ -275,8 +275,8 @@ def _subprocess_call(cmd_with_args, call=subprocess.call, workunit_factory=None,
   cmd_str = ' '.join(cmd_with_args)
   log.debug('Executing: %s' % cmd_str)
   if workunit_factory:
-    workunit_types = [WorkUnit.TOOL, WorkUnit.JVM]
-    with workunit_factory(name=workunit_name, types=workunit_types, cmd=cmd_str) as workunit:
+    workunit_labels = [WorkUnit.TOOL, WorkUnit.JVM]
+    with workunit_factory(name=workunit_name, labels=workunit_labels, cmd=cmd_str) as workunit:
       try:
         ret = call(cmd_with_args, stdout=workunit.output('stdout'),
                    stderr=workunit.output('stderr'), **kwargs)

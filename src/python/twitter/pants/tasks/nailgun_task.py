@@ -97,8 +97,8 @@ class NailgunTask(Task):
       binary_util.runjava_cmd_str(jvmargs=jvmargs, classpath=cp, main=main, opts=opts, args=args)
     workunit_name = workunit_name or main
     if self._daemon:
-      workunit_types = [WorkUnit.TOOL, WorkUnit.NAILGUN]
-      with self.context.new_workunit(name=workunit_name, types=workunit_types, cmd=cmd_str) \
+      workunit_labels = [WorkUnit.TOOL, WorkUnit.NAILGUN]
+      with self.context.new_workunit(name=workunit_name, labels=workunit_labels, cmd=cmd_str) \
           as workunit:
         nailgun = self._get_nailgun_client(workunit)
 
