@@ -61,28 +61,20 @@ class WorkUnit(object):
     self.labels = set(labels)
     self.cmd = cmd
     self.id = uuid.uuid4()
+
     # In seconds since the epoch. Doubles, to account for fractional seconds.
     self.start_time = 0
     self.end_time = 0
 
-    # A workunit may have multiple outputs, which we identify by a label.
+    # A workunit may have multiple outputs, which we identify by a name.
     # E.g., a tool invocation may have 'stdout', 'stderr', 'debug_log' etc.
-    self._outputs = {}  # label -> output buffer.
+    self._outputs = {}  # name -> output buffer.
 
     if self.parent:
       self.parent.children.append(self)
 
   def has_label(self, label):
     return label in self.labels
-
-  def is_tool(self):
-    return self.has_label(WorkUnit.TOOL)
-
-  def is_multitool(self):
-    return self.has_label(WorkUnit.MULTITOOL)
-
-  def is_test(self):
-    return self.has_label(WorkUnit.TEST)
 
   def start(self):
     self.start_time = time.time()
@@ -91,8 +83,9 @@ class WorkUnit(object):
     self.end_time = time.time()
     for output in self._outputs.values():
       output.close()
-    self.run_tracker.cumulative_timings.add_timing(self.get_path(), self.duration(), self.is_tool())
-    self.run_tracker.self_timings.add_timing(self.get_path(), self._self_time(), self.is_tool())
+    is_tool = self.has_label(WorkUnit.TOOL)
+    self.run_tracker.cumulative_timings.add_timing(self.get_path(), self.duration(), is_tool)
+    self.run_tracker.self_timings.add_timing(self.get_path(), self._self_time(), is_tool)
 
   def to_dict(self):
     """Useful for providing arguments to templates."""

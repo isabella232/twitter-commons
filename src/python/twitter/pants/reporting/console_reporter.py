@@ -2,6 +2,7 @@ import sys
 
 from collections import defaultdict
 
+from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.reporting.report import Reporter
 
 
@@ -36,7 +37,7 @@ class ConsoleReporter(Reporter):
     print('')
 
   def start_workunit(self, workunit):
-    if workunit.parent and workunit.parent.is_multitool():
+    if workunit.parent and workunit.parent.has_label(WorkUnit.MULTITOOL):
       sys.stdout.write('.')
     else:
       sys.stdout.write('\n%s %s %s[%s]' %
@@ -52,7 +53,7 @@ class ConsoleReporter(Reporter):
 
   def handle_output(self, workunit, label, s):
     # Emit output from test frameworks, but not from other tools.
-    if workunit.is_test():
+    if workunit.workunit.has_label(WorkUnit.TEST):
       if not self._needs_newline[workunit.id]:
         s = '\n' + s
         self._needs_newline[workunit.id] = True

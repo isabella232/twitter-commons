@@ -43,9 +43,9 @@ class HtmlReporter(Reporter):
       f.close()
 
   def start_workunit(self, workunit):
-    is_tool = workunit.is_tool()
-    is_multitool = workunit.is_multitool()
-    is_test = workunit.is_test()
+    is_tool = workunit.has_label(WorkUnit.TOOL)
+    is_multitool = workunit.has_label(WorkUnit.MULTITOOL)
+    is_test = workunit.has_label(WorkUnit.TEST)
     if workunit.parent is None:
       header_text = 'all'
     else:
@@ -86,7 +86,7 @@ class HtmlReporter(Reporter):
              'aborted': workunit.outcome() == WorkUnit.ABORTED }
 
     s = ''
-    if workunit.is_tool():
+    if workunitworkunit.has_label(WorkUnit.TOOL):
       s += self._renderer.render_name('tool_invocation_end', args)
     s += self._renderer.render_name('workunit_end', args)
     self._emit(s)
