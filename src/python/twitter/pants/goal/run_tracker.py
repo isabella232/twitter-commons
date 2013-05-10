@@ -66,7 +66,9 @@ class RunTracker(object):
     # TODO: What does this mean when executing multiple workunits in parallel?
     self._current_workunit = None
 
-    self.options = None   # Set later, after options are parsed.
+    # Set later, after options are parsed.
+    # TODO: Get rid of this. We only need it in one place, so find some other solution for that.
+    self.options = None
 
   def start(self, report):
     """Start tracking this pants run."""
