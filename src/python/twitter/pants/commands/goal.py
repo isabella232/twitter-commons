@@ -49,7 +49,7 @@ from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.reporting import reporting_server
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.nailgun_task import NailgunTask
-from twitter.pants.goal import Context, GoalError, Phase, RunTracker
+from twitter.pants.goal import Context, GoalError, Phase, RunTracker, default_report
 
 
 StringIO = Compatibility.StringIO
@@ -287,6 +287,9 @@ class Goal(Command):
   def setup_parser(self, parser, args):
     self.config = Config.load()
     self.run_tracker = RunTracker(self.config)
+    report = default_report(self.config, self.run_tracker)
+    # Start tracking right away, so we can track BUILD file parsing etc.
+    self.run_tracker.start(report)
 
     Goal.add_global_options(parser)
 
@@ -464,7 +467,7 @@ class Goal(Command):
 
       ret = Phase.attempt(context, self.phases)
     finally:
-      self.run_tracker.close()
+      self.run_tracker.end()
 
     if self.options.cleanup_nailguns or self.config.get('nailgun', 'autokill', default = False):
       if log:

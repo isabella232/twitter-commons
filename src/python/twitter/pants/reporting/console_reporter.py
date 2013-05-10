@@ -44,7 +44,7 @@ class ConsoleReporter(Reporter):
                        (workunit.start_time_string(),
                         workunit.start_delta_string(),
                         self._indent(workunit),
-                        workunit.name if self._indenting else workunit.get_path()))
+                        workunit.name if self._indenting else workunit.path()))
     sys.stdout.flush()
 
   def end_workunit(self, workunit):

@@ -7,7 +7,7 @@ from twitter.pants.reporting.html_reporter import HtmlReporter
 from twitter.pants.reporting.report import ReportingError, Report
 
 
-def default_reporting(config, run_tracker):
+def default_report(config, run_tracker):
   """Sets up the default reporting configuration."""
   reports_dir = config.get('reporting', 'reports_dir')
   link_to_latest = os.path.join(reports_dir, 'latest')

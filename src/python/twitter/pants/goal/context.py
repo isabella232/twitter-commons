@@ -202,7 +202,7 @@ class Context(object):
       return Pants(spec).resolve()
 
   def report(self, *msg_elements):
-    self.run_tracker.report.message(self.run_tracker.current_workunit(), *msg_elements)
+    self.run_tracker.report( *msg_elements)
 
   @contextmanager
   def state(self, key, default=None):

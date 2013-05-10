@@ -57,6 +57,10 @@ class WorkUnit(object):
     self.run_tracker = run_tracker
     self.parent = parent
     self.children = []
+
+    if self.parent:
+      self.parent.children.append(self)
+
     self.name = name
     self.labels = set(labels)
     self.cmd = cmd
@@ -70,34 +74,25 @@ class WorkUnit(object):
     # E.g., a tool invocation may have 'stdout', 'stderr', 'debug_log' etc.
     self._outputs = {}  # name -> output buffer.
 
-    if self.parent:
-      self.parent.children.append(self)
-
   def has_label(self, label):
     return label in self.labels
 
   def start(self):
+    """Mark the time at which this workunit started."""
     self.start_time = time.time()
 
   def end(self):
+    """Mark the time at which this workunit ended."""
     self.end_time = time.time()
     for output in self._outputs.values():
       output.close()
     is_tool = self.has_label(WorkUnit.TOOL)
-    self.run_tracker.cumulative_timings.add_timing(self.get_path(), self.duration(), is_tool)
-    self.run_tracker.self_timings.add_timing(self.get_path(), self._self_time(), is_tool)
-
-  def to_dict(self):
-    """Useful for providing arguments to templates."""
-    ret = {}
-    for key in ['name', 'cmd', 'id', 'start_time', 'end_time',
-                'outcome', 'start_time_string', 'start_delta_string']:
-      val = getattr(self, key)
-      ret[key] = val() if hasattr(val, '__call__') else val
-    ret['parent'] = self.parent.to_dict() if self.parent else None
-    return ret
+    path = self.path()
+    self.run_tracker.cumulative_timings.add_timing(path, self.duration(), is_tool)
+    self.run_tracker.self_timings.add_timing(path, self._self_time(), is_tool)
 
   def outcome(self):
+    """Returns the outcome of this workunit."""
     return self._outcome
 
   def set_outcome(self, outcome):
@@ -111,18 +106,21 @@ class WorkUnit(object):
       self.choose(0, 0, 0, 0, 0)  # Dummy call, to validate.
       if self.parent: self.parent.set_outcome(self._outcome)
 
-  _valid_label_re = re.compile(r'\w+')
-  def output(self, label):
-    m = WorkUnit._valid_label_re.match(label)
-    if not m or m.group(0) != label:
-      raise Exception('Invalid label: %s' % label)
-    if label not in self._outputs:
-      path = os.path.join(self.run_tracker.info_dir, 'tool_outputs', '%s.%s' % (self.id, label))
+  _valid_name_re = re.compile(r'\w+')
+
+  def output(self, name):
+    """Returns the output buffer for the specified output name (e.g., 'stdout')."""
+    m = WorkUnit._valid_name_re.match(name)
+    if not m or m.group(0) != name:
+      raise Exception('Invalid output name: %s' % name)
+    if name not in self._outputs:
+      path = os.path.join(self.run_tracker.info_dir, 'tool_outputs', '%s.%s' % (self.id, name))
       safe_mkdir_for(path)
-      self._outputs[label] = FileBackedRWBuf(path)
-    return self._outputs[label]
+      self._outputs[name] = FileBackedRWBuf(path)
+    return self._outputs[name]
 
   def outputs(self):
+    """Returns the map of output name -> output buffer."""
     return self._outputs
 
   def choose(self, aborted_val, failure_val, warning_val, success_val, unknown_val):
@@ -132,27 +130,24 @@ class WorkUnit(object):
     return (aborted_val, failure_val, warning_val, success_val, unknown_val)[self._outcome]
 
   def outcome_string(self):
+    """Returns a human-readable string describing our outcome."""
     return self.choose('ABORTED', 'FAILURE', 'WARNING', 'SUCCESS', 'UNKNOWN')
 
   def duration(self):
     """Returns the time (in fractional seconds) spent in this workunit and its children."""
     return (self.end_time or time.time()) - self.start_time
 
-  def start_delta(self):
-    """How long (in whole seconds) after this run started did this workunit start."""
-    return int(self.start_time) - int(self.run_tracker.root_workunit.start_time)
-
   def start_time_string(self):
     """A convenient string representation of start_time."""
     return time.strftime('%H:%M:%S', time.localtime(self.start_time))
 
   def start_delta_string(self):
-    """A conveneint string representation of start_delta()."""
-    delta = self.start_delta()
+    """A convenient string representation of how long after the run started we started."""
+    delta = int(self.start_time) - int(self.run_tracker.root_workunit.start_time)
     return '%02d:%02d' % (delta / 60, delta % 60)
 
   def ancestors(self):
-    """Returns a list of this workunit and those enclosing it, up to the root."""
+    """Returns a list consisting of this workunit and those enclosing it, up to the root."""
     ret = []
     workunit = self
     while workunit is not None:
@@ -160,13 +155,27 @@ class WorkUnit(object):
       workunit = workunit.parent
     return ret
 
-  def get_path(self):
+  def path(self):
     """Returns a path string for this workunit, E.g., 'all:compile:jvm:scalac'."""
     return ':'.join(reversed([w.name for w in self.ancestors()]))
 
   def unaccounted_time(self):
-    """Returns non-leaf time spent in this workunit."""
+    """Returns non-leaf time spent in this workunit.
+
+    This assumes that all major work should be done in leaves.
+    TODO: Is this assumption valid?
+    """
     return 0 if len(self.children) == 0 else self._self_time()
+
+  def to_dict(self):
+    """Useful for providing arguments to templates."""
+    ret = {}
+    for key in ['name', 'cmd', 'id', 'start_time', 'end_time',
+                'outcome', 'start_time_string', 'start_delta_string']:
+      val = getattr(self, key)
+      ret[key] = val() if hasattr(val, '__call__') else val
+    ret['parent'] = self.parent.to_dict() if self.parent else None
+    return ret
 
   def _self_time(self):
     """Returns the time spent in this workunit outside of any children."""

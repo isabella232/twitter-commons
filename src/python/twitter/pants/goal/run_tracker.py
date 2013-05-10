@@ -1,4 +1,3 @@
-
 import os
 import sys
 import time
@@ -6,14 +5,27 @@ import time
 from contextlib import contextmanager
 
 from twitter.pants.goal.artifact_cache_stats import ArtifactCacheStats
-from twitter.pants.goal.default_reporting import default_reporting
 from twitter.pants.base.run_info import RunInfo
 from twitter.pants.goal.aggregated_timings import AggregatedTimings
 from twitter.pants.goal.workunit import WorkUnit
 
 
 class RunTracker(object):
-  """Tracks and times the execution of a pants run."""
+  """Tracks and times the execution of a pants run.
+
+  Use like this:
+
+  run_tracker.start()
+  with run_tracker.new_workunit('compile'):
+    with run_tracker.new_workunit('java') as workunit1:
+      workunit1.report('Compiling java.')
+      ...
+      workunit1.report('Done compiling java.')
+    with run_tracker.new_workunit('scala') as workunit2:
+      ...
+  run_tracker.close()
+
+  """
   def __init__(self, config):
     self.run_timestamp = time.time()  # A double, so we get subsecond precision for ids.
     cmd_line = ' '.join(['pants'] + sys.argv[1:])
@@ -40,33 +52,33 @@ class RunTracker(object):
     # Time spent in a workunit, not including its children.
     self.self_timings = AggregatedTimings(os.path.join(self.info_dir, 'self_timings'))
 
+    # Hit/miss stats for the artifact cache.
     self.artifact_cache_stats = \
       ArtifactCacheStats(os.path.join(self.info_dir, 'artifact_cache_stats'))
 
-    self.report = default_reporting(config, self)
-    self.report.open()
+    # We report to this Report.
+    self._report = None
+
+    # The workunit representing the entire pants run.
+    self.root_workunit = None
+
+    # The workunit we're currently executing.
+    # TODO: What does this mean when executing multiple workunits in parallel?
+    self._current_workunit = None
+
+    self.options = None   # Set later, after options are parsed.
+
+  def start(self, report):
+    """Start tracking this pants run."""
+    self._report = report
+    self._report.open()
 
     self.root_workunit = WorkUnit(run_tracker=self, parent=None,
                                   labels=[], name='all', cmd=None)
     self.root_workunit.start()
-    self.report.start_workunit(self.root_workunit)
+
+    self._report.start_workunit(self.root_workunit)
     self._current_workunit = self.root_workunit
-
-    self.options = None  # Set later, after options are parsed.
-
-  def close(self):
-    while self._current_workunit:
-      self.report.end_workunit(self._current_workunit)
-      self._current_workunit.end()
-      self._current_workunit = self._current_workunit.parent
-    self.report.close()
-    try:
-      self.run_info.add_info('outcome', self.root_workunit.outcome_string())
-    except IOError:
-      pass  # If the goal is clean-all then the run info dir no longer exists...
-
-  def current_workunit(self):
-    return self._current_workunit
 
   @contextmanager
   def new_workunit(self, name, labels=list(), cmd=''):
@@ -85,14 +97,14 @@ class RunTracker(object):
       <set the outcome on workunit if necessary>
 
     Note that the outcome will automatically be set to failure if an exception is raised
-    in a workunit, and to success otherwise, so often you only need to set the
+    in a workunit, and to success otherwise, so usually you only need to set the
     outcome explicitly if you want to set it to warning.
     """
     self._current_workunit = WorkUnit(run_tracker=self, parent=self._current_workunit,
                                       name=name, labels=labels, cmd=cmd)
     self._current_workunit.start()
     try:
-      self.report.start_workunit(self._current_workunit)
+      self._report.start_workunit(self._current_workunit)
       yield self._current_workunit
     except KeyboardInterrupt:
       self._current_workunit.set_outcome(WorkUnit.ABORTED)
@@ -103,6 +115,22 @@ class RunTracker(object):
     else:
       self._current_workunit.set_outcome(WorkUnit.SUCCESS)
     finally:
-      self.report.end_workunit(self._current_workunit)
+      self._report.end_workunit(self._current_workunit)
       self._current_workunit.end()
       self._current_workunit = self._current_workunit.parent
+
+  def report(self, *msg_elements):
+    """Log a message against the current workunit."""
+    self._report.message(self._current_workunit, *msg_elements)
+
+  def end(self):
+    """This pants run is over, so stop tracking it."""
+    while self._current_workunit:
+      self._report.end_workunit(self._current_workunit)
+      self._current_workunit.end()
+      self._current_workunit = self._current_workunit.parent
+    self._report.close()
+    try:
+      self.run_info.add_info('outcome', self.root_workunit.outcome_string())
+    except IOError:
+      pass  # If the goal is clean-all then the run info dir no longer exists...
