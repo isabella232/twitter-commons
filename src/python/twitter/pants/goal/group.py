@@ -103,39 +103,99 @@ class Group(object):
         context.release_lock()
 
   @staticmethod
+  def compute_exclusives_chunks(targets):
+    """ Compute the set of distinct chunks are required based on exclusives.
+    If two targets have different values for a particular exclusives tag,
+    then those targets must end up in different partitions.
+    This method computes the exclusives values that define each chunk.
+    e.g.: if target a has exclusives {"x": "1", "z": "1"}, target b has {"x": "2"},
+    target c has {"y", "1"}, and target d has {"y", "2", "z": "1"}, then we need to
+    perform chunk partitioning on exclusives tags "x" and "y". We don't need to include
+    "z" in the chunk partition specification, because there are no conflicts on z.
+
+    Parameters:
+      targets: a list of the targets being built.
+    Return: the set of exclusives tags that should be used for chunking.
+    """
+    exclusives_map = defaultdict(set)
+    for t in targets:
+      if t.exclusives is not None:
+        for k in t.exclusives:
+          exclusives_map[k] |= t.exclusives[k]
+    conflicting_keys = []
+    for k in exclusives_map:
+      if len(exclusives_map[k]) > 1:
+        conflicting_keys.append(k)
+    chunks = defaultdict(list)
+    for t in targets:
+      # compute an exclusives group key: a list of the exclusives values for the keys
+      # in the conflicting keys list.
+      target_key = []
+      for k in conflicting_keys:
+        if len(t.exclusives[k]) > 0:
+          target_key.append(list(t.exclusives[k])[0])
+        else:
+          target_key.append("none")
+      chunks[str(target_key)].append(t)
+    return chunks
+
+  @staticmethod
   def _create_chunks(context, goals):
+
     def discriminator(target):
       for i, goal in enumerate(goals):
         if goal.group.predicate(target):
           return i
       return 'other'
 
-    # TODO(John Sirois): coalescing should be made available in another spot, InternalTarget is jvm
-    # specific, and all we care is that the Targets have dependencies defined
-    coalesced = InternalTarget.coalesce_targets(context.targets(is_internal), discriminator)
-    coalesced = list(reversed(coalesced))
+    # First, divide the set of all targets to be built into compatible chunks, based
+    # on their declared exclusives. Then, for each chunk of compatible exclusives, do
+    # further subchunking. At the end, we'll have a list of chunks to be built,
+    # which will go through the chunks of each exclusives-compatible group separately.
 
-    def not_internal(target):
-      return not is_internal(target)
-    rest = OrderedSet(context.targets(not_internal))
+    # TODO(markcc); chunks with incompatible exclusives require separate ivy resolves.
+    # Either interleave the ivy task in this group so that it runs once for each batch of
+    # chunks with compatible exclusives, or make the compilation tasks do their own ivy resolves
+    # for each batch of targets they're asked to compile.
+    excl_chunks = Group.compute_exclusives_chunks(context.targets())
 
-    chunks = [rest] if rest else []
-    flavor = None
-    chunk_start = 0
-    for i, target in enumerate(coalesced):
-      target_flavor = discriminator(target)
-      if target_flavor != flavor and i > chunk_start:
-        chunks.append(OrderedSet(coalesced[chunk_start:i]))
-        chunk_start = i
-      flavor = target_flavor
-    if chunk_start < len(coalesced):
-      chunks.append(OrderedSet(coalesced[chunk_start:]))
+    all_chunks = []
 
-    context.log.debug('::: created chunks(%d)' % len(chunks))
-    for i, chunk in enumerate(chunks):
+    for excl_chunk_key in excl_chunks:
+
+      # TODO(John Sirois): coalescing should be made available in another spot, InternalTarget is jvm
+      # specific, and all we care is that the Targets have dependencies defined
+
+      chunk_targets = excl_chunks[excl_chunk_key]
+      # need to extract the targets for this chunk that are internal.
+      coalesced = InternalTarget.coalesce_targets(filter(is_internal, chunk_targets),
+                                                  discriminator)
+      coalesced = list(reversed(coalesced))
+
+      def not_internal(target):
+        return not is_internal(target)
+      # got targets that aren't internal.
+      rest = OrderedSet(filter(not_internal, chunk_targets))
+
+
+      chunks = [rest] if rest else []
+      flavor = None
+      chunk_start = 0
+      for i, target in enumerate(coalesced):
+        target_flavor = discriminator(target)
+        if target_flavor != flavor and i > chunk_start:
+          chunks.append(OrderedSet(coalesced[chunk_start:i]))
+          chunk_start = i
+        flavor = target_flavor
+      if chunk_start < len(coalesced):
+        chunks.append(OrderedSet(coalesced[chunk_start:]))
+      all_chunks += chunks
+
+    context.log.debug('::: created chunks(%d)' % len(all_chunks))
+    for i, chunk in enumerate(all_chunks):
       context.log.debug('  chunk(%d):\n\t%s' % (i, '\n\t'.join(sorted(map(str, chunk)))))
 
-    return chunks
+    return all_chunks
 
   def __init__(self, name, predicate):
     self.name = name

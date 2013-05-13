@@ -18,13 +18,8 @@ __author__ = 'Benjy Weinberger'
 
 import os
 
-<<<<<<< HEAD
-from twitter.pants import has_sources, is_scalac_plugin, get_buildroot
-=======
 from collections import defaultdict
-
-from twitter.pants import  is_scalac_plugin, get_buildroot
->>>>>>> Added a check_exclusives task.
+from twitter.pants import has_sources, is_scalac_plugin, get_buildroot
 from twitter.pants.targets.scala_library import ScalaLibrary
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.jvm_dependency_cache import JvmDependencyCache

@@ -35,4 +35,5 @@ class PythonThriftLibrary(PythonTarget):
       exclusives:   An optional map of exclusives tags. See CheckExclusives for details.
     """
     self.thrift_version = thrift_version
-    PythonTarget.__init__(self, name, sources, resources, dependencies, provides, exclusives=exclusives)
+    PythonTarget.__init__(self, name, sources, resources, dependencies, provides,
+                          exclusives=exclusives)

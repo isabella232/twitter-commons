@@ -28,7 +28,6 @@ class PythonTarget(TargetWithSources):
   def __init__(self, name, sources, resources=None, dependencies=None, provides=None,
                exclusives=None):
     TargetWithSources.__init__(self, name, sources, exclusives=exclusives)
-
     processed_dependencies = resolve(dependencies)
 
     self.add_labels('python')
@@ -45,12 +44,9 @@ class PythonTarget(TargetWithSources):
     for t in self.dependencies:
       if isinstance(t, Target):
         t._propagate_exclusives()
-        for k in t.exclusives:
-          self.exclusives[k] |= t.exclusives[k]
+        self.add_to_exclusives(t.exclusives)
       elif hasattr(t, "declared_exclusives"):
-        for k in t.declared_exclusives:
-          self.exclusives[k] |= t.declared_exclusives[k]
-
+        self.add_to_exclusives(t.declared_exclusives)
 
   def _walk(self, walked, work, predicate = None):
     Target._walk(self, walked, work, predicate)

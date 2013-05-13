@@ -228,9 +228,6 @@ class InternalTarget(Target):
     for t in self.dependencies:
       if isinstance(t, Target):
         t._propagate_exclusives()
-        for k in t.exclusives:
-          self.exclusives[k] |= t.exclusives[k]
+        self.add_to_exclusives(t.exclusives)
       elif hasattr(t, "declared_exclusives"):
-        for k in t.declared_exclusives:
-          self.exclusives[k] |= t.declared_exclusives[k]
-
+        self.add_to_exclusives(t.declared_exclusives)

@@ -33,7 +33,6 @@ class JarLibrary(Target):
     Target.__init__(self, name, exclusives=exclusives)
     if dependencies is None:
       raise TargetDefinitionException(self, "A dependencies list must be supplied even if empty.")
-
     self.add_labels('jars')
     self.dependencies = resolve(dependencies)
     self.dependency_addresses = set()

@@ -54,5 +54,5 @@ class PythonTests(PythonTarget):
 
 
 class PythonTestSuite(PythonTarget):
-  def __init__(self, name, dependencies=None):
-    PythonTarget.__init__(self, name, (), (), dependencies)
+  def __init__(self, name, dependencies=None, exclusives=None):
+    PythonTarget.__init__(self, name, (), (), dependencies, exclusives=exclusives)

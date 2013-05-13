@@ -20,59 +20,14 @@ from twitter.pants.base import Target
 
 from .exportable_jvm_library import ExportableJvmLibrary
 from .resources import WithLegacyResources
-
-<<<<<<< HEAD
 from . import JavaLibrary
-
 
 class ScalaLibrary(ExportableJvmLibrary, WithLegacyResources):
   """Defines the source code and dependencies of a scala library."""
 
   def __init__(self, name, sources=None, java_sources=None, provides=None, dependencies=None,
-               excludes=None, resources=None, deployjar=False, buildflags=None):
-=======
-  def __init__(self, name,
-               sources = None,
-               java_sources = None,
-               provides = None,
-               dependencies = None,
-               excludes = None,
-               resources = None,
-               deployjar = False,
-               buildflags = None,
-               is_meta = False,
+               excludes=None, resources=None, deployjar=False, buildflags=None,
                exclusives=None):
-
-    """name: The name of this module target, addressable via pants via the portion of the spec
-        following the colon
-    sources: A list of paths containing the scala source files this module's jar is compiled from
-    java_sources: An optional list of paths containing the java sources this module's jar is in part
-        compiled from
-    provides: An optional Dependency object indicating the The ivy artifact to export
-    dependencies: An optional list of Dependency objects specifying the binary (jar) dependencies of
-        this module.
-    excludes: An optional list of dependency exclude patterns to filter all of this module's
-        transitive dependencies against.
-    resources: An optional list of paths containing (filterable) text file resources to place in
-        this module's jar
-    deployjar: An optional boolean that turns on generation of a monolithic deploy jar
-    buildflags: A list of additional command line arguments to pass to the underlying build system
-        for this target
-    exclusives:   An optional map of exclusives tags. See CheckExclusives for details.
-    """
-    ExportableJvmLibrary.__init__(self,
-                                  name,
-                                  sources,
-                                  provides,
-                                  dependencies,
-                                  excludes,
-                                  buildflags,
-                                  is_meta,
-                                  exclusives=exclusives or {})
-    self.add_label('scala')
-    self.java_sources = java_sources
->>>>>>> Added a check_exclusives task.
-
     """name:      The name of this target, addressable via pants via the portion of the address spec
                   following the colon.
     sources:      A list of paths containing the scala source files this scala library is composed
@@ -90,9 +45,11 @@ class ScalaLibrary(ExportableJvmLibrary, WithLegacyResources):
                   jar - now ignored.
     buildflags:   DEPRECATED - A list of additional command line arguments to pass to the underlying
                   build system for this target - now ignored.
+    exclusives:   An optional list of exclusives tags.
     """
 
-    ExportableJvmLibrary.__init__(self, name, sources, provides, dependencies, excludes)
+    ExportableJvmLibrary.__init__(self, name, sources, provides, dependencies, excludes,
+                                  exclusives=exclusives)
     WithLegacyResources.__init__(self, name, sources=sources, resources=resources)
 
     self.add_labels('scala')

@@ -55,7 +55,6 @@ class JavaThriftLibrary(ExportableJvmLibrary):
         build system for this target - now ignored.
     exclusives:   An optional map of exclusives tags. See CheckExclusives for details.
     """
-
     ExportableJvmLibrary.__init__(self, name, sources, provides, dependencies, excludes,
                                   exclusives=exclusives)
     self.add_labels('codegen', 'java')
