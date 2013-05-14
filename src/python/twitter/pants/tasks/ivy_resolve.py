@@ -110,6 +110,7 @@ class IvyResolve(NailgunTask):
     self._open = context.options.ivy_resolve_open
     self._report = self._open or context.options.ivy_resolve_report
     self._ivy_utils = IvyUtils(context, self._cachedir)
+    context.products.require_data("exclusives_partitions")
 
     def parse_override(override):
       match = re.match(r'^([^#]+)#([^=]+)=([^\s]+)$', override)
@@ -161,6 +162,7 @@ class IvyResolve(NailgunTask):
         is_internal(target) and any(jar for jar in target.jar_dependencies if jar.rev)
       )
 
+    parts = self.context.products.get_data("exclusives_partitions")
     classpath_targets = OrderedSet()
     for target in targets:
       classpath_targets.update(filter(is_classpath, filter(is_concrete, target.resolve())))
