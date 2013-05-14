@@ -21,6 +21,8 @@ class ConsoleReporter(Reporter):
     pass
 
   def close(self):
+    # TODO(benjy): Find another way to get this setting. This is the only reason we need
+    # RunTracker to have a reference to options, and it would be much nicer to get rid of it.
     if self.run_tracker.options.time:
       print('\n')
       print('Cumulative Timings')
