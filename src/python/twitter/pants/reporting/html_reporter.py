@@ -64,8 +64,13 @@ class HtmlReporter(Reporter):
 
   def __init__(self, run_tracker, html_dir, template_dir):
     Reporter.__init__(self, run_tracker)
-    self._html_dir = html_dir   # The main report, and associated tool outputs go under this dir.
+     # The main report, and associated tool outputs, go under this dir.
+    self._html_dir = html_dir
+
+    # We render HTML from mustache templates.
     self._renderer = MustacheRenderer(Renderer(search_dirs=template_dir))
+
+    # We serve files relative to the build root.
     self._buildroot = get_buildroot()
     self._html_path_base = os.path.relpath(self._html_dir, self._buildroot)
 
@@ -80,15 +85,18 @@ class HtmlReporter(Reporter):
     return os.path.join(self._html_dir, 'build.html')
 
   def open(self):
+    """Implementation of Reporter callback."""
     safe_mkdir(os.path.dirname(self._html_dir))
     self._report_file = open(self.report_path(), 'w')
 
   def close(self):
+    """Implementation of Reporter callback."""
     self._report_file.close()
     for f in self._output_files.values():
       f.close()
 
   def start_workunit(self, workunit):
+    """Implementation of Reporter callback."""
     # We use these properties of the workunit to decide how to render information about it.
     is_tool = workunit.has_label(WorkUnit.TOOL)
     is_multitool = workunit.has_label(WorkUnit.MULTITOOL)
@@ -123,6 +131,7 @@ class HtmlReporter(Reporter):
   _status_css_classes = ['aborted', 'failure', 'warning', 'success', 'unknown']
 
   def end_workunit(self, workunit):
+    """Implementation of Reporter callback."""
     duration = workunit.duration()
     timing = '%.3f' % duration
     unaccounted_time_secs = workunit.unaccounted_time()
@@ -182,6 +191,7 @@ class HtmlReporter(Reporter):
                     render_cache_stats(self.run_tracker.artifact_cache_stats))
 
   def handle_output(self, workunit, label, s):
+    """Implementation of Reporter callback."""
     if os.path.exists(self._html_dir):  # Make sure we're not immediately after a clean-all.
       path = os.path.join(self._html_dir, '%s.%s' % (workunit.id, label))
       if path not in self._output_files:
@@ -194,6 +204,7 @@ class HtmlReporter(Reporter):
       f.flush()
 
   def handle_message(self, workunit, *msg_elements):
+    """Implementation of Reporter callback."""
     s = self._append_to_workunit(workunit, self._render_message(*msg_elements))
     self._emit(s)
 
@@ -218,13 +229,15 @@ class HtmlReporter(Reporter):
     return self._renderer.render_name('message', args)
 
   def _emit(self, s):
+    """Append content to the main report file."""
     if os.path.exists(self._html_dir):  # Make sure we're not immediately after a clean-all.
       self._report_file.write(s)
       self._report_file.flush()  # We must flush in the same thread as the write.
 
-  def _overwrite(self, label, s):
+  def _overwrite(self, filename, s):
+    """Overwrite a file with the specified contents."""
     if os.path.exists(self._html_dir):  # Make sure we're not immediately after a clean-all.
-      with open(os.path.join(self._html_dir, label), 'w') as f:
+      with open(os.path.join(self._html_dir, filename), 'w') as f:
         f.write(s)
 
   def _append_to_workunit(self, workunit, s):
@@ -235,24 +248,38 @@ class HtmlReporter(Reporter):
       }
     return self._renderer.render_name('output', args)
 
-  def _render_callable(self, template_name, arg_string, outer_args):
+  def _render_callable(self, inner_template_name, arg_string, outer_args):
+    """Handle a mustache callable.
+
+    In a mustache template, when foo is callable, {{#foo}}arg_string{{/foo}} is replaced with the
+    result of calling foo(arg_string). The callable must interpret arg_string.
+
+    This method provides an implementation of such a callable that does the following:
+      A) Parses the arg_string as CGI args.
+      B) Adds them to the original args that the enclosing template was rendered with.
+      C) Renders some other template against those args.
+      D) Returns the resulting text.
+    """
+    # First render the arg_string (mustache doesn't do this for you).
     rendered_arg_string = self._renderer.render(arg_string, outer_args)
+    # Parse the inner args as CGI args.
     inner_args = dict([(k, v[0]) for k, v in urlparse.parse_qs(rendered_arg_string).items()])
     # Order matters: lets the inner args override the outer args.
     args = dict(outer_args.items() + inner_args.items())
-    return self._renderer.render_name(template_name, args)
+    # Render.
+    return self._renderer.render_name(inner_template_name, args)
 
   def _htmlify_text(self, s):
+    """Make text HTML-friendly."""
     colored = self._handle_ansi_color_codes(cgi.escape(s))
     return linkify(self._buildroot, colored).replace('\n', '</br>')
 
-  # Replace ansi color sequences with spans of appropriately named css classes.
-  ansi_color_code_re = re.compile(r'\033\[((?:\d|;)*)m')
-
+  _ANSI_COLOR_CODE_RE = re.compile(r'\033\[((\d|;)*)m')
   def _handle_ansi_color_codes(self, s):
+    """Replace ansi color sequences with spans of appropriately named css classes."""
     def ansi_code_to_css(code):
       return ' '.join(['ansi-%s' % c for c in code.split(';')])
     return '<span>' +\
-           HtmlReporter.ansi_color_code_re.sub(
+           HtmlReporter._ANSI_COLOR_CODE_RE.sub(
              lambda m: '</span><span class="%s">' % ansi_code_to_css(m.group(1)), s) +\
            '</span>'

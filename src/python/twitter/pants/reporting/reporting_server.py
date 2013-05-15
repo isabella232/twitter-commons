@@ -73,7 +73,8 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
   def _client_allowed(self):
     client_ip = self._client_address[0]
-    if not client_ip in self._settings.allowed_clients and not 'ALL' in self._settings.allowed_clients:
+    if not client_ip in self._settings.allowed_clients and \
+       not 'ALL' in self._settings.allowed_clients:
       self._send_content('Access from host %s forbidden.' % client_ip, 'text/html')
       return False
     return True
@@ -148,14 +149,14 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     if not content_type.startswith('text/') and not content_type == 'application/xml':
       # Binary file, split it into lines.
       n = 120  # Display lines of this max size.
-      content = repr(content)[1:-1]  # Will escape non-printables etc. We don't take the surrounding quotes.
+      content = repr(content)[1:-1]  # Will escape non-printables etc, dropping surrounding quotes.
       content = '\n'.join([content[i:i+n] for i in xrange(0, len(content), n)])
       prettify = False
       prettify_extra_langs = []
     else:
       prettify = True
-      prettify_extra_langs =\
-      [ {'name': x} for x in os.listdir(os.path.join(self._settings.assets_dir, 'js', 'prettify_extra_langs')) ]
+      prettify_extra_dir = os.path.join(self._settings.assets_dir, 'js', 'prettify_extra_langs')
+      prettify_extra_langs = [ {'name': x} for x in os.listdir(prettify_extra_dir) ]
     linenums = True
     args = { 'prettify_extra_langs': prettify_extra_langs, 'content': content,
              'prettify': prettify, 'linenums': linenums }
@@ -267,7 +268,8 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     else:
       path_parts = [os.path.basename(self._root)] + relpath.split(os.path.sep)
       path_links = ['/'.join(path_parts[1:i+1]) for i, name in enumerate(path_parts)]
-      breadcrumbs = [{'link_path': link_path, 'name': name } for link_path, name in zip(path_links, path_parts)]
+      breadcrumbs = [{'link_path': link_path, 'name': name }
+                     for link_path, name in zip(path_links, path_parts)]
     return breadcrumbs
 
   def _default_template_args(self, content_template):
