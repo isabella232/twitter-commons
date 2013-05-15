@@ -221,7 +221,7 @@ class Task(object):
         msg_elements.append(list_to_report_element(sources, 'source file'))
       if num_invalid_partitions > 1:
         msg_elements.append(' in %d target partitions' % num_invalid_partitions)
-      msg_elements.append('.\n')
+      msg_elements.append('.')
       self.context.report(*msg_elements)
 
     # Yield the result, and then mark the targets as up to date.

@@ -1,4 +1,5 @@
 import sys
+import threading
 
 from collections import defaultdict
 
@@ -13,8 +14,8 @@ class ConsoleReporter(Reporter):
     Reporter.__init__(self, run_tracker)
     self._indenting = indenting
     # We don't want spurious newlines between nested workunits, so we only emit them
-    # when we need to write content to the workunit.
-    # TODO: protect self._needs_newline against concurrent access.
+    # when we need to write content to the workunit. This is a bit hacky, but effective.
+    self._lock = threading.Lock()  # Protects self._needs_newline, in case we run workunits in parallel.
     self._needs_newline = defaultdict(bool)  # workunit id -> bool.
 
   def open(self):
@@ -58,24 +59,27 @@ class ConsoleReporter(Reporter):
         sys.stdout.write(self._prefix(workunit, outbuf.read_from(0)))
         sys.stdout.flush()
     if workunit.parent:
-      self._needs_newline[workunit.parent.id] = False
-
-  def handle_output(self, workunit, label, s):
-    # Emit output from test frameworks, but not from other tools. This is an arbitrary choice, but one that
-    # turns out to be useful to users in practice.
-    if workunit.has_label(WorkUnit.TEST):
-      if not self._needs_newline[workunit.id]:
-        s = '\n' + s
-        self._needs_newline[workunit.id] = True
-      sys.stdout.write(self._prefix(workunit, s))
-      sys.stdout.flush()
+      with self._lock:
+        self._needs_newline[workunit.parent.id] = False
 
   def handle_message(self, workunit, *msg_elements):
     elements = [e if isinstance(e, basestring) else e[0] for e in msg_elements]
-    if not self._needs_newline[workunit.id]:
-      elements.insert(0, '\n')
-      self._needs_newline[workunit.id] = True
+    with self._lock:
+      if not self._needs_newline[workunit.id]:
+        elements.insert(0, '\n')
+        self._needs_newline[workunit.id] = True
     sys.stdout.write(self._prefix(workunit, ''.join(elements)))
+
+  def handle_output(self, workunit, label, s):
+    # Emit output from test frameworks, but not from other tools.
+    # This is an arbitrary choice, but one that turns out to be useful to users in practice.
+    if workunit.has_label(WorkUnit.TEST):
+      with self._lock:
+        if not self._needs_newline[workunit.id]:
+          s = '\n' + s
+          self._needs_newline[workunit.id] = True
+      sys.stdout.write(self._prefix(workunit, s))
+      sys.stdout.flush()
 
   def _format_aggregated_timings(self, aggregated_timings):
     return '\n'.join(['%(timing).3f %(label)s' % x for x in aggregated_timings.get_all()])
