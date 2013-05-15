@@ -52,6 +52,7 @@ class ConsoleReporter(Reporter):
 
   def end_workunit(self, workunit):
     if workunit.outcome() != WorkUnit.SUCCESS:
+      # Emit the workunit output, if any, to aid in debugging the problem.
       for name, outbuf in workunit.outputs().items():
         sys.stdout.write(self._prefix(workunit, '\n==== %s ====\n' % name))
         sys.stdout.write(self._prefix(workunit, outbuf.read_from(0)))

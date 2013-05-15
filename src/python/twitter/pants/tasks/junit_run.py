@@ -21,6 +21,7 @@ import sys
 from twitter.common.dirutil import safe_mkdir, safe_open
 
 from twitter.pants import binary_util, is_codegen, is_java, is_scala, is_test, junit_tests
+from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.jvm_task import JvmTask
 
@@ -207,6 +208,9 @@ class JUnitRun(JvmTask):
                                          confs=self.confs)
 
         def run_tests(classpath, main, jvmargs=None):
+          def workunit_factory(name, labels=list(), cmd=''):
+            return self.context.new_workunit(name=name, labels=[WorkUnit.TEST] + labels, cmd=cmd)
+
           # TODO(John Sirois): Integrated batching with the test runner.  As things stand we get
           # results summaries for example for each batch but no overall summary.
           # http://jira.local.twitter.com/browse/AWESOME-1114
@@ -219,6 +223,7 @@ class JUnitRun(JvmTask):
                 main=main,
                 opts=self.opts,
                 args=batch_tests,
+                workunit_factory=workunit_factory,
                 workunit_name='run'
               ))
               if result != 0 and self.fail_fast:

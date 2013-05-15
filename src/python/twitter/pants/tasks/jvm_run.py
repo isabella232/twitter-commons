@@ -89,6 +89,7 @@ class JvmRun(JvmTask):
           main=main,
           args=self.args,
           dryrun=dryrun,
+          workunit_factory=self.context.new_workunit,
           workunit_name='run'
         )
         if dryrun:

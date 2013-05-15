@@ -55,6 +55,7 @@ class ScalaRepl(JvmTask):
         classpath=self.classpath(profile_classpath(self.profile), confs=self.confs),
         main=self.main,
         args=self.args,
+        workunit_factory=self.context.new_workunit,
         workunit_name='repl'
       )
     except KeyboardInterrupt:
