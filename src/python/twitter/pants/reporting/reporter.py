@@ -29,6 +29,7 @@ class Reporter(object):
     """Handle a message reported by pants code.
 
     msg_elements are either strings or lists (e.g., of targets), which can be specially formatted.
+    For example: ['Invalidated ', [Target1, Target2, ...]]
     """
     pass
 
@@ -36,8 +37,8 @@ class Reporter(object):
     """Handle output captured from an invoked tool (e.g., javac).
 
     workunit: The innermost WorkUnit in which the tool was invoked.
-    label: Classifies the output e.g., 'stdout' for output captured from a tool's stdout or 'debug' for debug output
-           captured from a tool's logfiles.
+    label: Classifies the output e.g., 'stdout' for output captured from a tool's stdout or
+           'debug' for debug output captured from a tool's logfiles.
     s: The content captured.
     """
     pass

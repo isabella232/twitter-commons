@@ -11,17 +11,20 @@ class ConsoleReporter(Reporter):
   """Plain-text reporting to stdout."""
 
   def __init__(self, run_tracker, indenting):
+    """If indenting is True, we indent the reporting to reflect the nesting of workunits."""
     Reporter.__init__(self, run_tracker)
     self._indenting = indenting
     # We don't want spurious newlines between nested workunits, so we only emit them
     # when we need to write content to the workunit. This is a bit hacky, but effective.
-    self._lock = threading.Lock()  # Protects self._needs_newline, in case we run workunits in parallel.
+    self._lock = threading.Lock()  # Protects self._needs_newline, in caseof parallel workunits.
     self._needs_newline = defaultdict(bool)  # workunit id -> bool.
 
   def open(self):
+    """Implementation of Reporter callback."""
     pass
 
   def close(self):
+    """Implementation of Reporter callback."""
     # TODO(benjy): Find another way to get this setting. This is the only reason we need
     # RunTracker to have a reference to options, and it would be much nicer to get rid of it.
     if self.run_tracker.options.time:
@@ -40,6 +43,7 @@ class ConsoleReporter(Reporter):
     print('')
 
   def start_workunit(self, workunit):
+    """Implementation of Reporter callback."""
     if workunit.parent and workunit.parent.has_label(WorkUnit.MULTITOOL):
       # For brevity, we represent each consecutive invocation of a multitool with a dot.
       sys.stdout.write('.')
@@ -52,6 +56,7 @@ class ConsoleReporter(Reporter):
     sys.stdout.flush()
 
   def end_workunit(self, workunit):
+    """Implementation of Reporter callback."""
     if workunit.outcome() != WorkUnit.SUCCESS:
       # Emit the workunit output, if any, to aid in debugging the problem.
       for name, outbuf in workunit.outputs().items():
@@ -63,6 +68,7 @@ class ConsoleReporter(Reporter):
         self._needs_newline[workunit.parent.id] = False
 
   def handle_message(self, workunit, *msg_elements):
+    """Implementation of Reporter callback."""
     elements = [e if isinstance(e, basestring) else e[0] for e in msg_elements]
     with self._lock:
       if not self._needs_newline[workunit.id]:
@@ -71,6 +77,7 @@ class ConsoleReporter(Reporter):
     sys.stdout.write(self._prefix(workunit, ''.join(elements)))
 
   def handle_output(self, workunit, label, s):
+    """Implementation of Reporter callback."""
     # Emit output from test frameworks, but not from other tools.
     # This is an arbitrary choice, but one that turns out to be useful to users in practice.
     if workunit.has_label(WorkUnit.TEST):
@@ -93,7 +100,7 @@ class ConsoleReporter(Reporter):
   def _indent(self, workunit):
     return '  ' * (len(workunit.ancestors()) - 1)
 
-  _time_string_filler = ' ' * 15
+  _time_string_filler = ' ' * len('HH:MM:SS mm:ss ')
   def _prefix(self, workunit, s):
     if self._indenting:
       return s.replace('\n', '\n' + ConsoleReporter._time_string_filler + self._indent(workunit))
