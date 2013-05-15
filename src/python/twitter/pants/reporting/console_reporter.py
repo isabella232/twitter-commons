@@ -3,7 +3,7 @@ import sys
 from collections import defaultdict
 
 from twitter.pants.goal.workunit import WorkUnit
-from twitter.pants.reporting.report import Reporter
+from twitter.pants.reporting.reporter import Reporter
 
 
 class ConsoleReporter(Reporter):
@@ -40,6 +40,7 @@ class ConsoleReporter(Reporter):
 
   def start_workunit(self, workunit):
     if workunit.parent and workunit.parent.has_label(WorkUnit.MULTITOOL):
+      # For brevity, we represent each consecutive invocation of a multitool with a dot.
       sys.stdout.write('.')
     else:
       sys.stdout.write('\n%s %s %s[%s]' %
@@ -50,12 +51,18 @@ class ConsoleReporter(Reporter):
     sys.stdout.flush()
 
   def end_workunit(self, workunit):
+    if workunit.outcome() != WorkUnit.SUCCESS:
+      for name, outbuf in workunit.outputs().items():
+        sys.stdout.write(self._prefix(workunit, '\n==== %s ====\n' % name))
+        sys.stdout.write(self._prefix(workunit, outbuf.read_from(0)))
+        sys.stdout.flush()
     if workunit.parent:
       self._needs_newline[workunit.parent.id] = False
 
   def handle_output(self, workunit, label, s):
-    # Emit output from test frameworks, but not from other tools.
-    if workunit.workunit.has_label(WorkUnit.TEST):
+    # Emit output from test frameworks, but not from other tools. This is an arbitrary choice, but one that
+    # turns out to be useful to users in practice.
+    if workunit.has_label(WorkUnit.TEST):
       if not self._needs_newline[workunit.id]:
         s = '\n' + s
         self._needs_newline[workunit.id] = True

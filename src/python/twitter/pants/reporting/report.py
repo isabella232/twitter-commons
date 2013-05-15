@@ -6,49 +6,6 @@ from twitter.common.threading import PeriodicThread
 class ReportingError(Exception):
   pass
 
-
-class Reporter(object):
-  """Formats and emits reports.
-
-  Subclasses implement the call back methods, to provide specific reporting
-  functionality, e.g., to console or to browser.
-  """
-  def __init__(self, run_tracker):
-    self.run_tracker = run_tracker
-    self.formatter = None
-
-  def open(self):
-    """Begin the report."""
-    pass
-
-  def close(self):
-    """End the report."""
-    pass
-
-  def start_workunit(self, workunit):
-    """Enter a new workunit."""
-    pass
-
-  def end_workunit(self, workunit):
-    """Exit the current workunit."""
-    pass
-
-  def handle_message(self, workunit, *msg_elements):
-    """Emit a message reported by pants code.
-
-    msg_elements are either strings or lists (e.g., of targets), which can be specially formatted.
-    """
-    pass
-
-  def handle_output(self, workunit, label, s):
-    """Emit output captured from an invoked tool (e.g., javac).
-
-    label - classifies the output e.g., 'stdout' for output captured from a tool's stdout.
-    Other labels are possible, e.g., if we capture debug output from a tool's logfiles.
-    """
-    pass
-
-
 class Report(object):
   """A report of a pants run."""
 

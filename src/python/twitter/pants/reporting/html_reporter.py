@@ -10,27 +10,31 @@ from twitter.pants import get_buildroot
 from twitter.pants.base.build_file import BuildFile
 from twitter.pants.base.mustache import MustacheRenderer
 from twitter.pants.goal.workunit import WorkUnit
-from twitter.pants.reporting.report import Reporter
+from twitter.pants.reporting.reporter import Reporter
 from twitter.pants.reporting.reporting_utils import list_to_report_element
 
 
 class HtmlReporter(Reporter):
-  """HTML reporting to files."""
+  """HTML reporting to files.
+
+  The files are intended to be served by the ReportingServer, not accessed directly from the filesystem.
+  """
 
   def __init__(self, run_tracker, html_dir, template_dir):
     Reporter.__init__(self, run_tracker)
-    self._html_dir = html_dir
+    self._html_dir = html_dir   # The main report, and associated tool outputs go under this dir.
     self._renderer = MustacheRenderer(Renderer(search_dirs=template_dir))
     self._buildroot = get_buildroot()
-    self._html_path_base = os.path.relpath(html_dir, self._buildroot)
+    self._html_path_base = os.path.relpath(self._html_dir, self._buildroot)
 
-    # We write the main report body to this file.
+    # We write the main report body to this file object.
     self._report_file = None
 
     # We redirect stdout, stderr etc. of tool invocations to these files.
     self._output_files = {}  # path -> fileobj.
 
   def report_path(self):
+    """The path to the main report file."""
     return os.path.join(self._html_dir, 'build.html')
 
   def open(self):
@@ -43,13 +47,17 @@ class HtmlReporter(Reporter):
       f.close()
 
   def start_workunit(self, workunit):
+    # We use these properties of the workunit to decide how to render information about it.
     is_tool = workunit.has_label(WorkUnit.TOOL)
     is_multitool = workunit.has_label(WorkUnit.MULTITOOL)
     is_test = workunit.has_label(WorkUnit.TEST)
+
     if workunit.parent is None:
       header_text = 'all'
     else:
       header_text = workunit.name
+
+    # Create the template arguments.
     workunit_dict = workunit.to_dict()
     if workunit_dict['cmd']:
       workunit_dict['cmd'] = self._linkify(workunit_dict['cmd'].replace('$', '\\\\$'))
@@ -86,7 +94,7 @@ class HtmlReporter(Reporter):
              'aborted': workunit.outcome() == WorkUnit.ABORTED }
 
     s = ''
-    if workunitworkunit.has_label(WorkUnit.TOOL):
+    if workunit.has_label(WorkUnit.TOOL):
       s += self._renderer.render_name('tool_invocation_end', args)
     s += self._renderer.render_name('workunit_end', args)
     self._emit(s)
@@ -185,14 +193,19 @@ class HtmlReporter(Reporter):
       }
     return self._renderer.render_name('output', args)
 
-  # Heuristics to find and linkify file and http references.
   # We require no trailing dots because some tools print an ellipsis after file names
   # (I'm looking at you, zinc). None of our files end in a dot in practice, so this is fine.
 
   # At least two path components.
+
+  # A regex to recognize things that are probably URLs or file paths.
+  #_PREFIX = r'(https?://)?/?' # http://, https:// or /.
+  #_PATH_COMPONENT = r'/(?:\w|[-.])+'  # One or more alphanumeric, underscore, dash or dot characters.
+  #_PATH = _PREFIX + _COMPONENT + r'(?:/(?:\w|[-.])+)+(:w|[-.]+)?\w'
   path_re = re.compile(r'(https?://)?/?(?:\w|[-.])+(?:/(?:\w|[-.])+)+(:w|[-.]+)?\w')
 
   def _linkify(self, s):
+    """Augment text by heuristically finding URL and file references and turning them into links/"""
     def to_url(m):
       if m.group(1):
         return m.group(0)  # It's an http(s) url.
