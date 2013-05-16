@@ -1,4 +1,5 @@
 import cgi
+import operator
 import os
 import re
 import urlparse
@@ -200,14 +201,16 @@ class HtmlReporter(Reporter):
       # the cache stats are updated and the message re-rendered.
       if isinstance(element, basestring):
         element = [element]
-      (text, detail, detail_id, detail_initially_visible) = (list(element) + 4 * [None])[0:4]
+      defaults = ('', None, None, False)
+      # Map assumes None for missing values, so this will pick the default for those.
+      (text, detail, detail_id, detail_initially_visible) = map(operator.or_, element, defaults)
       element_args = {'text': self._htmlify_text(text) }
       if detail is not None:
         detail_id = detail_id or uuid.uuid4()
         detail_ids.append(detail_id)
         element_args.update({
           'detail': self._htmlify_text(detail),
-          'detail_initially_visible': detail_initially_visible or False,
+          'detail_initially_visible': detail_initially_visible,
           'detail-id': detail_id
         })
       elements.append(element_args)

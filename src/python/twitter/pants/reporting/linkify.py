@@ -7,9 +7,9 @@ from twitter.pants.base.build_file import BuildFile
 # A regex to recognize substrings that are probably URLs or file paths. Broken down for readability.
 _PREFIX = r'(https?://)?/?' # http://, https:// or / or nothing.
 _REL_PATH_COMPONENT = r'(\w|[-.])+'  # One or more alphanumeric, underscore, dash or dot.
-_ABS_PATH_COMPONENT = '/' + _REL_PATH_COMPONENT
-_ABS_PATH_COMPONENTS = '(%s)+' % _ABS_PATH_COMPONENT
-_OPTIONAL_TARGET_SUFFIX = '(:%s)?' % _REL_PATH_COMPONENT  # For /foo/bar:target.
+_ABS_PATH_COMPONENT = r'/' + _REL_PATH_COMPONENT
+_ABS_PATH_COMPONENTS = r'(%s)+' % _ABS_PATH_COMPONENT
+_OPTIONAL_TARGET_SUFFIX = r'(:%s)?' % _REL_PATH_COMPONENT  # For /foo/bar:target.
 
 # Note that we require at least two path components.
 # We require the last characgter to be alphanumeric or underscore, because some tools print an
