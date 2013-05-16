@@ -19,32 +19,31 @@ from twitter.pants.base.mustache import MustacheRenderer
 from twitter.pants.goal.run_tracker import RunInfo
 
 
-# Prettyprint plugin files.
+# Google Prettyprint plugin files.
 PPP_RE=re.compile("""^lang-.*\.js$""")
 
+# Reporting server settings.
 Settings = namedtuple('Settings',
   ['info_dir', 'reports_dir', 'template_dir', 'assets_dir', 'root', 'allowed_clients'])
 
 
 class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
-  """A handler that serves regions of files under a given root:
-
-  /browse/path/to/file?s=x&e=y serves from position x (inclusive) to position y (exclusive).
-  /browse/path/to/file?s=x serves from position x (inclusive) until the end of the file.
-  /browse/path/to/file serves the entire file.
+  """A handler that demultiplexes various pants reporting URLs.
   """
   def __init__(self, settings, renderer, request, client_address, server):
     self._settings = settings
     self._root = self._settings.root
     self._renderer = renderer
     self._client_address = client_address
+    # The underlying handlers for specific URL prefixes.
     self._GET_handlers = [
-      ('/runs/', self._handle_runs),
-      ('/browse/', self._handle_browse),
-      ('/content/', self._handle_content),
-      ('/assets/', self._handle_assets),
-      ('/poll', self._handle_poll),
-      ('/latestrunid', self._handle_latest_runid)
+      ('/runs/', self._handle_runs),  # Show list of known pants runs.
+      ('/run/', self._handle_run),  # Show a report for a single pants run.
+      ('/browse/', self._handle_browse),  # Browse filesystem under build root.
+      ('/content/', self._handle_content),  # Show content of file.
+      ('/assets/', self._handle_assets),  # Statically serve assets (css, js etc.)
+      ('/poll', self._handle_poll),  # Poll for raw file content.
+      ('/latestrunid', self._handle_latest_runid)  # Return id of latest pants run.
     ]
     BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, request, client_address, server)
 
@@ -62,16 +61,19 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     try:
       (_, _, path, query, _) = urlparse.urlsplit(self.path)
       params = urlparse.parse_qs(query)
+      # Give each handler a chance to respond.
       for prefix, handler in self._GET_handlers:
         if self._maybe_handle(prefix, handler, path, params):
           return
-      if path == '/':  # Show runs by default.
+      # If no path specified, default to showing the list of all runs.
+      if path == '/':
         self._handle_runs('', {})
       self._send_content('Invalid GET request %s' % self.path, 'text/html')
     except (IOError, ValueError):
       sys.stderr.write('Invalid GET request %s' % self.path)
 
   def _client_allowed(self):
+    """Check if client is allowed to connect to this server."""
     client_ip = self._client_address[0]
     if not client_ip in self._settings.allowed_clients and \
        not 'ALL' in self._settings.allowed_clients:
@@ -80,6 +82,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     return True
 
   def _maybe_handle(self, prefix, handler, path, params, data=None):
+    """Apply the handler if the prefix matches."""
     if path.startswith(prefix):
       relpath = path[len(prefix):]
       if data:
@@ -91,43 +94,41 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       return False
 
   def _handle_runs(self, relpath, params):
-    if relpath == '':
-      # Show a listing of all runs since the last clean-all.
-      runs_by_day = self._partition_runs_by_day()
-      args = self._default_template_args('run_list')
-      args['runs_by_day'] = runs_by_day
-    else:
-      # Show the report for a specific run.
-      args = self._default_template_args('run')
-      run_id = relpath
-      run_info = self._get_run_info_dict(run_id)
-      if run_info is None:
-        args['no_such_run'] = relpath
-        if run_id == 'latest':
-          args['is_latest'] = 'none'
-      else:
-        report_abspath = run_info['default_report']
-        report_relpath = os.path.relpath(report_abspath, self._root)
-        report_dir = os.path.dirname(report_relpath)
-        self_timings_path = os.path.join(report_dir, 'self_timings')
-        cumulative_timings_path = os.path.join(report_dir, 'cumulative_timings')
-        artifact_cache_stats_path = os.path.join(report_dir, 'artifact_cache_stats')
-        run_info['timestamp_text'] = \
-          datetime.fromtimestamp(float(run_info['timestamp'])).strftime('%H:%M:%S on %A, %B %d %Y')
-        args.update({'run_info': run_info,
-                     'report_path': report_relpath,
-                     'self_timings_path': self_timings_path,
-                     'cumulative_timings_path': cumulative_timings_path,
-                     'artifact_cache_stats_path': artifact_cache_stats_path})
-        if run_id == 'latest':
-          args['is_latest'] = run_info['id']
-        args.update({ 'collapsible': lambda x: self._render_callable('collapsible', x, args) })
+    """Show a listing of all pants runs since the last clean-all."""
+    runs_by_day = self._partition_runs_by_day()
+    args = self._default_template_args('run_list')
+    args['runs_by_day'] = runs_by_day
     self._send_content(self._renderer.render_name('base', args), 'text/html')
 
-  def _render_callable(self, template_name, arg_string, outer_args):
-    rendered_arg_string = self._renderer.render(arg_string, outer_args)
-    inner_args = dict([(k, v[0]) for k, v in urlparse.parse_qs(rendered_arg_string).items()])
-    return self._renderer.render_name(template_name, inner_args)
+  def _handle_run(self, relpath, params):
+    """Show the report for a single pants run."""
+    args = self._default_template_args('run')
+    run_id = relpath
+    run_info = self._get_run_info_dict(run_id)
+    if run_info is None:
+      args['no_such_run'] = relpath
+      if run_id == 'latest':
+        args['is_latest'] = 'none'
+    else:
+      report_abspath = run_info['default_report']
+      report_relpath = os.path.relpath(report_abspath, self._root)
+      report_dir = os.path.dirname(report_relpath)
+      self_timings_path = os.path.join(report_dir, 'self_timings')
+      cumulative_timings_path = os.path.join(report_dir, 'cumulative_timings')
+      artifact_cache_stats_path = os.path.join(report_dir, 'artifact_cache_stats')
+      run_info['timestamp_text'] = \
+        datetime.fromtimestamp(float(run_info['timestamp'])).strftime('%H:%M:%S on %A, %B %d %Y')
+      args.update({'run_info': run_info,
+                   'report_path': report_relpath,
+                   'self_timings_path': self_timings_path,
+                   'cumulative_timings_path': cumulative_timings_path,
+                   'artifact_cache_stats_path': artifact_cache_stats_path})
+      if run_id == 'latest':
+        args['is_latest'] = run_info['id']
+      args.update({
+        'collapsible': lambda x: self._renderer.render_callable('collapsible', x, args)
+      })
+    self._send_content(self._renderer.render_name('base', args), 'text/html')
 
   def _handle_browse(self, relpath, params):
     abspath = os.path.normpath(os.path.join(self._root, relpath))
@@ -170,6 +171,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self._send_content(content, content_type)
 
   def _handle_poll(self, relpath, params):
+    """A handler that polls for updates to a file."""
     request = json.loads(params.get('q')[0])
     ret = {}
     # request is a polling request for multiple files. For each file:
@@ -177,7 +179,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     #  - path is the file to poll.
     #  - pos is the last byte position in that file seen by the client.
     for poll in request:
-      id = poll.get('id', None)
+      _id = poll.get('id', None)
       path = poll.get('path', None)
       pos = poll.get('pos', 0)
       if path:
@@ -187,7 +189,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             if pos:
               infile.seek(pos)
             content = infile.read()
-            ret[id] = content
+            ret[_id] = content
     self._send_content(json.dumps(ret), 'application/json')
 
   def _handle_latest_runid(self, relpath, params):
@@ -280,7 +282,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     ret['include'] = lambda text: include(text, ret)
     return ret
 
-  def log_message(self, format, *args):  # Silence BaseHTTPRequestHandler's logging.
+  def log_message(self, fmt, *args):  # Silence BaseHTTPRequestHandler's logging.
     pass
 
 class ReportingServer(object):
