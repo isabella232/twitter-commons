@@ -24,7 +24,7 @@ from twitter.pants.targets.scala_library import ScalaLibrary
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.jvm_dependency_cache import JvmDependencyCache
 from twitter.pants.tasks.nailgun_task import NailgunTask
-from twitter.pants.reporting.reporting_utils import list_to_report_element
+from twitter.pants.reporting.reporting_utils import items_to_report_element
 from twitter.pants.tasks.scala.zinc_artifact import ZincArtifactFactory, AnalysisFileSpec
 from twitter.pants.tasks.scala.zinc_utils import ZincUtils
 
@@ -215,7 +215,7 @@ class ScalaCompile(NailgunTask):
         prefix = 'Operating on a partition containing '
         self.context.report(
           prefix,
-          list_to_report_element([t.address.reference() for t in vts.targets], 'target'), '.')
+          items_to_report_element([t.address.reference() for t in vts.targets], 'target'), '.')
         old_state = current_state
         classpath = [entry for conf, entry in cp if conf in self._confs]
         with self.context.new_workunit('compile'):

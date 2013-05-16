@@ -3,7 +3,8 @@ import shutil
 import tempfile
 import unittest
 
-from twitter.pants.reporting.html_reporter import linkify
+from twitter.pants.reporting.linkify import linkify
+
 
 def ensure_file_exists(path):
   os.makedirs(os.path.dirname(path))

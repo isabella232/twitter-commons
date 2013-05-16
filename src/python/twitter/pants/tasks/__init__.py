@@ -26,7 +26,7 @@ from twitter.common.collections.orderedset import OrderedSet
 from twitter.pants.base.artifact_cache import create_artifact_cache
 from twitter.pants.base.hash_utils import hash_file
 from twitter.pants.base.build_invalidator import CacheKeyGenerator
-from twitter.pants.reporting.reporting_utils import list_to_report_element
+from twitter.pants.reporting.reporting_utils import items_to_report_element
 from twitter.pants.tasks.cache_manager import CacheManager, InvalidationCheck
 
 
@@ -215,10 +215,10 @@ class Task(object):
       sources.extend(vt.cache_key.sources)
     if len(targets):
       msg_elements = ['Invalidated ',
-                      list_to_report_element([t.address.reference() for t in targets], 'target')]
+                      items_to_report_element([t.address.reference() for t in targets], 'target')]
       if len(sources) > 0:
         msg_elements.append(' containing ')
-        msg_elements.append(list_to_report_element(sources, 'source file'))
+        msg_elements.append(items_to_report_element(sources, 'source file'))
       if num_invalid_partitions > 1:
         msg_elements.append(' in %d target partitions' % num_invalid_partitions)
       msg_elements.append('.')
@@ -271,7 +271,7 @@ class Task(object):
   def _report_targets(self, prefix, targets, suffix):
     self.context.report(
       prefix,
-      list_to_report_element([t.address.reference() for t in targets], 'target'),
+      items_to_report_element([t.address.reference() for t in targets], 'target'),
       suffix)
 
 __all__ = (

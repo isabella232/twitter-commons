@@ -7,52 +7,11 @@ from pystache.renderer import Renderer
 
 from twitter.common.dirutil import safe_mkdir
 from twitter.pants import get_buildroot
-from twitter.pants.base.build_file import BuildFile
 from twitter.pants.base.mustache import MustacheRenderer
 from twitter.pants.goal.workunit import WorkUnit
+from twitter.pants.reporting.linkify import linkify
 from twitter.pants.reporting.reporter import Reporter
-from twitter.pants.reporting.reporting_utils import list_to_report_element
-
-
-# A regex to recognize substrings that are probably URLs or file paths. Broken down for readability.
-_PREFIX = r'(https?://)?/?' # http://, https:// or / or nothing.
-_REL_PATH_COMPONENT = r'(\w|[-.])+'  # One or more alphanumeric, underscore, dash or dot.
-_ABS_PATH_COMPONENT = '/' + _REL_PATH_COMPONENT
-_ABS_PATH_COMPONENTS = '(%s)+' % _ABS_PATH_COMPONENT
-_OPTIONAL_TARGET_SUFFIX = '(:%s)?' % _REL_PATH_COMPONENT  # For /foo/bar:target.
-
-# Note that we require at least two path components.
-# We require no trailing dots because some tools print an ellipsis after file names
-# (I'm looking at you, zinc). None of our files end in a dot in practice, so this is fine.
-_PATH = _PREFIX + _REL_PATH_COMPONENT + _ABS_PATH_COMPONENTS + _OPTIONAL_TARGET_SUFFIX + '\w'
-_PATH_RE = re.compile(_PATH)
-
-def linkify(buildroot, s):
-  """Augment text by heuristically finding URL and file references and turning them into links/"""
-  def to_url(m):
-    if m.group(1):
-      return m.group(0)  # It's an http(s) url.
-    path = m.group(0)
-    if path.startswith('/'):
-      path = os.path.relpath(path, buildroot)
-    else:
-      # See if it's a reference to a target in a BUILD file.
-      # TODO: Deal with sibling BUILD files?
-      parts = path.split(':')
-      if len(parts) == 2:
-        putative_dir = parts[0]
-      else:
-        putative_dir = path
-      if os.path.isdir(os.path.join(buildroot, putative_dir)):
-        path = os.path.join(putative_dir, BuildFile._CANONICAL_NAME)
-    if os.path.exists(os.path.join(buildroot, path)):
-      return '/browse/%s' % path
-    else:
-      return None
-
-  def maybe_add_link(url, text):
-    return '<a target="_blank" href="%s">%s</a>' % (url, text) if url else text
-  return _PATH_RE.sub(lambda m: maybe_add_link(to_url(m), m.group(0)), s)
+from twitter.pants.reporting.reporting_utils import items_to_report_element
 
 
 class HtmlReporter(Reporter):
@@ -102,36 +61,43 @@ class HtmlReporter(Reporter):
     is_multitool = workunit.has_label(WorkUnit.MULTITOOL)
     is_test = workunit.has_label(WorkUnit.TEST)
 
-    if workunit.parent is None:
-      header_text = 'all'
-    else:
-      header_text = workunit.name
-
-    # Create the template arguments.
+    # Get useful properties from the workunit.
     workunit_dict = workunit.to_dict()
     if workunit_dict['cmd']:
       workunit_dict['cmd'] = linkify(self._buildroot, workunit_dict['cmd'].replace('$', '\\\\$'))
+
+    # Create the template arguments.
     args = { 'indent': len(workunit.ancestors()) * 10,
              'html_path_base': self._html_path_base,
              'workunit': workunit_dict,
-             'header_text': header_text,
+             'header_text': workunit.name,
              'initially_open': is_test or not (is_tool or is_multitool),
              'is_tool': is_tool,
              'is_multitool': is_multitool }
     args.update({ 'collapsible': lambda x: self._render_callable('collapsible', x, args) })
 
+    # Render the workunit's div.
     s = self._renderer.render_name('workunit_start', args)
+
     if is_tool:
+      # This workunit is a tool invocation, so render the appropriate content.
+      # We use the same args, slightly modified.
       del args['initially_open']
-      if is_test:  # We usually want to see test framework output.
+      if is_test:
+        # Have test framework stdout open by default, but not that of other tools.
+        # This is an arbitrary choice, but one that turns out to be useful to users in practice.
         args['stdout_initially_open'] = True
       s += self._renderer.render_name('tool_invocation_start', args)
+
+    # ... and we're done.
     self._emit(s)
 
-  _status_css_classes = ['aborted', 'failure', 'warning', 'success', 'unknown']
+  # CSS classes from pants.css that we use to style the header text to reflect the outcome.
+  _outcome_css_classes = ['aborted', 'failure', 'warning', 'success', 'unknown']
 
   def end_workunit(self, workunit):
     """Implementation of Reporter callback."""
+    # Create the template arguments.
     duration = workunit.duration()
     timing = '%.3f' % duration
     unaccounted_time_secs = workunit.unaccounted_time()
@@ -139,7 +105,7 @@ class HtmlReporter(Reporter):
       if unaccounted_time_secs >= 1 and unaccounted_time_secs > 0.05 * duration \
       else None
     args = { 'workunit': workunit.to_dict(),
-             'status': workunit.choose(*HtmlReporter._status_css_classes),
+             'status': workunit.choose(*HtmlReporter._outcome_css_classes),
              'timing': timing,
              'unaccounted_time': unaccounted_time,
              'aborted': workunit.outcome() == WorkUnit.ABORTED }
@@ -165,22 +131,17 @@ class HtmlReporter(Reporter):
 
     # Update the artifact cache stats.
     def render_cache_stats(artifact_cache_stats):
-      def set_explicit_detail_id(e, id):
-        if isinstance(e, basestring):
-          return e # No details, so nothing to do.
-        else:
-          return e + (False, id)
+      def fix_detail_id(e, _id):
+        return e if isinstance(e, basestring) else e + (_id, )
 
       msg_elements = []
       for cache_name, stat in artifact_cache_stats.stats_per_cache.items():
         msg_elements.extend([
           cache_name + ' artifact cache: ',
-          # Explicitly set the detail ids, so we can check from JS whether they are visible.
-          set_explicit_detail_id(list_to_report_element(stat.hit_targets, 'hit'),
-                                 'cache-hit-details'),
+          # Explicitly set the detail ids, so their displayed/hidden state survives a refresh.
+          fix_detail_id(items_to_report_element(stat.hit_targets, 'hit'), 'cache-hit-details'),
           ', ',
-          set_explicit_detail_id(list_to_report_element(stat.miss_targets, 'miss'),
-                                 'cache-miss-details'),
+          fix_detail_id(items_to_report_element(stat.miss_targets, 'miss'), 'cache-miss-details'),
           '.'
         ])
       if not msg_elements:
@@ -205,27 +166,53 @@ class HtmlReporter(Reporter):
 
   def handle_message(self, workunit, *msg_elements):
     """Implementation of Reporter callback."""
-    s = self._append_to_workunit(workunit, self._render_message(*msg_elements))
+    content = self._render_message(*msg_elements)
+
+    # Generate some javascript that appends the content to the workunit's div.
+    args = {
+      'content_id': uuid.uuid4(),  # Identifies this content.
+      'workunit_id': workunit.id,  # The workunit this reporting content belongs to.
+      'content': content,  # The content to append.
+      }
+    s = self._renderer.render_name('append_to_workunit', args)
+
+    # Emit that javascript to the main report body.
     self._emit(s)
 
   def _render_message(self, *msg_elements):
     elements = []
     detail_ids = []
-    for e in msg_elements:
-      if isinstance(e, basestring):
-        elements.append({'text': self._htmlify_text(e)})
-      elif len(e) == 1:
-        elements.append({'text': self._htmlify_text(e[0])})
-      else:  # Assume it's a tuple (text, detail[, detail_initially_visible[, detail_id]])
-        detail_initially_visible = e[2] if len(e) > 2 else False
-        detail_id = e[3] if len(e) > 3 else uuid.uuid4()
+    for element in msg_elements:
+      # Each element can be a message or a (message, detail) pair, as received by handle_message().
+      #
+      # However, as an internal implementation detail, we also allow an element to be a tuple
+      # (message, detail, detail_initially_visible[, detail_id])
+      #
+      # - If the detail exists, clicking on the text will toggle display of the detail and close
+      #   all other details in this message.
+      # - If detail_initially_visible is True, the detail will be displayed by default.
+      #
+      # Toggling is managed via detail_ids: when clicking on a detail, it closes all details
+      # in this message with detail_ids different than that of the one being clicked on.
+      # We allow detail_id to be explicitly specified, so that the open/closed state can be
+      # preserved through refreshes. For example, when looking at the artifact cache stats,
+      # if "hits" are open and "misses" are closed, we want to remember that even after
+      # the cache stats are updated and the message re-rendered.
+      if isinstance(element, basestring):
+        element = [element]
+      (text, detail, detail_id, detail_initially_visible) = (list(element) + 4 * [None])[0:4]
+      element_args = {'text': self._htmlify_text(text) }
+      if detail is not None:
+        detail_id = detail_id or uuid.uuid4()
         detail_ids.append(detail_id)
-        elements.append({'text': self._htmlify_text(e[0]),
-                         'detail': self._htmlify_text(e[1]),
-                         'detail-id': detail_id,
-                         'detail_initially_visible': detail_initially_visible })
+        element_args.update({
+          'detail': self._htmlify_text(detail),
+          'detail_initially_visible': detail_initially_visible or False,
+          'detail-id': detail_id
+        })
+      elements.append(element_args)
     args = { 'elements': elements,
-             'detail-ids': detail_ids }
+             'all-detail-ids': detail_ids }
     return self._renderer.render_name('message', args)
 
   def _emit(self, s):
@@ -239,14 +226,6 @@ class HtmlReporter(Reporter):
     if os.path.exists(self._html_dir):  # Make sure we're not immediately after a clean-all.
       with open(os.path.join(self._html_dir, filename), 'w') as f:
         f.write(s)
-
-  def _append_to_workunit(self, workunit, s):
-    args = {
-      'output_id': uuid.uuid4(),
-      'workunit_id': workunit.id,
-      'str': s,
-      }
-    return self._renderer.render_name('output', args)
 
   def _render_callable(self, inner_template_name, arg_string, outer_args):
     """Handle a mustache callable.
@@ -271,7 +250,7 @@ class HtmlReporter(Reporter):
 
   def _htmlify_text(self, s):
     """Make text HTML-friendly."""
-    colored = self._handle_ansi_color_codes(cgi.escape(s))
+    colored = self._handle_ansi_color_codes(cgi.escape(str(s)))
     return linkify(self._buildroot, colored).replace('\n', '</br>')
 
   _ANSI_COLOR_CODE_RE = re.compile(r'\033\[((\d|;)*)m')

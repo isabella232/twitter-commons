@@ -39,7 +39,10 @@ class Report(object):
         reporter.start_workunit(workunit)
 
   def message(self, workunit, *msg_elements):
-    """Report a message."""
+    """Report a message.
+
+    Each element of msg_elements is either a message string or a (message, detail) pair.
+    """
     with self._lock:
       for reporter in self._reporters:
         reporter.handle_message(workunit, *msg_elements)

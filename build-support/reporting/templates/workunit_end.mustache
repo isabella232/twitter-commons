@@ -1,3 +1,4 @@
+{{! Finalize reporting for a finished workunit. }}
 <script>
   $('#{{workunit.id}}-header-text').addClass('{{status}}');
   $('#{{workunit.id}}-spinner').hide();
@@ -6,6 +7,7 @@
   {{#aborted}}$('#{{workunit.id}}-aborted').show();{{/aborted}}
 
   $(function(){
+    {{! Stop client-side timer. Note that we can get the completed workunit's timing from the server now.}}
     pants.timerManager.stopTimer('{{workunit.id}}');
   });
 </script>
