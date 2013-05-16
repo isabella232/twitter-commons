@@ -84,6 +84,9 @@ pants = {
     // A handle to the polling event, so we can cancel it if needed.
     var pollingEvent = undefined;
 
+    // Only allow one request in-flight at a time.
+    var inFlight = false;
+
     function pollOnce() {
       function forgetId(id) {
         delete polledFileStates[id];
@@ -95,78 +98,69 @@ pants = {
         }
       }
 
-      // The state objects of pollings currently in-flight to the server.
-      var inFlightStates = [];
-
       function createRequestEntry(state, id) {
-        if (state.inFlight) {  // Don't poll twice.
-          return null;
-        } else {
-          state.inFlight = true;
-          inFlightStates.push(state);
-          return { id: id, path: state.path, pos: state.pos };
-        }
+        return { id: id, path: state.path, pos: state.pos };
       }
 
-      $.ajax({
-        url: '/poll',
-        type: 'GET',
-        data: { q: JSON.stringify($.map(polledFileStates, createRequestEntry))},
-        dataType: 'json',
-        success: function(data, textStatus, jqXHR) {
-          function appendNewData() {
-            $.each(data, function(id, val) {
-              if (id in polledFileStates) {
-                var state = polledFileStates[id];
-                // Execute the initFunc exactly once.
-                if (!state.hasBeenPolledAtLeastOnce) {
-                  if (state.initFunc) { state.initFunc(); }
-                  state.hasBeenPolledAtLeastOnce = true;
-                }
-                if (state.predicate ? state.predicate(val) : true) {
-                  if (state.replace) {
-                    // Replacing can reset view state, so only do it if we have to.
-                    if (val != state.currentVal) {
-                      $(state.selector).html(val);
-                    }
-                  } else {
-                    $(state.selector).append(val);
-                    state.pos += val.length;
+      if (!inFlight) {
+        inFlight = true;
+        $.ajax({
+          url: '/poll',
+          type: 'GET',
+          data: { q: JSON.stringify($.map(polledFileStates, createRequestEntry))},
+          dataType: 'json',
+          success: function(data, textStatus, jqXHR) {
+            function appendNewData() {
+              $.each(data, function(id, val) {
+                if (id in polledFileStates) {
+                  var state = polledFileStates[id];
+                  // Execute the initFunc exactly once.
+                  if (!state.hasBeenPolledAtLeastOnce) {
+                    if (state.initFunc) { state.initFunc(); }
+                    state.hasBeenPolledAtLeastOnce = true;
                   }
-                  state.currentVal = val;
+                  if (state.predicate ? state.predicate(val) : true) {
+                    if (state.replace) {
+                      // Replacing can reset view state, so only do it if we have to.
+                      if (val != state.currentVal) {
+                        $(state.selector).html(val);
+                      }
+                    } else {
+                      $(state.selector).append(val);
+                      state.pos += val.length;
+                    }
+                    state.currentVal = val;
+                  }
                 }
-              }
-            });
-          }
+              });
+            }
 
-          function checkForStopped() {
-            var toDelete = [];
-            $.each(polledFileStates, function(id, state) {
-              if (state.toBeStopped && state.hasBeenPolledAtLeastOnce) {
-                toDelete.push(id);
-              }
-            });
-            $.each(toDelete, function(idx, id) { forgetId(id); });
+            function checkForStopped() {
+              var toDelete = [];
+              $.each(polledFileStates, function(id, state) {
+                if (state.toBeStopped && state.hasBeenPolledAtLeastOnce) {
+                  toDelete.push(id);
+                }
+              });
+              $.each(toDelete, function(idx, id) { forgetId(id); });
+            }
+            appendNewData();
+            checkForStopped();
+          },
+          error: function(jqXHR, textStatus, errorThrown) {
+            // Not necessary to do anything special on error. A future request will catch us up.
+          },
+          complete: function(jqXHR, textStatus) {
+            inFlight = false;
           }
-          appendNewData();
-          checkForStopped();
-        },
-        error: function(jqXHR, textStatus, errorThrown) {
-          // Not necessary to do anything special on error. A future polling will catch us up.
-        },
-        complete: function(jqXHR, textStatus) {
-          // Reset the in-flight state.
-          $.each(inFlightStates, function(idx, state) { state.inFlight = false; });
-          inFlightStates.length = 0;  // Truncate the list of in-flight pollings.
-        }
-      });
+        });
+      }
     }
 
     function doStartPolling(id, path, targetSelector, initFunc, predicate, replace) {
       polledFileStates[id] = {
         path: path,  // Path of file on server to poll, relative to build root.
         pos: 0,  // Position to poll from.
-        inFlight: false,
         replace: replace,  // Whether to append or replace the polled content.
         currentVal: '',
         selector: targetSelector,  // append or replace the polled content to this element.
