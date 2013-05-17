@@ -1,7 +1,6 @@
 import sys
-import threading
 
-from collections import defaultdict, namedtuple
+from collections import namedtuple
 
 from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.reporting.report import Report
