@@ -14,7 +14,6 @@
 # limitations under the License.
 # ==================================================================================================
 
-import daemon
 import errno
 import inspect
 import multiprocessing
@@ -24,11 +23,10 @@ import signal
 import socket
 import time
 import traceback
-
 from contextlib import contextmanager
 from optparse import Option, OptionParser
 
-from functools import wraps
+import daemon
 
 from twitter.common import log
 from twitter.common.collections import OrderedSet
@@ -39,13 +37,12 @@ from twitter.pants.base import Address, BuildFile, Config, ParseContext, Target
 from twitter.pants.base.rcfile import RcFile
 from twitter.pants.commands import Command
 from twitter.pants.goal.workunit import WorkUnit
-from twitter.pants.reporting.console_reporter import ConsoleReporter
-from twitter.pants.reporting.html_reporter import HtmlReporter
 from twitter.pants.reporting.report import Report
 from twitter.pants.reporting.reporting_server import ReportingServer
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.nailgun_task import NailgunTask
 from twitter.pants.goal import Context, GoalError, Phase, RunTracker, default_report
+
 
 try:
   import colors
@@ -53,7 +50,6 @@ except ImportError:
   turn_off_colored_logging = True
 else:
   turn_off_colored_logging = False
-
 
 StringIO = Compatibility.StringIO
 
@@ -178,12 +174,10 @@ class Goal(Command):
            help="Explain the execution of goals."),
     Option("-k", "--kill-nailguns", action="store_true", dest="cleanup_nailguns", default=False,
            help="Kill nailguns before exiting"),
-    Option("-v", "--log", action="store_true", dest="log", default=False,
-           help="[%default] Logs extra build output."),
     Option("-d", "--logdir", dest="logdir",
            help="[%default] Forks logs to files under this directory."),
     Option("-l", "--level", dest="log_level", type="choice", choices=['debug', 'info', 'warn'],
-           help="[info] Sets the logging level to one of 'debug', 'info' or 'warn', implies -v "
+           help="[info] Sets the logging level to one of 'debug', 'info' or 'warn'."
                 "if set."),
     Option("--no-colors", dest="no_color", action="store_true", default=turn_off_colored_logging,
            help="Do not colorize log messages."),
@@ -421,7 +415,7 @@ class Goal(Command):
       }
     }
     self.run_tracker.update_report_settings(settings_updates_map)
-    # TODO: Support --logdir
+    # TODO: Do something useful with --logdir.
 
     try:
       if self.options.dry_run:
