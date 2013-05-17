@@ -31,11 +31,12 @@ def default_report(config, run_tracker):
   console_reporter = ConsoleReporter(run_tracker, console_reporter_settings)
 
   template_dir = config.get('reporting', 'reports_template_dir')
-  html_reporter_settings = HtmlReporter.Settings(html_dir=html_dir, template_dir=template_dir)
+  html_reporter_settings = HtmlReporter.Settings(log_level=Report.INFO,
+                                                 html_dir=html_dir, template_dir=template_dir)
   html_reporter = HtmlReporter(run_tracker, html_reporter_settings)
 
-  report.add_reporter(console_reporter)
-  report.add_reporter(html_reporter)
+  report.add_reporter('console', console_reporter)
+  report.add_reporter('html', html_reporter)
 
   run_tracker.run_info.add_info('default_report', html_reporter.report_path())
 

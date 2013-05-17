@@ -40,6 +40,7 @@ from twitter.pants.base.rcfile import RcFile
 from twitter.pants.commands import Command
 from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.reporting.console_reporter import ConsoleReporter
+from twitter.pants.reporting.html_reporter import HtmlReporter
 from twitter.pants.reporting.report import Report
 from twitter.pants.reporting.reporting_server import ReportingServer
 from twitter.pants.tasks import Task, TaskError
@@ -408,12 +409,18 @@ class Goal(Command):
 
     log_level = Report.log_level_from_string(self.options.log_level or 'info')
     color = not self.options.no_color
-    indent = True
     timing = self.options.time
     cache_stats = self.options.time  # TODO: Separate flag for this?
-    console_reporter_settings = ConsoleReporter.Settings(log_level=log_level, color=color,
-      indent=indent, timing=timing, cache_stats=cache_stats)
-    self.run_tracker.update_report_settings(console_reporter_settings)
+
+    settings_updates_map = {
+      'console': {
+        'log_level': log_level, 'color': color, 'timing': timing, 'cache_stats': cache_stats
+      },
+      'html': {
+        'log_level': log_level
+      }
+    }
+    self.run_tracker.update_report_settings(settings_updates_map)
     # TODO: Support --logdir
 
     try:
@@ -596,7 +603,7 @@ class RunServer(Task):
 
       def report_launch():
         reporting_queue.put(
-          'Launching server with pid %d at http://localhost:%d\n' % (os.getpid(), port))
+          'Launching server with pid %d at http://localhost:%d' % (os.getpid(), port))
 
       def done_reporting():
         reporting_queue.put(DONE)
@@ -618,7 +625,7 @@ class RunServer(Task):
           server.start(run_before_blocking=[write_pidfile, report_launch, done_reporting])
       except socket.error, e:
         if e.errno == errno.EADDRINUSE:
-          reporting_queue.put('Server already running at http://localhost:%d\n' % port)
+          reporting_queue.put('Server already running at http://localhost:%d' % port)
           done_reporting()
           return
         else:
@@ -662,7 +669,7 @@ class KillServer(Task):
       except (ValueError, OSError):
         pass
     else:
-      self.context.log.info('No server found.\n')
+      self.context.log.info('No server found.')
 
 goal(
   name='killserver',

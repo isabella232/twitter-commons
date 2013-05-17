@@ -195,14 +195,14 @@ class Task(object):
         # Do some reporting.
         for t in all_cached_targets:
           self.context.run_tracker.artifact_cache_stats.add_hit('default', t)
-        self._report_targets('Using cached artifacts for ', all_cached_targets, '.\n')
+        self._report_targets('Using cached artifacts for ', all_cached_targets, '.')
 
       # Now that we've checked the cache, re-partition whatever is still invalid.
       if uncached_targets:
         for vts in uncached_targets:
           self.context.run_tracker.artifact_cache_stats.add_miss('default', vts.target)
         self._report_targets('No cached artifacts for ',
-                             [vt.target for vt in uncached_targets], '.\n')
+                             [vt.target for vt in uncached_targets], '.')
       invalidation_check = \
         InvalidationCheck(invalidation_check.all_vts, uncached_targets, partition_size_hint)
 

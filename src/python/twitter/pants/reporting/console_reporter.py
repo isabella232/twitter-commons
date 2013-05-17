@@ -25,12 +25,12 @@ class ConsoleReporter(Reporter):
   """Plain-text reporting to stdout."""
 
   # Console reporting settings.
-  #   log_level: Display log messages up to this level.
   #   color: use ANSI colors in output.
   #   indent: Whether to indent the reporting to reflect the nesting of workunits.
   #   timing: Show timing report at the end of the run.
   #   cache_stats: Show artifact cache report at the end of the run.
-  Settings = namedtuple('Settings', ['log_level', 'color', 'indent', 'timing', 'cache_stats'])
+  Settings = namedtuple('Settings',
+                        Reporter.Settings._fields + ('color', 'indent', 'timing', 'cache_stats'))
 
   def __init__(self, run_tracker, settings):
     Reporter.__init__(self, run_tracker, settings)
@@ -86,7 +86,7 @@ class ConsoleReporter(Reporter):
       with self._lock:
         self._needs_newline[workunit.parent.id] = False
 
-  def handle_log(self, workunit, level, *msg_elements):
+  def do_handle_log(self, workunit, level, *msg_elements):
     """Implementation of Reporter callback."""
     # If the element is a (msg, detail) pair, we ignore the detail. There's no
     # useful way to display it on the console.
@@ -95,7 +95,7 @@ class ConsoleReporter(Reporter):
       if not self._needs_newline[workunit.id]:
         elements.insert(0, '\n')
         self._needs_newline[workunit.id] = True
-    msg = ''.join(elements)
+    msg = ''.join(elements) + '\n'
     if self.settings.color:
       msg = _colorfunc_map.get(level, lambda x: x)(msg)
     sys.stdout.write(self._prefix(workunit, msg))

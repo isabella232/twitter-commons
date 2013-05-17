@@ -25,7 +25,7 @@ class HtmlReporter(Reporter):
   # HTML reporting settings.
   #   html_dir: Where the report files go.
   #   template_dir: Where to find mustache templates.
-  Settings = namedtuple('Settings', ['html_dir', 'template_dir'])
+  Settings = namedtuple('Settings', Reporter.Settings._fields + ('html_dir', 'template_dir'))
 
   def __init__(self, run_tracker, settings):
     Reporter.__init__(self, run_tracker, settings)
@@ -170,7 +170,7 @@ class HtmlReporter(Reporter):
       # We must flush in the same thread as the write.
       f.flush()
 
-  def handle_log(self, workunit, level, *msg_elements):
+  def do_handle_log(self, workunit, level, *msg_elements):
     """Implementation of Reporter callback."""
     content = self._render_message(*msg_elements)
 

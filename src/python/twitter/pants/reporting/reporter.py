@@ -1,3 +1,5 @@
+from collections import namedtuple
+
 
 class Reporter(object):
   """Formats and emits reports.
@@ -5,17 +7,19 @@ class Reporter(object):
   Subclasses implement the callback methods, to provide specific reporting
   functionality, e.g., to console or to browser.
   """
+
+  # Generic reporting settings.
+  #   log_level: Display log messages up to this level.
+  #   subsettings: subclass-specific settings.
+  Settings = namedtuple('Settings', ['log_level'])
+
   def __init__(self, run_tracker, settings):
     self.run_tracker = run_tracker
-    self.update_settings(settings)
+    self.settings = settings
 
-  def update_settings(self, settings):
-    """Modify reporting settings once we've got cmd-line flags etc.
-
-    A subclass will ignore settings objects not of the expected type, so its safe
-    to pass any settings here."""
-    if isinstance(settings, type(self).Settings):
-      self.settings = settings
+  def update_settings(self, updates):
+    """Modify reporting settings once we've got cmd-line flags etc."""
+    self.settings = self.settings._replace(**updates)
 
   def open(self):
     """Begin the report."""
@@ -41,7 +45,14 @@ class Reporter(object):
     Each element in msg_elements is either a message or a (message, detail) pair.
     A subclass must show the message, but may choose to show the detail in some
     sensible way (e.g., when the message text is clicked on in a browser).
+
+    This convenience implementation filters by log level and then delegates to do_handle_log.
     """
+    if level <= self.settings.log_level:
+      self.do_handle_log(workunit, level, *msg_elements)
+
+  def do_handle_log(self, workunit, level, *msg_elements):
+    """Handle a message logged by pants code, after it's passed the log level check."""
     pass
 
   def handle_output(self, workunit, label, s):
