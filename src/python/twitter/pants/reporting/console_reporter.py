@@ -67,7 +67,7 @@ class ConsoleReporter(Reporter):
       with self._lock:
         self._needs_newline[workunit.parent.id] = False
 
-  def handle_message(self, workunit, *msg_elements):
+  def handle_log(self, workunit, level, *msg_elements):
     """Implementation of Reporter callback."""
     # If the element is a (msg, detail) pair, we ignore the detail. There's no
     # useful way to display it on the console.

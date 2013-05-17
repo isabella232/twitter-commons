@@ -648,7 +648,7 @@ class RunServer(Task):
     proc.start()
     s = reporting_queue.get()
     while s != DONE:
-      self.context.report(s)
+      self.context.log.info(s)
       s = reporting_queue.get()
     # The child process is done reporting, and is now in the server loop, so we can proceed.
 
@@ -673,11 +673,11 @@ class KillServer(Task):
         os.unlink(pidfile)
         pid = int(pidstr)
         os.kill(pid, signal.SIGKILL)
-        self.context.report('Killed server with pid %d at http://localhost:%d\n' % (pid, port))
+        self.context.log.info('Killed server with pid %d at http://localhost:%d\n' % (pid, port))
       except (ValueError, OSError):
         pass
     else:
-      self.context.report('No server found.\n')
+      self.context.log.info('No server found.\n')
 
 goal(
   name='killserver',

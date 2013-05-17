@@ -194,8 +194,8 @@ class ScalaCompile(NailgunTask):
     merged_artifact = self._artifact_factory.merged_artifact(artifacts)
 
     if not merged_artifact.sources:
-      self.context.report('Skipping scala compile for targets with no sources:\n  %s' %
-                          merged_artifact.targets)
+      self.context.log.warn('Skipping scala compile for targets with no sources:\n  %s' %
+                            merged_artifact.targets)
     else:
       # Get anything we have from previous builds (or we pulled from the artifact cache).
       # We must do this even if we're not going to compile, because the merged output dir
@@ -213,7 +213,7 @@ class ScalaCompile(NailgunTask):
       if any([not vt.valid for vt in vts.versioned_targets]):
         # Do some reporting.
         prefix = 'Operating on a partition containing '
-        self.context.report(
+        self.context.log.info(
           prefix,
           items_to_report_element([t.address.reference() for t in vts.targets], 'target'), '.')
         old_state = current_state

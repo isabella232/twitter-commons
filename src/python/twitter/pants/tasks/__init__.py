@@ -222,7 +222,7 @@ class Task(object):
       if num_invalid_partitions > 1:
         msg_elements.append(' in %d target partitions' % num_invalid_partitions)
       msg_elements.append('.')
-      self.context.report(*msg_elements)
+      self.context.log.info(*msg_elements)
 
     # Yield the result, and then mark the targets as up to date.
     yield invalidation_check
@@ -269,7 +269,7 @@ class Task(object):
           self._artifact_cache.insert(vt.cache_key, build_artifacts)
 
   def _report_targets(self, prefix, targets, suffix):
-    self.context.report(
+    self.context.log.info(
       prefix,
       items_to_report_element([t.address.reference() for t in targets], 'target'),
       suffix)

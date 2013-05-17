@@ -9,6 +9,13 @@ class ReportingError(Exception):
 class Report(object):
   """A report of a pants run."""
 
+  # Log levels.
+  FATAL = 0
+  ERROR = 1
+  WARN = 2
+  INFO = 3
+  VERBOSE = 4
+
   def __init__(self):
     # We periodically emit newly gathered output from tool invocations.
     self._emitter_thread = \
@@ -38,14 +45,14 @@ class Report(object):
       for reporter in self._reporters:
         reporter.start_workunit(workunit)
 
-  def message(self, workunit, *msg_elements):
-    """Report a message.
+  def log(self, workunit, level, *msg_elements):
+    """Log a message.
 
     Each element of msg_elements is either a message string or a (message, detail) pair.
     """
     with self._lock:
       for reporter in self._reporters:
-        reporter.handle_message(workunit, *msg_elements)
+        reporter.handle_log(workunit, level, *msg_elements)
 
   def end_workunit(self, workunit):
     with self._lock:

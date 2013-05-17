@@ -25,8 +25,10 @@ class Reporter(object):
     """A workunit has finished."""
     pass
 
-  def handle_message(self, workunit, *msg_elements):
-    """Handle a message reported by pants code.
+  def handle_log(self, workunit, level, *msg_elements):
+    """Handle a message logged by pants code.
+
+    level: One of the constants above.
 
     Each element in msg_elements is either a message or a (message, detail) pair.
     A subclass must show the message, but may choose to show the detail in some

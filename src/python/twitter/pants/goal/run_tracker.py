@@ -17,11 +17,9 @@ class RunTracker(object):
 
   run_tracker.start()
   with run_tracker.new_workunit('compile'):
-    with run_tracker.new_workunit('java') as workunit1:
-      workunit1.report('Compiling java.')
+    with run_tracker.new_workunit('java'):
       ...
-      workunit1.report('Done compiling java.')
-    with run_tracker.new_workunit('scala') as workunit2:
+    with run_tracker.new_workunit('scala'):
       ...
   run_tracker.close()
 
@@ -123,9 +121,9 @@ class RunTracker(object):
       self._current_workunit.end()
       self._current_workunit = self._current_workunit.parent
 
-  def report(self, *msg_elements):
+  def log(self, level, *msg_elements):
     """Log a message against the current workunit."""
-    self._report.message(self._current_workunit, *msg_elements)
+    self._report.log(self._current_workunit, level, *msg_elements)
 
   def end(self):
     """This pants run is over, so stop tracking it."""

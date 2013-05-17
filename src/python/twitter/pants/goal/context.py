@@ -15,6 +15,7 @@ from twitter.pants import SourceRoot
 from twitter.pants.base import ParseContext
 from twitter.pants.base.target import Target
 from twitter.pants.goal.products import Products
+from twitter.pants.reporting.report import Report
 from twitter.pants.targets import Pants
 
 
@@ -38,21 +39,27 @@ class Context(object):
   """
 
   class Log(object):
-    def debug(self, msg): pass
-    def info(self, msg): pass
-    def warn(self, msg): pass
+    """A logger facade that logs into the pants reporting framework."""
+    def __init__(self, run_tracker):
+      self._run_tracker = run_tracker
+
+    def debug(self, *msg_elements): self._run_tracker.log(Report.VERBOSE, *msg_elements)
+    def info(self, *msg_elements): self._run_tracker.log(Report.INFO, *msg_elements)
+    def warn(self, *msg_elements): self._run_tracker.log(Report.WARN, *msg_elements)
+    def error(self, *msg_elements): self._run_tracker.log(Report.ERROR, *msg_elements)
+    def fatal(self, *msg_elements): self._run_tracker.log(Report.FATAL, *msg_elements)
 
   def __init__(self, config, options, run_tracker, target_roots, requested_goals=None,
                lock=Lock.unlocked(), log=None, target_base=None):
     self._config = config
     self._options = options
+    self.run_tracker = run_tracker
     self._lock = lock
-    self._log = log or Context.Log()
+    self._log = log or Context.Log(run_tracker)
     self._target_base = target_base or Target
     self._state = {}
     self._products = Products()
     self._buildroot = get_buildroot()
-    self.run_tracker = run_tracker
     self.requested_goals = requested_goals or []
 
     self.replace_targets(target_roots)
@@ -200,9 +207,6 @@ class Context(object):
     """Returns an iterator over the target(s) the given address points to."""
     with ParseContext.temp():
       return Pants(spec).resolve()
-
-  def report(self, *msg_elements):
-    self.run_tracker.report( *msg_elements)
 
   @contextmanager
   def state(self, key, default=None):

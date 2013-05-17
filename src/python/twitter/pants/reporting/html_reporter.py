@@ -163,7 +163,7 @@ class HtmlReporter(Reporter):
       # We must flush in the same thread as the write.
       f.flush()
 
-  def handle_message(self, workunit, *msg_elements):
+  def handle_log(self, workunit, level, *msg_elements):
     """Implementation of Reporter callback."""
     content = self._render_message(*msg_elements)
 
@@ -182,7 +182,7 @@ class HtmlReporter(Reporter):
     elements = []
     detail_ids = []
     for element in msg_elements:
-      # Each element can be a message or a (message, detail) pair, as received by handle_message().
+      # Each element can be a message or a (message, detail) pair, as received by handle_log().
       #
       # However, as an internal implementation detail, we also allow an element to be a tuple
       # (message, detail, detail_initially_visible[, detail_id])

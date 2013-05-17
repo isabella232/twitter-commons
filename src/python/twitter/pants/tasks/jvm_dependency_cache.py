@@ -41,7 +41,7 @@ class JvmDependencyCache(object):
   - check_intransitive_deps: a flag which determines whether or not to generate errors about
     intransitive dependency errors, where a target has a dependency on another target which
     it doesn't declare, but which is part of its transitive dependency graph. If this is set
-    to "none", intransitive errors won't be reported. If "warn", then it will print warning
+    to 'none', intransitive errors won't be reported. If "warn", then it will print warning
     messages, but will not cause the build to fail, and will not populate build products with
     the errors. If "error", then the messages will be printed, build products populated, and
     the build will fail.
@@ -287,7 +287,7 @@ class JvmDependencyCache(object):
     for s in targets_by_source:
       if len(targets_by_source[s]) > 1:
         overlapping_sources.add(s)
-        self.context.report(
+        self.context.log.error(
           "Error: source file %s included in multiple targets %s" % (s, targets_by_source[s]))
 
   def get_computed_jar_dependency_relations(self):
@@ -427,9 +427,9 @@ class JvmDependencyCache(object):
            [ x.derived_from.address.reference() for x in undeclared_deps])
       genmap.add(target, self.context._buildroot, )
       for dep_target in undeclared_deps:
-        self.context.report("Error: target %s has undeclared compilation dependency on %s," %
+        self.context.log.error("Error: target %s has undeclared compilation dependency on %s," %
                (target.address, dep_target.derived_from.address.reference()))
-        self.context.report("       because source file %s depends on class %s" %
+        self.context.log.error("       because source file %s depends on class %s" %
                self.get_dependency_blame(target, dep_target, targets_by_class, targets_by_source))
         intransitive_undeclared_deps.discard(dep_target)
     if self.check_intransitive_deps is not 'none' and len(intransitive_undeclared_deps) > 0:
@@ -437,10 +437,12 @@ class JvmDependencyCache(object):
       genmap.add(target, self.context._buildroot,
         [ x.derived_from.address.reference() for x in intransitive_undeclared_deps])
       for dep_target in intransitive_undeclared_deps:
-        self.context.report("Error: target %s has undeclared intransitive compilation dependency on %s," %
-               (target.address.reference(), dep_target.derived_from.address.reference()))
-        self.context.report("       because source file %s depends on class %s" %
-               self.get_dependency_blame(target, dep_target, targets_by_class, targets_by_source))
+        self.context.log.error(
+          "Error: target %s has undeclared intransitive compilation dependency on %s," %
+          (target.address.reference(), dep_target.derived_from.address.reference()))
+        self.context.log.error(
+          "       because source file %s depends on class %s" %
+          self.get_dependency_blame(target, dep_target, targets_by_class, targets_by_source))
 
     return undeclared_deps, intransitive_undeclared_deps
 
@@ -503,7 +505,7 @@ class JvmDependencyCache(object):
       if len(overdeps) > 0:
         for deptarget in overdeps:
           if isinstance(deptarget, JvmTarget) and not deptarget.has_label('synthetic'):
-            self.context.report("Warning: target %s declares un-needed dependency on: %s" %
+            self.context.log.warn("Warning: target %s declares un-needed dependency on: %s" %
               (target, deptarget))
 
   def _dependency_walk_work(self, deps, jar_deps, target):
