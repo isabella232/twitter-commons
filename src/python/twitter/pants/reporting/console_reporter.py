@@ -1,7 +1,7 @@
 import sys
 import threading
 
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 
 from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.reporting.report import Report
@@ -24,10 +24,16 @@ except ImportError:
 class ConsoleReporter(Reporter):
   """Plain-text reporting to stdout."""
 
-  def __init__(self, run_tracker, indenting):
-    """If indenting is True, we indent the reporting to reflect the nesting of workunits."""
-    Reporter.__init__(self, run_tracker)
-    self._indenting = indenting
+  # Console reporting settings.
+  #   log_level: Display log messages up to this level.
+  #   color: use ANSI colors in output.
+  #   indent: Whether to indent the reporting to reflect the nesting of workunits.
+  #   timing: Show timing report at the end of the run.
+  #   cache_stats: Show artifact cache report at the end of the run.
+  Settings = namedtuple('Settings', ['log_level', 'color', 'indent', 'timing', 'cache_stats'])
+
+  def __init__(self, run_tracker, settings):
+    Reporter.__init__(self, run_tracker, settings)
     # We don't want spurious newlines between nested workunits, so we only emit them
     # when we need to write content to the workunit. This is a bit hacky, but effective.
     self._lock = threading.Lock()  # Protects self._needs_newline, in caseof parallel workunits.
@@ -39,9 +45,7 @@ class ConsoleReporter(Reporter):
 
   def close(self):
     """Implementation of Reporter callback."""
-    # TODO(benjy): Find another way to get this setting. This is the only reason we need
-    # RunTracker to have a reference to options, and it would be much nicer to get rid of it.
-    if self.run_tracker.options.time:
+    if self.settings.timing:
       print('\n')
       print('Cumulative Timings')
       print('==================')
@@ -50,6 +54,7 @@ class ConsoleReporter(Reporter):
       print('Self Timings')
       print('============')
       print(self._format_aggregated_timings(self.run_tracker.self_timings))
+    if self.settings.cache_stats:
       print('\n')
       print('Artifact Cache Stats')
       print('====================')
@@ -66,7 +71,7 @@ class ConsoleReporter(Reporter):
                        (workunit.start_time_string(),
                         workunit.start_delta_string(),
                         self._indent(workunit),
-                        workunit.name if self._indenting else workunit.path()))
+                        workunit.name if self.settings.indent else workunit.path()))
     sys.stdout.flush()
 
   def end_workunit(self, workunit):
@@ -91,7 +96,7 @@ class ConsoleReporter(Reporter):
         elements.insert(0, '\n')
         self._needs_newline[workunit.id] = True
     msg = ''.join(elements)
-    if not self.run_tracker.options.no_color:
+    if self.settings.color:
       msg = _colorfunc_map.get(level, lambda x: x)(msg)
     sys.stdout.write(self._prefix(workunit, msg))
 
@@ -121,7 +126,7 @@ class ConsoleReporter(Reporter):
 
   _time_string_filler = ' ' * len('HH:MM:SS mm:ss ')
   def _prefix(self, workunit, s):
-    if self._indenting:
+    if self.settings.indent:
       return s.replace('\n', '\n' + ConsoleReporter._time_string_filler + self._indent(workunit))
     else:
       return ConsoleReporter._time_string_filler + s

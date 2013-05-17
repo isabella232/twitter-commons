@@ -28,13 +28,6 @@ import traceback
 from contextlib import contextmanager
 from optparse import Option, OptionParser
 
-try:
-  from colors import yellow, green, cyan
-except ImportError:
-  turn_off_colored_logging = True
-else:
-  turn_off_colored_logging = False
-
 from functools import wraps
 
 from twitter.common import log
@@ -46,10 +39,19 @@ from twitter.pants.base import Address, BuildFile, Config, ParseContext, Target
 from twitter.pants.base.rcfile import RcFile
 from twitter.pants.commands import Command
 from twitter.pants.goal.workunit import WorkUnit
-from twitter.pants.reporting import reporting_server
+from twitter.pants.reporting.console_reporter import ConsoleReporter
+from twitter.pants.reporting.report import Report
+from twitter.pants.reporting.reporting_server import ReportingServer
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.nailgun_task import NailgunTask
 from twitter.pants.goal import Context, GoalError, Phase, RunTracker, default_report
+
+try:
+  import colors
+except ImportError:
+  turn_off_colored_logging = True
+else:
+  turn_off_colored_logging = False
 
 
 StringIO = Compatibility.StringIO
@@ -402,46 +404,21 @@ class Goal(Command):
       Phase.setup_parser(parser, args, self.phases)
 
   def run(self, lock):
-    # Clunky, but we must init the RunTracker in setup_parser(), and options can't be parsed
-    # until after that.
-    self.run_tracker.options = self.options
+    # Update the reporting settings, now that we have flags etc.
+
+    log_level = Report.log_level_from_string(self.options.log_level or 'info')
+    color = not self.options.no_color
+    indent = True
+    timing = self.options.time
+    cache_stats = self.options.time  # TODO: Separate flag for this?
+    console_reporter_settings = ConsoleReporter.Settings(log_level=log_level, color=color,
+      indent=indent, timing=timing, cache_stats=cache_stats)
+    self.run_tracker.update_report_settings(console_reporter_settings)
+    # TODO: Support --logdir
 
     try:
       if self.options.dry_run:
         print '****** Dry Run ******'
-
-      logger = None
-      if self.options.log or self.options.log_level:
-        log.LogOptions.set_stderr_log_level((self.options.log_level or 'info').upper())
-        logdir = self.options.logdir or self.config.get('goals', 'logdir', default=None)
-        if logdir:
-          safe_mkdir(logdir)
-          log.LogOptions.set_log_dir(logdir)
-          log.init('goals')
-        else:
-          log.init()
-        logger = log
-
-        if not self.options.no_color:
-          def colorwrapper(func, clrname):
-            @wraps(func)
-            def wrapper(msg, *args, **kwargs):
-              return func(clrname(msg), *args, **kwargs)
-            return wrapper
-
-          log.info = colorwrapper(log.info, green)
-          log.warn = colorwrapper(log.warn, yellow)
-          log.debug = colorwrapper(log.debug, cyan)
-
-      if self.options.recursive_directory:
-        log.warn('--all-recursive is deprecated, use a target spec with the form [dir]:: instead')
-        for dir in self.options.recursive_directory:
-          self.add_target_recursive(dir)
-
-      if self.options.target_directory:
-        log.warn('--all is deprecated, use a target spec with the form [dir]: instead')
-        for dir in self.options.target_directory:
-          self.add_target_directory(dir)
 
       context = Context(
         self.config,
@@ -449,8 +426,19 @@ class Goal(Command):
         self.run_tracker,
         self.targets,
         requested_goals=self.requested_goals,
-        lock=lock,
-        log=logger)
+        lock=lock)
+
+      # TODO: Time to get rid of this hack.
+      if self.options.recursive_directory:
+        context.log.warn(
+          '--all-recursive is deprecated, use a target spec with the form [dir]:: instead')
+        for dir in self.options.recursive_directory:
+          self.add_target_recursive(dir)
+
+      if self.options.target_directory:
+        context.log.warn('--all is deprecated, use a target spec with the form [dir]: instead')
+        for dir in self.options.target_directory:
+          self.add_target_directory(dir)
 
       unknown = []
       for phase in self.phases:
@@ -461,9 +449,6 @@ class Goal(Command):
         print('Unknown goal(s): %s' % ' '.join(phase.name for phase in unknown))
         print('')
         return Phase.execute(context, 'goals')
-
-      if logger:
-        logger.debug('Operating on targets: %s', self.targets)
 
       ret = Phase.attempt(context, self.phases)
     finally:
@@ -625,10 +610,10 @@ class RunServer(Task):
           info_dir = self.context.config.getdefault('info_dir')
           template_dir = self.context.config.get('reporting', 'reports_template_dir')
           assets_dir = self.context.config.get('reporting', 'reports_assets_dir')
-          settings = reporting_server.Settings(info_dir=info_dir, template_dir=template_dir,
-                                               assets_dir=assets_dir, root=get_buildroot(),
-                                               allowed_clients=self.context.options.allowed_clients)
-          server = reporting_server.ReportingServer(port, settings)
+          settings = ReportingServer.Settings(info_dir=info_dir, template_dir=template_dir,
+                                              assets_dir=assets_dir, root=get_buildroot(),
+                                              allowed_clients=self.context.options.allowed_clients)
+          server = ReportingServer(port, settings)
           # Block forever here.
           server.start(run_before_blocking=[write_pidfile, report_launch, done_reporting])
       except socket.error, e:

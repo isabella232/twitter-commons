@@ -5,9 +5,17 @@ class Reporter(object):
   Subclasses implement the callback methods, to provide specific reporting
   functionality, e.g., to console or to browser.
   """
-  def __init__(self, run_tracker):
+  def __init__(self, run_tracker, settings):
     self.run_tracker = run_tracker
-    self.formatter = None
+    self.update_settings(settings)
+
+  def update_settings(self, settings):
+    """Modify reporting settings once we've got cmd-line flags etc.
+
+    A subclass will ignore settings objects not of the expected type, so its safe
+    to pass any settings here."""
+    if isinstance(settings, type(self).Settings):
+      self.settings = settings
 
   def open(self):
     """Begin the report."""

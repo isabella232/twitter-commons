@@ -16,6 +16,15 @@ class Report(object):
   INFO = 3
   DEBUG = 4
 
+  _log_level_name_map = {
+    'FATAL': FATAL, 'ERROR': ERROR, 'WARN': WARN, 'WARNING': WARN, 'INFO': INFO, 'DEBUG': DEBUG
+  }
+
+  @staticmethod
+  def log_level_from_string(s):
+    s = s.upper()
+    return Report._log_level_name_map.get(s, Report.INFO)
+
   def __init__(self):
     # We periodically emit newly gathered output from tool invocations.
     self._emitter_thread = \
@@ -30,6 +39,11 @@ class Report(object):
 
     # We synchronize on this, to support parallel execution.
     self._lock = threading.Lock()
+
+  def update_settings(self, settings):
+    """Modify reporting settings once we've got cmd-line flags etc."""
+    for reporter in self._reporters:
+      reporter.update_settings(settings)
 
   def open(self):
     for reporter in self._reporters:

@@ -64,10 +64,6 @@ class RunTracker(object):
     # TODO: What does this mean when executing multiple workunits in parallel?
     self._current_workunit = None
 
-    # Set later, after options are parsed.
-    # TODO: Get rid of this. We only need it in one place, so find some other solution for that.
-    self.options = None
-
   def start(self, report):
     """Start tracking this pants run.
 
@@ -81,6 +77,11 @@ class RunTracker(object):
 
     self._report.start_workunit(self.root_workunit)
     self._current_workunit = self.root_workunit
+
+  def update_report_settings(self, settings):
+    """Modify reporting settings once we've got cmd-line flags etc."""
+    if self._report:
+      self._report.update_settings(settings)
 
   @contextmanager
   def new_workunit(self, name, labels=list(), cmd=''):

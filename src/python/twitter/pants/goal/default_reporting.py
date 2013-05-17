@@ -26,9 +26,13 @@ def default_report(config, run_tracker):
 
   report = Report()
 
-  console_reporter = ConsoleReporter(run_tracker, indenting=True)
+  console_reporter_settings = ConsoleReporter.Settings(log_level=Report.INFO, color=False,
+                                                       indent=True, timing=False, cache_stats=False)
+  console_reporter = ConsoleReporter(run_tracker, console_reporter_settings)
+
   template_dir = config.get('reporting', 'reports_template_dir')
-  html_reporter = HtmlReporter(run_tracker, html_dir, template_dir)
+  html_reporter_settings = HtmlReporter.Settings(html_dir=html_dir, template_dir=template_dir)
+  html_reporter = HtmlReporter(run_tracker, html_reporter_settings)
 
   report.add_reporter(console_reporter)
   report.add_reporter(html_reporter)

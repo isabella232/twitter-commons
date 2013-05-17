@@ -2,6 +2,8 @@ import cgi
 import os
 import re
 import uuid
+
+from collections import namedtuple
 from pystache.renderer import Renderer
 
 from twitter.common.dirutil import safe_mkdir
@@ -20,13 +22,18 @@ class HtmlReporter(Reporter):
   not accessed directly from the filesystem.
   """
 
-  def __init__(self, run_tracker, html_dir, template_dir):
-    Reporter.__init__(self, run_tracker)
+  # HTML reporting settings.
+  #   html_dir: Where the report files go.
+  #   template_dir: Where to find mustache templates.
+  Settings = namedtuple('Settings', ['html_dir', 'template_dir'])
+
+  def __init__(self, run_tracker, settings):
+    Reporter.__init__(self, run_tracker, settings)
      # The main report, and associated tool outputs, go under this dir.
-    self._html_dir = html_dir
+    self._html_dir = settings.html_dir
 
     # We render HTML from mustache templates.
-    self._renderer = MustacheRenderer(Renderer(search_dirs=template_dir))
+    self._renderer = MustacheRenderer(Renderer(search_dirs=settings.template_dir))
 
     # We serve files relative to the build root.
     self._buildroot = get_buildroot()
