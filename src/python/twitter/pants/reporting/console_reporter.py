@@ -34,10 +34,6 @@ class ConsoleReporter(Reporter):
 
   def __init__(self, run_tracker, settings):
     Reporter.__init__(self, run_tracker, settings)
-    # We don't want spurious newlines between nested workunits, so we only emit them
-    # when we need to write content to the workunit. This is a bit hacky, but effective.
-    self._lock = threading.Lock()  # Protects self._needs_newline, in caseof parallel workunits.
-    self._needs_newline = defaultdict(bool)  # workunit id -> bool.
 
   def open(self):
     """Implementation of Reporter callback."""
@@ -82,20 +78,13 @@ class ConsoleReporter(Reporter):
         sys.stdout.write(self._prefix(workunit, '\n==== %s ====\n' % name))
         sys.stdout.write(self._prefix(workunit, outbuf.read_from(0)))
         sys.stdout.flush()
-    if workunit.parent:
-      with self._lock:
-        self._needs_newline[workunit.parent.id] = False
 
   def do_handle_log(self, workunit, level, *msg_elements):
     """Implementation of Reporter callback."""
     # If the element is a (msg, detail) pair, we ignore the detail. There's no
     # useful way to display it on the console.
     elements = [e if isinstance(e, basestring) else e[0] for e in msg_elements]
-    with self._lock:
-      if not self._needs_newline[workunit.id]:
-        elements.insert(0, '\n')
-        self._needs_newline[workunit.id] = True
-    msg = ''.join(elements) + '\n'
+    msg = '\n' + ''.join(elements)
     if self.settings.color:
       msg = _colorfunc_map.get(level, lambda x: x)(msg)
     sys.stdout.write(self._prefix(workunit, msg))
@@ -105,10 +94,6 @@ class ConsoleReporter(Reporter):
     # Emit output from test frameworks, but not from other tools.
     # This is an arbitrary choice, but one that turns out to be useful to users in practice.
     if workunit.has_label(WorkUnit.TEST):
-      with self._lock:
-        if not self._needs_newline[workunit.id]:
-          s = '\n' + s
-          self._needs_newline[workunit.id] = True
       sys.stdout.write(self._prefix(workunit, s))
       sys.stdout.flush()
 
