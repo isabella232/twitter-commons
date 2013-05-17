@@ -15,7 +15,7 @@ class MockTarget(InternalTarget, TargetWithSources):
     self.declared_exclusives = defaultdict(set)
     if exclusives is not None:
       for k in exclusives:
-        self.declared_exclusives[k] = set(exclusives[k])
+        self.declared_exclusives[k] = set([exclusives[k]])
     self.exclusives = None
 
   def resolve(self):

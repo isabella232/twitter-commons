@@ -200,6 +200,9 @@ class ExclusivesMapping(object):
 
     for t in all_targets:
       key = self._get_exclusives_key(t)
+      if key == '':
+        print "EMPTY GROUP KEY IN POPULATE_MAPS"
+        raise "foo"
       if key not in self.group_classpaths:
         self.group_classpaths[key] = []
       self.key_to_targets[key].add(t)
@@ -249,3 +252,4 @@ class ExclusivesMapping(object):
   def set_base_classpath_for_group(self, group_key, classpath):
     # set the initial classpath of the elements of group_key to classpath.
     self.group_classpaths[group_key] = classpath
+

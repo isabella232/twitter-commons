@@ -91,8 +91,9 @@ class Products(object):
       self.predicates_for_type[typename].append(predicate)
     return self.file_products.setdefault(typename, Products.ProductMapping(typename))
 
-  def require_data(self, typename):
-    self.data_products[typename] = {}
+  def require_data(self, *typename):
+    for t in typename:
+      self.data_products[t] = {}
 
   def is_required_data(self, typename):
     return self.data_products.has_key(typename)
@@ -103,8 +104,8 @@ class Products(object):
     else:
       return None
 
-  def add_data(self, typename, key, data):
-    self.data_products[typename][key] = data
+  def add_data(self, typename, data):
+    self.data_products[typename] = data
 
   def isrequired(self, typename):
     """

@@ -6,16 +6,26 @@ from twitter.pants import is_internal
 from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.targets import InternalTarget
 from twitter.pants.tasks import TaskError
+from twitter.pants.tasks.check_exclusives import CheckExclusives
+
 
 
 class Group(object):
+  @staticmethod
+  def _get_exclusives_product(context):
+    return context.products.get_data('exclusives_groups')
+
+
   @staticmethod
   def execute(phase, tasks_by_goal, context, executed):
     """Executes the named phase against the current context tracking goal executions in executed."""
 
     def execute_task(name, task, targets):
       """Execute and time a single goal that has had all of its dependencies satisfied."""
+      # We want the key for this group; we can find it using any representative member.
+      # This first one is easy.
       try:
+        # TODO(MarkCC): Compute and set the classpath fields for this group.
         # TODO (Senthil Kumaran):
         # Possible refactoring of the Task Execution Logic (AWESOME-1019)
         if getattr(context.options, 'explain', None):
@@ -103,43 +113,6 @@ class Group(object):
         context.release_lock()
 
   @staticmethod
-  def compute_exclusives_chunks(targets):
-    """ Compute the set of distinct chunks are required based on exclusives.
-    If two targets have different values for a particular exclusives tag,
-    then those targets must end up in different partitions.
-    This method computes the exclusives values that define each chunk.
-    e.g.: if target a has exclusives {"x": "1", "z": "1"}, target b has {"x": "2"},
-    target c has {"y", "1"}, and target d has {"y", "2", "z": "1"}, then we need to
-    perform chunk partitioning on exclusives tags "x" and "y". We don't need to include
-    "z" in the chunk partition specification, because there are no conflicts on z.
-
-    Parameters:
-      targets: a list of the targets being built.
-    Return: the set of exclusives tags that should be used for chunking.
-    """
-    exclusives_map = defaultdict(set)
-    for t in targets:
-      if t.exclusives is not None:
-        for k in t.exclusives:
-          exclusives_map[k] |= t.exclusives[k]
-    conflicting_keys = []
-    for k in exclusives_map:
-      if len(exclusives_map[k]) > 1:
-        conflicting_keys.append(k)
-    chunks = defaultdict(list)
-    for t in targets:
-      # compute an exclusives group key: a list of the exclusives values for the keys
-      # in the conflicting keys list.
-      target_key = []
-      for k in conflicting_keys:
-        if len(t.exclusives[k]) > 0:
-          target_key.append(list(t.exclusives[k])[0])
-        else:
-          target_key.append("none")
-      chunks[str(target_key)].append(t)
-    return chunks
-
-  @staticmethod
   def _create_chunks(context, goals):
 
     def discriminator(target):
@@ -157,24 +130,29 @@ class Group(object):
     # Either interleave the ivy task in this group so that it runs once for each batch of
     # chunks with compatible exclusives, or make the compilation tasks do their own ivy resolves
     # for each batch of targets they're asked to compile.
-    excl_chunks = Group.compute_exclusives_chunks(context.targets())
 
+    exclusives = Group._get_exclusives_product(context)
+
+    sorted_excl_group_keys = exclusives.get_ordered_group_keys()
     all_chunks = []
 
-    for excl_chunk_key in excl_chunks:
-
+    for excl_group_key in sorted_excl_group_keys:
       # TODO(John Sirois): coalescing should be made available in another spot, InternalTarget is jvm
       # specific, and all we care is that the Targets have dependencies defined
 
-      chunk_targets = excl_chunks[excl_chunk_key]
+      chunk_targets = exclusives.get_targets_for_group_key(excl_group_key)
       # need to extract the targets for this chunk that are internal.
-      coalesced = InternalTarget.coalesce_targets(context.targets(is_internal), discriminator)
+      ## TODO(markcc): right here, we're using "context.targets", which doesn't respect any of the
+      ## exclusives rubbish going on around here.
+      #coalesced = InternalTarget.coalesce_targets(context.targets(is_internal), discriminator)
+      coalesced = InternalTarget.coalesce_targets(filter(is_internal, chunk_targets), discriminator)
       coalesced = list(reversed(coalesced))
 
       def not_internal(target):
         return not is_internal(target)
       # got targets that aren't internal.
-      rest = OrderedSet(context.targets(not_internal))
+      #rest = OrderedSet(context.targets(not_internal))
+      rest = OrderedSet(filter(not_internal, chunk_targets))
 
 
       chunks = [rest] if rest else []
@@ -199,6 +177,7 @@ class Group(object):
   def __init__(self, name, predicate):
     self.name = name
     self.predicate = predicate
+    self.exclusives = None
 
   def __repr__(self):
     return "Group(%s,%s)" % (self.name, self.predicate.__name__)

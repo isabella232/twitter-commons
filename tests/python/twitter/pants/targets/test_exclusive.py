@@ -3,10 +3,19 @@ __author__ = 'Mark C. Chu-Carroll (markcc@foursquare.com()'
 
 from twitter.pants.testutils import MockTarget
 from twitter.pants.goal.group import Group
+from twitter.pants.base import Config
+from twitter.pants.goal import Context
+from twitter.pants.tasks.check_exclusives import CheckExclusives, ExclusivesMapping
+
 import unittest
 
 class ExclusivesTargetTest(unittest.TestCase):
   """Test exclusives propagation in the dependency graph"""
+
+  @classmethod
+  def setUpClass(cls):
+     cls.config = Config.load()
+
   def setupTargets(self):
     a = MockTarget('a', exclusives={'a': '1', 'b': '1'})
     b = MockTarget('b', exclusives={'a': '1'})
@@ -24,17 +33,16 @@ class ExclusivesTargetTest(unittest.TestCase):
 
   def testPartitioning(self):
     # Target e has conflicts; in this test, we want to check that partitioning
-    # of valid targets works to prevent conflicts in chunks.
+    # of valid targets works to prevent conflicts in chunks, so we only use a-d.
     a, b, c, d, _ = self.setupTargets()
-    a._propagate_exclusives()
-    b._propagate_exclusives()
-    c._propagate_exclusives()
-    d._propagate_exclusives()
+    context = Context(ExclusivesTargetTest.config, options={}, run_tracker=None, target_roots=[a, b, c, d])
+    context.products.require_data('exclusives_groups')
+    check_exclusives_task = CheckExclusives(context, signal_error=True)
+    check_exclusives_task.execute([a, b, c, d])
+    egroups = context.products.get_data('exclusives_groups')
+    self.assertEquals(egroups.get_targets_for_group_key("a=1"), set([a, b, d]))
+    self.assertEquals(egroups.get_targets_for_group_key("a=2"), set([c]))
 
-    parts = Group.compute_exclusives_chunks([a, b, c, d])
-    self.assertEquals(parts["['1']"], [a, b, d])
-    self.assertEquals(parts["['2']"], [c])
-    self.assertEquals(2, len(parts))
 
 
 

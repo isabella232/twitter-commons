@@ -743,7 +743,6 @@ goal(name='java',
      group=group('jvm', is_java),
      dependencies=['gen', 'resolve', 'check_exclusives']).install('compile')
 
-
 goal(name='prepare', action=PrepareResources).install('resources')
 
 
