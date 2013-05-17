@@ -623,12 +623,11 @@ class RunServer(Task):
         if not os.fork():
           # Child process.
           info_dir = self.context.config.getdefault('info_dir')
-          reports_dir = self.context.config.get('reporting', 'reports_dir')
           template_dir = self.context.config.get('reporting', 'reports_template_dir')
           assets_dir = self.context.config.get('reporting', 'reports_assets_dir')
-          settings = reporting_server.Settings(info_dir=info_dir, reports_dir=reports_dir,
-            template_dir=template_dir, assets_dir=assets_dir, root=get_buildroot(),
-            allowed_clients=self.context.options.allowed_clients)
+          settings = reporting_server.Settings(info_dir=info_dir, template_dir=template_dir,
+                                               assets_dir=assets_dir, root=get_buildroot(),
+                                               allowed_clients=self.context.options.allowed_clients)
           server = reporting_server.ReportingServer(port, settings)
           # Block forever here.
           server.start(run_before_blocking=[write_pidfile, report_launch, done_reporting])

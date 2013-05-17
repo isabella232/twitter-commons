@@ -23,8 +23,13 @@ from twitter.pants.goal.run_tracker import RunInfo
 PPP_RE=re.compile("""^lang-.*\.js$""")
 
 # Reporting server settings.
+#   info_dir: path to dir containing RunInfo files.
+#   template_dir: location of mustache template files.
+#   assets_dir: location of assets (js, css etc.)
+#   root: build root.
+#   allowed_clients: list of ips or ['ALL'].
 Settings = namedtuple('Settings',
-  ['info_dir', 'reports_dir', 'template_dir', 'assets_dir', 'root', 'allowed_clients'])
+  ['info_dir', 'template_dir', 'assets_dir', 'root', 'allowed_clients'])
 
 
 class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
@@ -42,19 +47,13 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       ('/browse/', self._handle_browse),  # Browse filesystem under build root.
       ('/content/', self._handle_content),  # Show content of file.
       ('/assets/', self._handle_assets),  # Statically serve assets (css, js etc.)
-      ('/poll', self._handle_poll),  # Poll for raw file content.
+      ('/poll', self._handle_poll),  # Handle poll requests for raw file content.
       ('/latestrunid', self._handle_latest_runid)  # Return id of latest pants run.
     ]
     BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, request, client_address, server)
 
-  def _send_content(self, content, content_type, code=200):
-    self.send_response(code)
-    self.send_header('Content-Type', content_type)
-    self.send_header('Content-Length', str(len(content)))
-    self.end_headers()
-    self.wfile.write(content)
-
   def do_GET(self):
+    """GET method implementation for BaseHTTPRequestHandler."""
     if not self._client_allowed():
       return
 
@@ -71,27 +70,6 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       self._send_content('Invalid GET request %s' % self.path, 'text/html')
     except (IOError, ValueError):
       sys.stderr.write('Invalid GET request %s' % self.path)
-
-  def _client_allowed(self):
-    """Check if client is allowed to connect to this server."""
-    client_ip = self._client_address[0]
-    if not client_ip in self._settings.allowed_clients and \
-       not 'ALL' in self._settings.allowed_clients:
-      self._send_content('Access from host %s forbidden.' % client_ip, 'text/html')
-      return False
-    return True
-
-  def _maybe_handle(self, prefix, handler, path, params, data=None):
-    """Apply the handler if the prefix matches."""
-    if path.startswith(prefix):
-      relpath = path[len(prefix):]
-      if data:
-        handler(relpath, params, data)
-      else:
-        handler(relpath, params)
-      return True
-    else:
-      return False
 
   def _handle_runs(self, relpath, params):
     """Show a listing of all pants runs since the last clean-all."""
@@ -131,6 +109,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self._send_content(self._renderer.render_name('base', args), 'text/html')
 
   def _handle_browse(self, relpath, params):
+    """Handle requests to browse the filesystem under the build root."""
     abspath = os.path.normpath(os.path.join(self._root, relpath))
     if not abspath.startswith(self._root):
       raise ValueError  # Prevent using .. to get files from anywhere other than root.
@@ -140,6 +119,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       self._serve_file(abspath, params)
 
   def _handle_content(self, relpath, params):
+    """Render file content for pretty display."""
     abspath = os.path.normpath(os.path.join(self._root, relpath))
     if os.path.isfile(abspath):
       with open(abspath, 'r') as infile:
@@ -164,6 +144,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self._send_content(self._renderer.render_name('file_content', args), 'text/html')
 
   def _handle_assets(self, relpath, params):
+    """Statically serve assets: js, css etc."""
     abspath = os.path.normpath(os.path.join(self._settings.assets_dir, relpath))
     content_type = mimetypes.guess_type(abspath)[0] or 'text/plain'
     with open(abspath, 'r') as infile:
@@ -171,7 +152,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self._send_content(content, content_type)
 
   def _handle_poll(self, relpath, params):
-    """A handler that polls for updates to a file."""
+    """Handle poll requests for raw file contents."""
     request = json.loads(params.get('q')[0])
     ret = {}
     # request is a polling request for multiple files. For each file:
@@ -193,6 +174,10 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self._send_content(json.dumps(ret), 'application/json')
 
   def _handle_latest_runid(self, relpath, params):
+    """Handle request for the latest run id.
+
+    Used by client-side javascript to detect when there's a new run to display.
+    """
     latest_runinfo = self._get_run_info_dict('latest')
     if latest_runinfo is None:
       self._send_content('none', 'text/plain')
@@ -200,6 +185,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       self._send_content(latest_runinfo['id'], 'text/plain')
 
   def _partition_runs_by_day(self):
+    """Split the runs by day, so we can display them grouped that way."""
     run_infos = self._get_all_run_infos()
     for x in run_infos:
       ts = float(x['timestamp'])
@@ -224,6 +210,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
              for dt, infos in itertools.groupby(sorted_run_infos, lambda x: keyfunc(x).date()) ]
 
   def _get_run_info_dict(self, run_id):
+    """Get the RunInfo for a run, as a dict."""
     run_info_path = os.path.join(self._settings.info_dir, run_id, 'info')
     if os.path.exists(run_info_path):
       # We copy the RunInfo as a dict, so we can add stuff to it to pass to the template.
@@ -232,6 +219,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       return None
 
   def _get_all_run_infos(self):
+    """Find the RunInfos for all runs since the last clean-all."""
     info_dir = self._settings.info_dir
     if not os.path.isdir(info_dir):
       return []
@@ -244,6 +232,7 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             for p in paths if os.path.isdir(p) and not os.path.islink(p)])
 
   def _serve_dir(self, abspath, params):
+    """Show a directory listing."""
     relpath = os.path.relpath(abspath, self._root)
     breadcrumbs = self._create_breadcrumbs(relpath)
     entries = [ {'link_path': os.path.join(relpath, e), 'name': e} for e in os.listdir(abspath)]
@@ -255,6 +244,9 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self._send_content(self._renderer.render_name('base', args), 'text/html')
 
   def _serve_file(self, abspath, params):
+    """Show a file.
+
+    The actual content of the file is rendered by _handle_content."""
     relpath = os.path.relpath(abspath, self._root)
     breadcrumbs = self._create_breadcrumbs(relpath)
     link_path = urlparse.urlunparse([None, None, relpath, None, urllib.urlencode(params), None])
@@ -264,7 +256,37 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                   'link_path': link_path })
     self._send_content(self._renderer.render_name('base', args), 'text/html')
 
+  def _send_content(self, content, content_type, code=200):
+    """Send content to client."""
+    self.send_response(code)
+    self.send_header('Content-Type', content_type)
+    self.send_header('Content-Length', str(len(content)))
+    self.end_headers()
+    self.wfile.write(content)
+
+  def _client_allowed(self):
+    """Check if client is allowed to connect to this server."""
+    client_ip = self._client_address[0]
+    if not client_ip in self._settings.allowed_clients and \
+       not 'ALL' in self._settings.allowed_clients:
+      self._send_content('Access from host %s forbidden.' % client_ip, 'text/html')
+      return False
+    return True
+
+  def _maybe_handle(self, prefix, handler, path, params, data=None):
+    """Apply the handler if the prefix matches."""
+    if path.startswith(prefix):
+      relpath = path[len(prefix):]
+      if data:
+        handler(relpath, params, data)
+      else:
+        handler(relpath, params)
+      return True
+    else:
+      return False
+
   def _create_breadcrumbs(self, relpath):
+    """Create filesystem browsing breadcrumb navigation."""
     if relpath == '.':
       breadcrumbs = []
     else:
@@ -275,15 +297,19 @@ class PantsHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     return breadcrumbs
 
   def _default_template_args(self, content_template):
+    """Initialize template args."""
     def include(text, args):
       template_name = pystache.render(text, args)
       return self._renderer.render_name(template_name, args)
+    # Our base template calls include on the content_template.
     ret = { 'content_template': content_template }
     ret['include'] = lambda text: include(text, ret)
     return ret
 
-  def log_message(self, fmt, *args):  # Silence BaseHTTPRequestHandler's logging.
+  def log_message(self, fmt, *args):
+    """Silence BaseHTTPRequestHandler's logging."""
     pass
+
 
 class ReportingServer(object):
   def __init__(self, port, settings):
