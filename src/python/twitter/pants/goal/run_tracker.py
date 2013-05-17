@@ -127,13 +127,16 @@ class RunTracker(object):
     self._report.log(self._current_workunit, level, *msg_elements)
 
   def end(self):
-    """This pants run is over, so stop tracking it."""
+    """This pants run is over, so stop tracking it.
+
+    Note: If end() has been called once, subsequent calls are no-ops."""
     while self._current_workunit:
       self._report.end_workunit(self._current_workunit)
       self._current_workunit.end()
       self._current_workunit = self._current_workunit.parent
     self._report.close()
     try:
-      self.run_info.add_info('outcome', self.root_workunit.outcome_string())
+      if self.run_info.get_info('outcome') is None:
+        self.run_info.add_info('outcome', self.root_workunit.outcome_string())
     except IOError:
       pass  # If the goal is clean-all then the run info dir no longer exists...

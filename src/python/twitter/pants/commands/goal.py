@@ -14,6 +14,7 @@
 # limitations under the License.
 # ==================================================================================================
 
+import atexit
 import errno
 import inspect
 import multiprocessing
@@ -244,9 +245,9 @@ class Goal(Command):
     # acquire the lock if they need to be serialized.
     return False
 
-  def __init__(self, root_dir, parser, args):
+  def __init__(self, run_tracker, root_dir, parser, args):
     self.targets = []
-    Command.__init__(self, root_dir, parser, args)
+    Command.__init__(self, run_tracker, root_dir, parser, args)
 
   @contextmanager
   def check_errors(self, banner):
@@ -283,11 +284,6 @@ class Goal(Command):
 
   def setup_parser(self, parser, args):
     self.config = Config.load()
-    self.run_tracker = RunTracker(self.config)
-    report = default_report(self.config, self.run_tracker)
-    # Start tracking right away, so we can track BUILD file parsing etc.
-    self.run_tracker.start(report)
-
     Goal.add_global_options(parser)
 
     # We support attempting zero or more goals.  Multiple goals must be delimited from further
@@ -358,7 +354,8 @@ class Goal(Command):
                 for target, address in spec_parser.parse(spec):
                   if target:
                     self.targets.append(target)
-                    # Force early BUILD file loading if this target is an alias that expands to others.
+                    # Force early BUILD file loading if this target is an alias that expands
+                    # to others.
                     unused = list(target.resolve())
                   else:
                     siblings = Target.get_all_addresses(address.buildfile)
@@ -417,43 +414,40 @@ class Goal(Command):
     self.run_tracker.update_report_settings(settings_updates_map)
     # TODO: Do something useful with --logdir.
 
-    try:
-      if self.options.dry_run:
-        print '****** Dry Run ******'
+    if self.options.dry_run:
+      print '****** Dry Run ******'
 
-      context = Context(
-        self.config,
-        self.options,
-        self.run_tracker,
-        self.targets,
-        requested_goals=self.requested_goals,
-        lock=lock)
+    context = Context(
+      self.config,
+      self.options,
+      self.run_tracker,
+      self.targets,
+      requested_goals=self.requested_goals,
+      lock=lock)
 
-      # TODO: Time to get rid of this hack.
-      if self.options.recursive_directory:
-        context.log.warn(
-          '--all-recursive is deprecated, use a target spec with the form [dir]:: instead')
-        for dir in self.options.recursive_directory:
-          self.add_target_recursive(dir)
+    # TODO: Time to get rid of this hack.
+    if self.options.recursive_directory:
+      context.log.warn(
+        '--all-recursive is deprecated, use a target spec with the form [dir]:: instead')
+      for dir in self.options.recursive_directory:
+        self.add_target_recursive(dir)
 
-      if self.options.target_directory:
-        context.log.warn('--all is deprecated, use a target spec with the form [dir]: instead')
-        for dir in self.options.target_directory:
-          self.add_target_directory(dir)
+    if self.options.target_directory:
+      context.log.warn('--all is deprecated, use a target spec with the form [dir]: instead')
+      for dir in self.options.target_directory:
+        self.add_target_directory(dir)
 
-      unknown = []
-      for phase in self.phases:
-        if not phase.goals():
-          unknown.append(phase)
+    unknown = []
+    for phase in self.phases:
+      if not phase.goals():
+        unknown.append(phase)
 
-      if unknown:
-        print('Unknown goal(s): %s' % ' '.join(phase.name for phase in unknown))
-        print('')
-        return Phase.execute(context, 'goals')
+    if unknown:
+      print('Unknown goal(s): %s' % ' '.join(phase.name for phase in unknown))
+      print('')
+      return Phase.execute(context, 'goals')
 
-      ret = Phase.attempt(context, self.phases)
-    finally:
-      self.run_tracker.end()
+    ret = Phase.attempt(context, self.phases)
 
     if self.options.cleanup_nailguns or self.config.get('nailgun', 'autokill', default = False):
       if log:
