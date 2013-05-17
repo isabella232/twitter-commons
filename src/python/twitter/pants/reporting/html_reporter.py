@@ -1,8 +1,6 @@
 import cgi
-import operator
 import os
 import re
-import urlparse
 import uuid
 from pystache.renderer import Renderer
 
@@ -203,7 +201,8 @@ class HtmlReporter(Reporter):
         element = [element]
       defaults = ('', None, None, False)
       # Map assumes None for missing values, so this will pick the default for those.
-      (text, detail, detail_id, detail_initially_visible) = map(operator.or_, element, defaults)
+      (text, detail, detail_id, detail_initially_visible) = \
+        map(lambda x, y: x or y, element, defaults)
       element_args = {'text': self._htmlify_text(text) }
       if detail is not None:
         detail_id = detail_id or uuid.uuid4()
