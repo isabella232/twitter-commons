@@ -14,7 +14,7 @@ class Report(object):
   ERROR = 1
   WARN = 2
   INFO = 3
-  VERBOSE = 4
+  DEBUG = 4
 
   def __init__(self):
     # We periodically emit newly gathered output from tool invocations.

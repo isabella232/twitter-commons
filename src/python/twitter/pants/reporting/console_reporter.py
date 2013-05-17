@@ -4,7 +4,21 @@ import threading
 from collections import defaultdict
 
 from twitter.pants.goal.workunit import WorkUnit
+from twitter.pants.reporting.report import Report
 from twitter.pants.reporting.reporter import Reporter
+
+
+try:
+  from colors import cyan, green, red, yellow
+  _colorfunc_map = {
+    Report.FATAL: red,
+    Report.ERROR: red,
+    Report.WARN: yellow,
+    Report.INFO: green,
+    Report.DEBUG: cyan
+  }
+except ImportError:
+  _colorfunc_map = {}
 
 
 class ConsoleReporter(Reporter):
@@ -76,7 +90,10 @@ class ConsoleReporter(Reporter):
       if not self._needs_newline[workunit.id]:
         elements.insert(0, '\n')
         self._needs_newline[workunit.id] = True
-    sys.stdout.write(self._prefix(workunit, ''.join(elements)))
+    msg = ''.join(elements)
+    if not self.run_tracker.options.no_color:
+      msg = _colorfunc_map.get(level, lambda x: x)(msg)
+    sys.stdout.write(self._prefix(workunit, msg))
 
   def handle_output(self, workunit, label, s):
     """Implementation of Reporter callback."""

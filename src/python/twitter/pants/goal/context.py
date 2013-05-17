@@ -43,7 +43,7 @@ class Context(object):
     def __init__(self, run_tracker):
       self._run_tracker = run_tracker
 
-    def debug(self, *msg_elements): self._run_tracker.log(Report.VERBOSE, *msg_elements)
+    def debug(self, *msg_elements): self._run_tracker.log(Report.DEBUG, *msg_elements)
     def info(self, *msg_elements): self._run_tracker.log(Report.INFO, *msg_elements)
     def warn(self, *msg_elements): self._run_tracker.log(Report.WARN, *msg_elements)
     def error(self, *msg_elements): self._run_tracker.log(Report.ERROR, *msg_elements)
