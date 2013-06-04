@@ -226,9 +226,6 @@ class ScalaCompile(NailgunTask):
           ' in ',
           items_to_report_element([t.address.reference() for t in vts.targets], 'target'), '.')
         old_state = current_state
-        for e in cp:
-          if len(e) == 1:
-            print "^^^^^^ ERROR! invalid Classpath entry %s" % e
         classpath = [entry for conf, entry in cp if conf in self._confs]
         with self.context.new_workunit('compile'):
           # Zinc may delete classfiles, then later exit on a compilation error. Then if the

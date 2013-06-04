@@ -15,7 +15,6 @@
 # ==================================================================================================
 
 import collections
-import copy
 import os
 
 from twitter.common.collections import OrderedSet, maybe_list
@@ -143,12 +142,6 @@ class Target(object):
       # For synthetic codegen targets this will be the original target from which
       # the target was synthesized.
       self.derived_from = self
-
-      self.declared_exclusives = collections.defaultdict(set)
-      if exclusives is not None:
-        for k in exclusives:
-          self.declared_exclusives[k].add(exclusives[k])
-      self.exclusives = None
 
   def get_declared_exclusives(self):
     return self.declared_exclusives

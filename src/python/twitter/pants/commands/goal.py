@@ -679,12 +679,6 @@ goal(
   dependencies=['gen', 'check_exclusives']
 ).install('resolve').with_description('Resolves jar dependencies and produces dependency reports.')
 
-goal(name='check_exclusives',
-  dependencies=['gen'],
-  action=CheckExclusives).install('check_exclusives').with_description(
-  'Check exclusives declarations to verify that dependencies are consistent.')
-
-
 goal(
   name='idl',
   action=IdlResolve,

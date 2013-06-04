@@ -41,3 +41,4 @@ class JavaTests(JvmTarget):
     self.add_labels('java', 'tests')
     self.resources = list(self.resolve_all(resources, Resources))
 
+

@@ -89,7 +89,7 @@ class Products(object):
     """
     if predicate:
       self.predicates_for_type[typename].append(predicate)
-    return self.file_products.setdefault(typename, Products.ProductMapping(typename))
+    return self.products.setdefault(typename, Products.ProductMapping(typename))
 
   def require_data(self, *typename):
     for t in typename:
@@ -112,7 +112,7 @@ class Products(object):
       Returns a predicate that selects targets required for the given type if mappings are
       required.  Otherwise returns None.
     """
-    if typename not in self.file_products:
+    if typename not in self.products:
       return None
     def combine(first, second):
       return lambda target: first(target) or second(target)

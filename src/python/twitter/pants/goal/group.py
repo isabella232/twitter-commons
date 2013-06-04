@@ -25,7 +25,6 @@ class Group(object):
       # We want the key for this group; we can find it using any representative member.
       # This first one is easy.
       try:
-        # TODO(MarkCC): Compute and set the classpath fields for this group.
         # TODO (Senthil Kumaran):
         # Possible refactoring of the Task Execution Logic (AWESOME-1019)
         if getattr(context.options, 'explain', None):
