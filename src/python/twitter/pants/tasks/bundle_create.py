@@ -102,8 +102,13 @@ class BundleCreate(JvmBinaryTask):
       os.mkdir(libdir)
 
       for basedir, externaljar in self.list_jar_dependencies(app.binary):
-        path = os.path.join(basedir, externaljar)
-        os.symlink(path, os.path.join(libdir, externaljar))
+        src = os.path.join(basedir, externaljar)
+        link_name = os.path.join(libdir, externaljar)
+        print('############# Symlinking %s to %s' % (link_name, src))
+        if os.path.exists(link_name):
+          print('@@@@@@@@@@@@@ Weird, %s already exists. Skipping.' % link_name)
+        else:
+          os.symlink(src, link_name)
         classpath.add(externaljar)
 
     for basedir, jars in self.context.products.get('jars').get(app.binary).items():
