@@ -125,8 +125,6 @@ class ScalaCompile(NailgunTask):
       self._add_globally_required_classpath_entries(exclusives_classpath)
       self._add_globally_required_classpath_entries(cp)
       with self.context.state('upstream_analysis_map', {}) as upstream_analysis_map:
-        ## TODO(markcc): filter upstream analysis map to only include entries from the compilation group's
-        ## classpath.
         with self.invalidated(scala_targets, invalidate_dependents=True,
                               partition_size_hint=self._partition_size_hint) as invalidation_check:
           # Process partitions one by one.

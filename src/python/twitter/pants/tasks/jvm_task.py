@@ -38,8 +38,6 @@ class JvmTask(Task):
         exclusives_classpath = context_cp
 
     classpath.extend(path for conf, path in exclusives_classpath if not confs or conf in confs)
-#    with self.context.state('classpath', []) as cp:
-#      classpath.extend(path for conf, path in cp if not confs or conf in confs)
 
     def add_resource_paths(predicate):
       bases = set()

@@ -212,8 +212,7 @@ class ExclusivesMapping(object):
     for t in all_targets:
       key = self._get_exclusives_key(t)
       if key == '':
-        print "EMPTY GROUP KEY IN POPULATE_MAPS"
-        raise "foo"
+        raise TaskError('Invalid empty group key')
       if key not in self.group_classpaths:
         self.group_classpaths[key] = []
       self.key_to_targets[key].add(t)
