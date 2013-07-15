@@ -39,9 +39,6 @@ class ZincAnalysisCollection(object):
     self.stop_after = stop_after
     self.package_prefixes = set(package_prefixes or ['com', 'org', 'net'])
 
-    # The analysis files we gather information from.
-    self.analysis_files = []
-
     # Map from scala source files to the class files generated from that source
     self.products = defaultdict(set)
     # map from scala source files to the classes generated from that source.
