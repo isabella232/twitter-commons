@@ -34,7 +34,7 @@ class ArtifactCache(object):
           outputs.
 
     cache_key: A CacheKey object.
-    build_artifacts: List of paths to generated artifacts. These must be under pants_workdir.
+    build_artifacts: List of paths to generated artifacts. These must be under the artifact_root.
     """
     # It's OK for artifacts not to exist- we assume that the build didn't need to create them
     # in this case (e.g., a no-op build on an empty target).

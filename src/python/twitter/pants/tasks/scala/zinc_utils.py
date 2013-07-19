@@ -117,6 +117,7 @@ class ZincUtils(object):
 
     args.extend([
       '-analysis-cache', analysis_file,
+      '-explicit-deletes',
       '-classpath', ':'.join(self._zinc_classpath + classpath),
       '-d', output_dir
     ])

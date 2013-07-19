@@ -15,8 +15,11 @@
 # ===================================================================================================
 import itertools
 import os
+import shutil
+from twitter.common.dirutil import safe_mkdir
 
 from twitter.pants import has_sources, is_scalac_plugin, get_buildroot
+from twitter.pants.base import Target
 from twitter.pants.targets import resolve_target_sources
 from twitter.pants.targets.scala_library import ScalaLibrary
 from twitter.pants.targets.scala_tests import ScalaTests
@@ -81,7 +84,12 @@ class ScalaCompile(NailgunTask):
     # Various output directories.
     workdir = context.config.get('scala-compile', 'workdir')
     self._classes_dir = os.path.join(workdir, 'classes')
-    self._analysis_file = os.path.join(workdir, 'analysis')
+    self._analysis_dir = os.path.join(workdir, 'analysis')
+
+    safe_mkdir(self._classes_dir)
+    safe_mkdir(self._analysis_dir)
+
+    self._analysis_file = os.path.join(self._analysis_dir, 'global_analysis')
     self._resources_dir = os.path.join(workdir, 'resources')
 
     # The ivy confs for which we're building.
@@ -95,6 +103,10 @@ class ScalaCompile(NailgunTask):
     # those cycle deps are present.
     self._inject_java_cycles()
 
+    # Sources present in the last analysis that have since been deleted.
+    # Generated lazily, so do not access directly. Call self._get_deleted_sources().
+    self._deleted_sources = None
+
   def _inject_java_cycles(self):
     for scala_target in self.context.targets(lambda t: isinstance(t, ScalaLibrary)):
       for java_target in scala_target.java_sources:
@@ -106,10 +118,28 @@ class ScalaCompile(NailgunTask):
   def can_dry_run(self):
     return True
 
+  def _get_deleted_sources(self):
+    """Returns the list of sources present in the last analysis that have since been deleted.
+
+    This is a global list. We have no way of associating them to individual targets.
+    """
+    # We compute the list lazily.
+    if self._deleted_sources is None:
+      with self.context.new_workunit('find-deleted-sources'):
+        analysis = ZincAnalysisCollection(stop_after=ZincAnalysisCollection.PRODUCTS)
+        if os.path.exists(self._analysis_file):
+          analysis.add_and_parse_file(self._analysis_file, self._classes_dir)
+        old_sources = analysis.products.keys()
+        self._deleted_sources = filter(lambda x: not os.path.exists(x), old_sources)
+        print('RRRRRRRR %s' % self._deleted_sources)
+    return self._deleted_sources
+
   def execute(self, targets):
     scala_targets = filter(_is_scala, targets)
     if not scala_targets:
       return
+
+    write_to_artifact_cache = self._artifact_cache and self.context.options.write_to_artifact_cache
 
     # Get the exclusives group for the targets to compile.
     # Group guarantees that they'll be a single exclusives key for them.
@@ -129,12 +159,15 @@ class ScalaCompile(NailgunTask):
     # invalid targets to become valid.
     with self.invalidated(scala_targets, invalidate_dependents=True,
                           partition_size_hint=self._partition_size_hint) as invalidation_check:
-      sources_by_target = {}
+      all_sources_by_target = {}
       # Process partitions of invalid targets one by one.
       for vts in invalidation_check.invalid_vts_partitioned:
         if not self.dry_run:
-          sources_by_target.update(self._process_target_partition(vts, cp))
+          sources_by_target = self._process_target_partition(vts, cp)
+          all_sources_by_target.update(sources_by_target)
           vts.update()
+          if write_to_artifact_cache:
+            self._write_to_artifact_cache(vts, sources_by_target)
 
       # Check for missing dependencies, if needed.
       if invalidation_check.invalid_vts and os.path.exists(self._analysis_file):
@@ -143,7 +176,12 @@ class ScalaCompile(NailgunTask):
 
     # Provide the target->class and source->class mappings to downstream tasks if needed.
     if self.context.products.isrequired('classes'):
-      self._add_all_products_to_genmap(sources_by_target)
+      classes_by_source = self._compute_classes_by_source()
+      self._add_all_products_to_genmap(all_sources_by_target, classes_by_source)
+
+    # Update the classpath for downstream tasks.
+    for conf in self._confs:
+      egroups.update_compatible_classpaths(exclusives_key, [(conf, self._classes_dir)])
 
   # def _localize_portable_analysis_files(self, vts):
   #   # Localize the analysis files we read from the artifact cache.
@@ -153,6 +191,46 @@ class ScalaCompile(NailgunTask):
   #         ZincArtifactFactory.portable(analysis_file.analysis_file), analysis_file.analysis_file):
   #       self.context.log.warn('Zinc failed to localize analysis file: %s. Incremental rebuild' \
   #                             'of that target may not be possible.' % analysis_file)
+
+  def _write_to_artifact_cache(self, vts, sources_by_target):
+    analysis_dir = os.path.join(self._analysis_dir,
+                                Target.maybe_readable_identify(sources_by_target.keys()))
+    try:
+      vt_by_target = dict([(vt.target, vt) for vt in vts.versioned_targets])
+
+      # Copy the analysis file, so we can work on it without it changing under us.
+      analysis_file_copy = os.path.join(analysis_dir, 'analysis')
+      shutil.copyfile(self._analysis_file, analysis_file_copy)
+
+      # This work can happen in the background, assiming analysis_dir isn't cleaned up.
+      analysis_file_portable = analysis_file_copy + '.portable'
+      if self._zinc_utils.relativize_analysis_file(analysis_file_copy, analysis_file_portable):
+        raise TaskError('Zinc failed to relativize analysis file: %s' % analysis_file_copy)
+      classes_by_source = self._compute_classes_by_source(analysis_file_copy)
+
+      def analysis_for_target(target):
+        return target.id + '.analysis.portable'
+
+      # Split the analysis into per-target files.
+      splits = [(sources, analysis_for_target(target))
+                for target, sources in sources_by_target.items()]
+      self._zinc_utils.run_zinc_split(analysis_file_portable, splits)
+
+      # Gather up the artifacts.
+      vts_artifactfiles_pairs = []
+      for target, sources in sources_by_target.items():
+        artifacts = [analysis_for_target(target)]
+        for source in sources:
+          artifacts.extend(classes_by_source.get(source, []))
+        vt = vt_by_target.get(target)
+        if vt is not None:
+          vts_artifactfiles_pairs.append((vt, artifacts))
+
+      # Write to the artifact cache.
+      self.update_artifact_cache(vts_artifactfiles_pairs)
+    except:
+      shutil.rmtree(analysis_dir)
+      raise
 
   def check_artifact_cache(self, vts):
     # Special handling for scala artifacts.
@@ -205,12 +283,14 @@ class ScalaCompile(NailgunTask):
         ' in ',
         items_to_report_element([t.address.reference() for t in vts.targets], 'target'), '.')
       classpath = [entry for conf, entry in cp if conf in self._confs]
+      deleted_sources = self._get_deleted_sources()
       with self.context.new_workunit('compile'):
         # Zinc may delete classfiles, then later exit on a compilation error. Then if the
         # change triggering the error is reverted, we won't rebuild to restore the missing
         # classfiles. So we force-invalidate here, to be on the safe side.
         vts.force_invalidate()   # TODO: Still need this?
-        if self._zinc_utils.compile(classpath, sources, self._classes_dir,self._analysis_file, {}):
+        if self._zinc_utils.compile(classpath, sources + deleted_sources,
+                                    self._classes_dir,self._analysis_file, {}):
           raise TaskError('Compile failed.')
 
       write_to_artifact_cache = self._artifact_cache and \
@@ -224,25 +304,26 @@ class ScalaCompile(NailgunTask):
 
     return sources_by_target
 
-  def _compute_classes_by_src(self):
+  def _compute_classes_by_source(self, analysis_file=None):
     """Compute src->classes."""
-    if not os.path.exists(self._analysis_file):
+    if analysis_file is None:
+      analysis_file = self._analysis_file
+
+    if not os.path.exists(analysis_file):
       return {}
     len_rel_classes_dir = len(self._classes_dir) - len(get_buildroot())
     analysis = ZincAnalysisCollection(stop_after=ZincAnalysisCollection.PRODUCTS)
-    analysis.add_and_parse_file(self._analysis_file, self._classes_dir)
+    analysis.add_and_parse_file(analysis_file, self._classes_dir)
     classes_by_src = {}
     for src, classes in analysis.products.items():
       classes_by_src[src] = [cls[len_rel_classes_dir:] for cls in classes]
     return classes_by_src
 
-  def _add_all_products_to_genmap(self, sources_by_target):
-    classes_by_src = self._compute_classes_by_src()
-
+  def _add_all_products_to_genmap(self, sources_by_target, classes_by_source):
     genmap = self.context.products.get('classes')
     for target, sources in sources_by_target.items():
       for source in sources:
-        classes = classes_by_src.get(source, [])
+        classes = classes_by_source.get(source, [])
         relsrc = os.path.relpath(source, target.target_base)
         genmap.add(relsrc, self._classes_dir, classes)
         genmap.add(target, self._classes_dir, classes)
@@ -254,8 +335,6 @@ class ScalaCompile(NailgunTask):
 
   # def _update_artifact_cache(self, vts_artifact_pairs):
   #   # Relativize the analysis.
-  #   # TODO: Relativize before splitting? This will require changes to Zinc, which currently
-  #   # eliminates paths it doesn't recognize (including our placeholders) when splitting.
   #   vts_artifactfiles_pairs = []
   #   with self.context.new_workunit(name='cacheprep'):
   #     with self.context.new_workunit(name='relativize', labels=[WorkUnit.MULTITOOL]):

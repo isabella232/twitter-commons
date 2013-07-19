@@ -236,7 +236,7 @@ class Task(object):
       with self.context.new_workunit('cache'):
         # Do some reporting.
         targets = set()
-        for vts, artifactfiles in vts_artifactfiles_pairs:
+        for vts, _ in vts_artifactfiles_pairs:
           targets.update(vts.targets)
         self._report_targets('Caching artifacts for ', list(targets), '.')
         with self.context.new_workunit('update'):
