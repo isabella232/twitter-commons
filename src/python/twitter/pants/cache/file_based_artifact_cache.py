@@ -1,6 +1,6 @@
 import os
 import shutil
-from twitter.common.dirutil import safe_mkdir, safe_rmtree
+from twitter.common.dirutil import safe_mkdir, safe_rmtree, safe_mkdir_for
 from twitter.pants.cache.artifact_cache import ArtifactCache
 
 
@@ -13,9 +13,14 @@ class FileBasedArtifactCache(ArtifactCache):
         will copy cached files into the desired destination. If unspecified, a simple file copy is used.
     """
     ArtifactCache.__init__(self, log, artifact_root)
-    self._cache_root = cache_root
-    self._copy_fn = copy_fn or (
-      lambda src, rel_dst: shutil.copy(src, os.path.join(self.artifact_root, rel_dst)))
+    self._cache_root = os.path.expanduser(cache_root)
+
+    def copy(src, rel_dst):
+      dst = os.path.join(self.artifact_root, rel_dst)
+      safe_mkdir_for(dst)
+      shutil.copy(src, dst)
+
+    self._copy_fn = copy_fn or copy
     safe_mkdir(self._cache_root)
 
   def try_insert(self, cache_key, build_artifacts):

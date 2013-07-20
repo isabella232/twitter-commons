@@ -16,14 +16,16 @@
 import itertools
 import os
 import shutil
+from twitter.common import contextutil
 from twitter.common.dirutil import safe_mkdir
 
 from twitter.pants import has_sources, is_scalac_plugin, get_buildroot
 from twitter.pants.base import Target
+from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.targets import resolve_target_sources
 from twitter.pants.targets.scala_library import ScalaLibrary
 from twitter.pants.targets.scala_tests import ScalaTests
-from twitter.pants.tasks import TaskError
+from twitter.pants.tasks import TaskError, Task
 from twitter.pants.tasks.jvm_dependency_cache import JvmDependencyCache
 from twitter.pants.tasks.nailgun_task import NailgunTask
 from twitter.pants.reporting.reporting_utils import items_to_report_element
@@ -131,7 +133,6 @@ class ScalaCompile(NailgunTask):
           analysis.add_and_parse_file(self._analysis_file, self._classes_dir)
         old_sources = analysis.products.keys()
         self._deleted_sources = filter(lambda x: not os.path.exists(x), old_sources)
-        print('RRRRRRRR %s' % self._deleted_sources)
     return self._deleted_sources
 
   def execute(self, targets):
@@ -183,44 +184,54 @@ class ScalaCompile(NailgunTask):
     for conf in self._confs:
       egroups.update_compatible_classpaths(exclusives_key, [(conf, self._classes_dir)])
 
-  # def _localize_portable_analysis_files(self, vts):
-  #   # Localize the analysis files we read from the artifact cache.
-  #   for vt in vts:
-  #     analysis_file = self._artifact_factory.analysis_file_for_targets(vt.targets)
-  #     if self._zinc_utils.localize_analysis_file(
-  #         ZincArtifactFactory.portable(analysis_file.analysis_file), analysis_file.analysis_file):
-  #       self.context.log.warn('Zinc failed to localize analysis file: %s. Incremental rebuild' \
-  #                             'of that target may not be possible.' % analysis_file)
+  ARTIFACT_CACHE_TMPDIR = 'artifact_cache_tmpdir'
+
+  @staticmethod
+  def _analysis_for_target(analysis_dir, target):
+    return os.path.join(analysis_dir, target.id + '.analysis')
+
+  @staticmethod
+  def _portable_analysis_for_target(analysis_dir, target):
+    return ScalaCompile._analysis_for_target(analysis_dir, target) + '.portable'
 
   def _write_to_artifact_cache(self, vts, sources_by_target):
-    analysis_dir = os.path.join(self._analysis_dir,
-                                Target.maybe_readable_identify(sources_by_target.keys()))
+    # A temporary, but well-known, dir to munge analysis files in. Once we've written to the cache
+    # we can nuke this dir. It must be well-known so we know where to find the files when we
+    # retrieve them from the cache.
+    analysis_dir = os.path.join(self._analysis_dir, ScalaCompile.ARTIFACT_CACHE_TMPDIR)
+    safe_mkdir(analysis_dir)
+
     try:
       vt_by_target = dict([(vt.target, vt) for vt in vts.versioned_targets])
 
       # Copy the analysis file, so we can work on it without it changing under us.
-      analysis_file_copy = os.path.join(analysis_dir, 'analysis')
-      shutil.copyfile(self._analysis_file, analysis_file_copy)
+      global_analysis_file_copy = os.path.join(analysis_dir, 'analysis')
+      shutil.copyfile(self._analysis_file, global_analysis_file_copy)
+      shutil.copyfile(self._analysis_file + '.relations', global_analysis_file_copy + '.relations')
+      classes_by_source = self._compute_classes_by_source(global_analysis_file_copy)
 
-      # This work can happen in the background, assiming analysis_dir isn't cleaned up.
-      analysis_file_portable = analysis_file_copy + '.portable'
-      if self._zinc_utils.relativize_analysis_file(analysis_file_copy, analysis_file_portable):
-        raise TaskError('Zinc failed to relativize analysis file: %s' % analysis_file_copy)
-      classes_by_source = self._compute_classes_by_source(analysis_file_copy)
-
-      def analysis_for_target(target):
-        return target.id + '.analysis.portable'
+      # This work can happen in the background, assuming analysis_dir isn't cleaned up.
 
       # Split the analysis into per-target files.
-      splits = [(sources, analysis_for_target(target))
+      splits = [(sources, ScalaCompile._analysis_for_target(analysis_dir, target))
                 for target, sources in sources_by_target.items()]
-      self._zinc_utils.run_zinc_split(analysis_file_portable, splits)
+      self._zinc_utils.run_zinc_split(global_analysis_file_copy, splits)
+
+      # Relativize each split.
+      # TODO: Rebase first, then split? Would require zinc changes to prevent nuking placeholders.
+      with self.context.new_workunit(name='relativize-analysis', labels=[WorkUnit.MULTITOOL]):
+        for target in vts.targets:
+          analysis_file = ScalaCompile._analysis_for_target(analysis_dir, target)
+          portable_analysis_file = ScalaCompile._portable_analysis_for_target(analysis_dir, target)
+          if self._zinc_utils.relativize_analysis_file(analysis_file, portable_analysis_file):
+            raise TaskError('Zinc failed to relativize analysis file: %s' % analysis_file)
 
       # Gather up the artifacts.
       vts_artifactfiles_pairs = []
       for target, sources in sources_by_target.items():
-        artifacts = [analysis_for_target(target)]
+        artifacts = [ScalaCompile._portable_analysis_for_target(analysis_dir, target)]
         for source in sources:
+          # Add in the classfiles.
           artifacts.extend(classes_by_source.get(source, []))
         vt = vt_by_target.get(target)
         if vt is not None:
@@ -228,29 +239,50 @@ class ScalaCompile(NailgunTask):
 
       # Write to the artifact cache.
       self.update_artifact_cache(vts_artifactfiles_pairs)
-    except:
-      shutil.rmtree(analysis_dir)
-      raise
+    finally:
+      if os.path.exists(analysis_dir):
+        shutil.rmtree(analysis_dir)
 
   def check_artifact_cache(self, vts):
-    # Special handling for scala artifacts.
-    return [], []
-    # cached_vts, uncached_vts = Task.check_artifact_cache(self, vts)
-    #
-    # if cached_vts:
-    #   # Localize the portable analysis files.
-    #   with self.context.new_workunit('localize', labels=[WorkUnit.MULTITOOL]):
-    #     self._localize_portable_analysis_files(cached_vts)
-    #
-    #   # Split any merged artifacts.
-    #   for vt in cached_vts:
-    #     if len(vt.targets) > 1:
-    #       artifacts = [self._artifact_factory.artifact_for_target(t) for t in vt.targets]
-    #       merged_artifact = self._artifact_factory.merged_artifact(artifacts)
-    #       merged_artifact.split()
-    #       for v in vt.versioned_targets:
-    #         v.update()
-    # return cached_vts, uncached_vts
+    # Special handling for scala analysis files. Class files are retrieved directly into their
+    # final locations in the global classes dir.
+    cached_vts, uncached_vts = Task.check_artifact_cache(self, vts)
+
+    # The temporary, but well-known, dir the cached artifacts will retrieve analysis files into.
+    # We can nuke it once we're done merging into the global analysis file.
+    analysis_dir = os.path.join(self._analysis_dir, ScalaCompile.ARTIFACT_CACHE_TMPDIR)
+
+    # Merge the cached analyses into the existing global one, and localize the whole thing.
+    try:
+      analyses_to_merge = []
+
+      # Localize the cached analyses.
+      # TODO: Merge first, then rebase? Would require zinc changes to prevent nuking placeholders.
+      if cached_vts:
+        with self.context.new_workunit(name='localize-analysis', labels=[WorkUnit.MULTITOOL]):
+          for vt in cached_vts:
+            for target in vt.targets:
+              analysis = ScalaCompile._analysis_for_target(analysis_dir, target)
+              portable_analysis = ScalaCompile._portable_analysis_for_target(analysis_dir, target)
+              if os.path.exists(portable_analysis):
+                if self._zinc_utils.localize_analysis_file(portable_analysis, analysis):
+                  raise TaskError('Zinc failed to localize cached analysis files.')
+                analyses_to_merge.append(analysis)
+
+      if len(analyses_to_merge) > 0:
+        if os.path.exists(self._analysis_file):
+          analyses_to_merge.append(self._analysis_file)
+        with contextutil.temporary_dir() as tmpdir:
+          tmp_analysis = os.path.join(tmpdir, 'analysis')
+          # Merge the cached analyses and the global one.
+          if self._zinc_utils.run_zinc_merge(analyses_to_merge, tmp_analysis):
+            raise TaskError('Zinc failed to merge cached analysis files.')
+          shutil.copy(tmp_analysis, self._analysis_file)
+          shutil.copy(tmp_analysis + '.relations', self._analysis_file + '.relations')
+      return cached_vts, uncached_vts
+    finally:
+      if os.path.exists(analysis_dir):
+        shutil.rmtree(analysis_dir)
 
   def _process_target_partition(self, vts, cp):
     """Needs invoking only on invalid targets.
@@ -292,16 +324,6 @@ class ScalaCompile(NailgunTask):
         if self._zinc_utils.compile(classpath, sources + deleted_sources,
                                     self._classes_dir,self._analysis_file, {}):
           raise TaskError('Compile failed.')
-
-      write_to_artifact_cache = self._artifact_cache and \
-                                self.context.options.write_to_artifact_cache
-
-      #if write_to_artifact_cache:
-      #  # Write the entire merged artifact, and each individual split artifact,
-      #  # to the artifact cache, if needed.
-      #  vts_artifact_pairs = zip(vts.versioned_targets, artifacts) + [(vts, merged_artifact)]
-      #  self._update_artifact_cache(vts_artifact_pairs)
-
     return sources_by_target
 
   def _compute_classes_by_source(self, analysis_file=None):
@@ -332,18 +354,3 @@ class ScalaCompile(NailgunTask):
       if is_scalac_plugin(target) and target.classname:
         basedir, plugin_info_file = self._zinc_utils.write_plugin_info(self._resources_dir, target)
         genmap.add(target, basedir, [plugin_info_file])
-
-  # def _update_artifact_cache(self, vts_artifact_pairs):
-  #   # Relativize the analysis.
-  #   vts_artifactfiles_pairs = []
-  #   with self.context.new_workunit(name='cacheprep'):
-  #     with self.context.new_workunit(name='relativize', labels=[WorkUnit.MULTITOOL]):
-  #       for vts, artifact in vts_artifact_pairs:
-  #         if os.path.exists(artifact.analysis_file) and \
-  #             self._zinc_utils.relativize_analysis_file(artifact.analysis_file,
-  #                                                       artifact.portable_analysis_file):
-  #           raise TaskError('Zinc failed to relativize analysis file: %s' % artifact.analysis_file)
-  #         artifact_files = [artifact.classes_dir, artifact.portable_analysis_file]
-  #         vts_artifactfiles_pairs.append((vts, artifact_files))
-  #
-  #   self.update_artifact_cache(vts_artifactfiles_pairs)

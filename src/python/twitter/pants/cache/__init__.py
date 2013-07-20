@@ -33,7 +33,7 @@ def create_artifact_cache(log, artifact_root, spec, task_name):
   if not spec:
     raise ValueError('Empty artifact cache spec')
   if isinstance(spec, basestring):
-    if spec.startswith('/'):
+    if spec.startswith('/') or spec.startswith('~'):
       log.info('%s using local artifact cache at %s' % (task_name, spec))
       return FileBasedArtifactCache(log, artifact_root, spec)
     elif spec.startswith('http://') or spec.startswith('https://'):

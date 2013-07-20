@@ -82,6 +82,8 @@ TARGET_SOURCES = DefaultSourceScope(recursive=False, include_buildfile=False)
 TRANSITIVE_SOURCES = DefaultSourceScope(recursive=True, include_buildfile=False)
 
 
+CACHE_KEY_GEN_VERSION = '1'
+
 class CacheKeyGenerator(object):
   """Generates cache keys for versions of target sets."""
 
@@ -128,16 +130,17 @@ class CacheKeyGenerator(object):
     actual_srcs = self._sources_hash(sha, srcs)
     if fingerprint_extra:
       fingerprint_extra(sha)
+    sha.update(CACHE_KEY_GEN_VERSION)
     return CacheKey(target.id, sha.hexdigest(), len(actual_srcs), actual_srcs)
 
-  def key_for(self, id, sources):
+  def key_for(self, target_id, sources):
     """Get a cache key representing some id and its associated source files.
 
     Useful primarily in tests. Normally we use key_for_target().
     """
     sha = hashlib.sha1()
     actual_srcs = self._sources_hash(sha, sources)
-    return CacheKey(id, sha.hexdigest(), len(actual_srcs), actual_srcs)
+    return CacheKey(target_id, sha.hexdigest(), len(actual_srcs), actual_srcs)
 
   def _walk_paths(self, paths):
     """Recursively walk the given paths.
@@ -173,10 +176,8 @@ class CacheKeyGenerator(object):
 class BuildInvalidator(object):
   """Invalidates build targets based on the SHA1 hash of source files and other inputs."""
 
-  VERSION = 0
-
   def __init__(self, root):
-    self._root = os.path.join(root, str(self.VERSION))
+    self._root = os.path.join(root, CACHE_KEY_GEN_VERSION)
     safe_mkdir(self._root)
 
   def needs_update(self, cache_key):
