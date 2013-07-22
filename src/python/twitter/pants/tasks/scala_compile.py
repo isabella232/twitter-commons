@@ -231,8 +231,8 @@ class ScalaCompile(NailgunTask):
       for target, sources in sources_by_target.items():
         artifacts = [ScalaCompile._portable_analysis_for_target(analysis_dir, target)]
         for source in sources:
-          # Add in the classfiles.
-          artifacts.extend(classes_by_source.get(source, []))
+          for cls in classes_by_source.get(source, []):
+            artifacts.append(os.path.join(self._classes_dir, cls))
         vt = vt_by_target.get(target)
         if vt is not None:
           vts_artifactfiles_pairs.append((vt, artifacts))
