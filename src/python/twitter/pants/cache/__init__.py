@@ -1,3 +1,4 @@
+import os
 import urlparse
 from twitter.pants.cache.pinger import Pinger
 from twitter.pants.cache.combined_artifact_cache import CombinedArtifactCache
@@ -34,16 +35,18 @@ def create_artifact_cache(log, artifact_root, spec, task_name):
     raise ValueError('Empty artifact cache spec')
   if isinstance(spec, basestring):
     if spec.startswith('/') or spec.startswith('~'):
-      log.info('%s using local artifact cache at %s' % (task_name, spec))
-      return FileBasedArtifactCache(log, artifact_root, spec)
+      path = os.path.join(spec, task_name)
+      log.info('%s using local artifact cache at %s' % (task_name, path))
+      return FileBasedArtifactCache(log, artifact_root, path)
     elif spec.startswith('http://') or spec.startswith('https://'):
       # Caches are supposed to be close, and we don't want to waste time pinging on no-op builds.
       # So we ping twice with a short timeout.
       pinger = Pinger(timeout=0.5, tries=2)
       best_url = select_best_url(spec, pinger, log)
       if best_url:
-        log.info('%s using remote artifact cache at %s' % (task_name, best_url))
-        return RESTfulArtifactCache(log, artifact_root, best_url)
+        url = best_url.rstrip('/') + '/' + task_name
+        log.info('%s using remote artifact cache at %s' % (task_name, url))
+        return RESTfulArtifactCache(log, artifact_root, url)
       else:
         log.warn('%s has no reachable artifact cache in %s.' % (task_name, spec))
         return None
