@@ -166,8 +166,10 @@ class JavaCompile(NailgunTask):
 
         # Provide the target->class and source->class mappings to downstream tasks if needed.
         if self.context.products.isrequired('classes'):
-          classes_by_source = self._compute_classes_by_source()
-          self._add_all_products_to_genmap(all_sources_by_target, classes_by_source)
+          if os.path.exists(self._depfile):
+            deps = Dependencies(self._classes_dir)
+            deps.load(self._depfile)
+            self._add_all_products_to_genmap(all_sources_by_target, deps.classes_by_source)
 
         # Produce a monolithic apt processor service info file for further compilation rounds
         # and the unit test classpath.
@@ -221,10 +223,11 @@ class JavaCompile(NailgunTask):
       # This work can happen in the background, assuming depfile_dir isn't cleaned up.
 
       # Split the depfile into per-target files.
-      splits = [(sources, JavaCompile.create_depfile_path(depfile_dir, target))
+      splits = [(sources, JavaCompile.create_depfile_path(depfile_dir, [target]))
                 for target, sources in sources_by_target.items()]
       deps = Dependencies(self._classes_dir)
-      deps.load(self._depfile)
+      if os.path.exists(self._depfile):
+        deps.load(self._depfile)
       deps.split(splits)
 
       # Gather up the artifacts.
@@ -255,20 +258,18 @@ class JavaCompile(NailgunTask):
 
     # Merge the cached analyses into the existing global one.
     try:
-      cached_deps = []
       if cached_vts:
         with self.context.new_workunit(name='merge-dependencies'):
+          global_deps = Dependencies(self._classes_dir)
+          if os.path.exists(self._depfile):
+            global_deps.load(self._depfile)
           for vt in cached_vts:
             for target in vt.targets:
               depfile = JavaCompile.create_depfile_path(depfile_dir, [target])
               if os.path.exists(depfile):
                 deps = Dependencies(self._classes_dir)
                 deps.load(depfile)
-                cached_deps.append(deps)
-
-          global_deps = Dependencies(self._classes_dir)
-          global_deps.load(self._depfile)
-          global_deps.merge(cached_deps)
+                global_deps.merge(deps)
           global_deps.save(self._depfile)
     finally:
       if os.path.exists(depfile_dir):
