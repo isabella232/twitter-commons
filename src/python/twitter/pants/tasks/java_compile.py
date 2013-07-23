@@ -95,7 +95,7 @@ class JavaCompile(NailgunTask):
     self._classes_dir = os.path.join(workdir, 'classes')
     self._resources_dir = os.path.join(workdir, 'resources')
     self._depfile_dir = os.path.join(workdir, 'depfiles')
-    self._depfile = os.path.join(workdir, 'depfile')
+    self._depfile = os.path.join(self._depfile_dir, 'global_depfile')
 
     safe_mkdir(self._classes_dir)
     safe_mkdir(self._depfile_dir)
