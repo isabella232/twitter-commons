@@ -94,7 +94,7 @@ class ScalaCompile(NailgunTask):
 
     self.context.products.require_data('exclusives_groups')
 
-    artifact_cache_spec = context.config.getlist('scala-compile', 'artifact_caches', default=[])
+    artifact_cache_spec = context.config.getlist('scala-compile', 'artifact_caches2', default=[])
     self.setup_artifact_cache(artifact_cache_spec)
 
     # If we are compiling scala libraries with circular deps on java libraries we need to make sure
