@@ -47,7 +47,8 @@ class CodeGen(Task):
   def genlang(self, lang, targets):
     """Subclass must override and generate code in :lang for the given targets.
 
-    May return a list of dirs/files to be stored in the artifact cache.
+    May return a list of pairs (target, files) where files is a list of files
+    to be cached against the target.
     """
     raise NotImplementedError
 
@@ -101,15 +102,22 @@ class CodeGen(Task):
       ))
 
     with self.invalidated(gentargets, invalidate_dependents=True) as invalidation_check:
-      for vt in invalidation_check.invalid_vts_partitioned:
-        invalid_targets = set(vt.targets)
-        artifact_files = []
+      target_artifactfiles_pairs = []
+      for vts in invalidation_check.invalid_vts_partitioned:
+        vt_by_target = dict([(vt.target, vt) for vt in vts.versioned_targets])
+        invalid_targets = set(vts.targets)
         for lang, tgts in gentargets_bylang.items():
           lang_invalid = invalid_targets.intersection(tgts)
           if lang_invalid:
-            artifact_files.extend(self.genlang(lang, lang_invalid) or [])
-        if self._artifact_cache and self.context.options.write_to_artifact_cache and artifact_files:
-          self.update_artifact_cache([(vt, artifact_files)])
+            target_artifactfiles_pairs.extend(self.genlang(lang, lang_invalid) or [])
+        if self._artifact_cache and self.context.options.write_to_artifact_cache and \
+            target_artifactfiles_pairs:
+          vts_artifactfiles_pairs = []
+          for (target, files) in target_artifactfiles_pairs:
+            vt = vt_by_target.get(target)
+            if vt is not None:
+              vts_artifactfiles_pairs.append((vt, files))
+          self.update_artifact_cache(vts_artifactfiles_pairs)
 
     # Link synthetic targets for all in-play gen targets
     for lang, tgts in gentargets_bylang.items():

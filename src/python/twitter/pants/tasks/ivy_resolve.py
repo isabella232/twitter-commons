@@ -112,7 +112,6 @@ class IvyResolve(NailgunTask):
     self._ivy_utils = IvyUtils(context, self._cachedir)
     context.products.require_data('exclusives_groups')
 
-    # The artifact cache to read from/write to.
     # Typically this should be a local cache only, since classpaths aren't portable.
     artifact_cache_spec = context.config.getlist('ivy-resolve', 'artifact_caches', default=[])
     self.setup_artifact_cache(artifact_cache_spec)

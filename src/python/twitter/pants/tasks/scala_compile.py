@@ -94,7 +94,6 @@ class ScalaCompile(NailgunTask):
 
     self.context.products.require_data('exclusives_groups')
 
-    # The artifact cache to read from/write to.
     artifact_cache_spec = context.config.getlist('scala-compile', 'artifact_caches', default=[])
     self.setup_artifact_cache(artifact_cache_spec)
 
