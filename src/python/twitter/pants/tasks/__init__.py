@@ -143,39 +143,25 @@ class Task(object):
 
       invalidation_check = cache_manager.check(targets, partition_size_hint)
 
-    # See if we have entire partitions cached.
     if invalidation_check.invalid_vts and self._artifact_cache and \
         self.context.options.read_from_artifact_cache:
       with self.context.new_workunit('cache'):
-        all_cached_targets = []
-        partitions_to_check = \
-          [vt for vt in invalidation_check.all_vts_partitioned if not vt.valid]
-        cached_partitions, uncached_partitions = self.check_artifact_cache(partitions_to_check)
-        for vt in cached_partitions:
-          for t in vt.targets:
-            all_cached_targets.append(t)
-
-        # See if we have any individual targets from the uncached partitions.
-        vts_to_check = [vt for vt in itertools.chain.from_iterable(
-          [x.versioned_targets for x in uncached_partitions]) if not vt.valid]
-        cached_targets, uncached_targets = self.check_artifact_cache(vts_to_check)
-        for vt in cached_targets:
-          all_cached_targets.append(vt.target)
-
-      if all_cached_targets:
+        cached_vts, uncached_vts = \
+          self.check_artifact_cache(invalidation_check.invalid_vts.versioned_targets)
+      if cached_vts:
         # Do some reporting.
-        for t in all_cached_targets:
+        cached_targets = [vt.target for vt in cached_vts]
+        for t in cached_targets:
           self.context.run_tracker.artifact_cache_stats.add_hit('default', t)
-        self._report_targets('Using cached artifacts for ', all_cached_targets, '.')
-
+        self._report_targets('Using cached artifacts for ', cached_targets, '.')
+      if uncached_vts:
+        uncached_targets = [vt.target for vt in uncached_vts]
+        for t in uncached_targets:
+          self.context.run_tracker.artifact_cache_stats.add_miss('default', t)
+        self._report_targets('No cached artifacts for ', uncached_targets, '.')
       # Now that we've checked the cache, re-partition whatever is still invalid.
-      if uncached_targets:
-        for vts in uncached_targets:
-          self.context.run_tracker.artifact_cache_stats.add_miss('default', vts.target)
-        self._report_targets('No cached artifacts for ',
-                             [vt.target for vt in uncached_targets], '.')
       invalidation_check = \
-        InvalidationCheck(invalidation_check.all_vts, uncached_targets, partition_size_hint)
+        InvalidationCheck(invalidation_check.all_vts, uncached_vts, partition_size_hint)
 
     # Do some reporting.
     targets = []
@@ -202,9 +188,9 @@ class Task(object):
         vt.update()  # In case the caller doesn't update.
 
   def check_artifact_cache(self, vts):
-    """Checks the artifact cache for the specified VersionedTargetSets.
+    """Checks the artifact cache for the specified list of VersionedTargetSets.
 
-    Returns a list of the ones that were satisfied from the cache. These don't require building.
+    Returns a pair (cached, uncached) of the ones that were satisfied/unsatisfied from the cache.
     """
     if not vts:
       return [], []
