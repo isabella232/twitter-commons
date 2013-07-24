@@ -718,10 +718,14 @@ goal(name='scala',
      dependencies=['gen', 'resolve', 'check-exclusives']).install('compile').with_description(
        'Compile both generated and checked in code.'
      )
+
+class AptCompile(JavaCompile): pass  # So they're distinct in log messages etc.
+
 goal(name='apt',
-     action=JavaCompile,
+     action=AptCompile,
      group=group('jvm', is_apt),
      dependencies=['gen', 'resolve', 'check-exclusives']).install('compile')
+
 goal(name='java',
      action=JavaCompile,
      group=group('jvm', _is_java),

@@ -42,12 +42,8 @@ class ArtifactCache(object):
     try:
       self.try_insert(cache_key, build_artifacts_that_exist)
     except Exception as e:
-      err_msg = 'Error while writing to artifact cache: %s. Deleting, just in case.' % e
+      err_msg = 'Error while writing to artifact cache: %s. ' % e
       self.log.error(err_msg)
-      try:
-        self.delete(cache_key)
-      except Exception:
-        self.log.debug('Failed to delete %s on error.' % cache_key.id)
 
   def try_insert(self, cache_key, build_artifacts):
     """Attempt to cache the output of a build, without error-handling.
