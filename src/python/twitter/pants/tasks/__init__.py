@@ -198,17 +198,13 @@ class Task(object):
     cached_vts = []
     uncached_vts = OrderedSet(vts)
 
-    with self.context.new_workunit('check'):
-      pool = ThreadPool(processes=6)
-      res = pool.map(lambda vt: self._artifact_cache.use_cached_files(vt.cache_key),
-                     vts, chunksize=1)
-      pool.close()
-      pool.join()
-      for vt, was_in_cache in zip(vts, res):
-        if was_in_cache:
-          cached_vts.append(vt)
-          uncached_vts.discard(vt)
-          vt.update()
+    res = self.context.worker_pool.submit_work_and_wait(
+      lambda vt: self._artifact_cache.use_cached_files(vt.cache_key), vts)
+    for vt, was_in_cache in zip(vts, res):
+      if was_in_cache:
+        cached_vts.append(vt)
+        uncached_vts.discard(vt)
+        vt.update()
     return cached_vts, list(uncached_vts)
 
   def update_artifact_cache(self, vts_artifactfiles_pairs):

@@ -13,6 +13,7 @@ from twitter.common.process import ProcessProviderFactory
 from twitter.pants import get_buildroot
 from twitter.pants import SourceRoot
 from twitter.pants.base import ParseContext
+from twitter.pants.base.worker_pool import WorkerPool
 from twitter.pants.base.target import Target
 from twitter.pants.goal.products import Products
 from twitter.pants.reporting.report import Report
@@ -61,6 +62,8 @@ class Context(object):
     self._products = Products()
     self._buildroot = get_buildroot()
     self.requested_goals = requested_goals or []
+    self._worker_pool = \
+      WorkerPool(context=self, num_workers=self._config.getdefault('num_workers', default=8))
 
     self.replace_targets(target_roots)
 
@@ -98,6 +101,11 @@ class Context(object):
     globbed by the wildcards are considered to be target roots.
     """
     return self._target_roots
+
+  @property
+  def worker_pool(self):
+    """Returns the pool to which tasks can submit work."""
+    return self._worker_pool
 
   def __str__(self):
     return 'Context(id:%s, state:%s, targets:%s)' % (self.id, self.state, self.targets())
