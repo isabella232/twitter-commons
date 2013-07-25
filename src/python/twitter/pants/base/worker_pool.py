@@ -11,6 +11,10 @@ class WorkerPool(object):
   def __init__(self, context, num_workers):
     self._context = context
     self._pool = ThreadPool(processes=num_workers)
+    self._shutdown_hooks = []
+
+  def add_shutdown_hook(self, hook):
+    self._shutdown_hooks.append(hook)
 
   def submit_async_work(self, func, args_tuples, workunit_name=None, callback=None):
     """Submit work to be executed in the background.
@@ -22,7 +26,11 @@ class WorkerPool(object):
                 of return values of each invocation, in order. Called only if all work succeeded.
     """
     # TODO: Support workunit tracking in an async context.
-    self._pool.map_async(func, args_tuples, chunksize=1, callback=callback)
+    if len(args_tuples) == 0:
+      if callback:
+        callback([])
+    else:
+      self._pool.map_async(func, args_tuples, chunksize=1, callback=callback)
 
   def submit_work_and_wait(self, func, args_tuples, workunit_name=None):
     """Submit work to be executed on this pool, but wait for it to complete.
@@ -42,6 +50,8 @@ class WorkerPool(object):
     else:
       return do_work()
 
-  def stop(self):
+  def shutdown(self):
     self._pool.close()
     self._pool.join()
+    for hook in self._shutdown_hooks:
+      hook()

@@ -21,7 +21,7 @@ from collections import defaultdict
 import itertools
 import shutil
 
-from twitter.common.dirutil import safe_open, safe_mkdir
+from twitter.common.dirutil import safe_open, safe_mkdir, safe_rmtree
 
 from twitter.pants import has_sources, is_apt, Task
 from twitter.pants.base.target import Target
@@ -124,6 +124,12 @@ class JavaCompile(NailgunTask):
     artifact_cache_spec = context.config.getlist('java-compile', 'artifact_caches2', default=[])
     self.setup_artifact_cache(artifact_cache_spec)
 
+    # A temporary, but well-known, dir to munge analysis files in before caching. It must be
+    # well-known so we know where to find the files when we retrieve them from the cache.
+    self._depfile_tmpdir = os.path.join(self._depfile_dir, 'depfile_tmpdir')
+    safe_mkdir(self._depfile_tmpdir)
+    self.context.worker_pool().add_shutdown_hook(lambda: safe_rmtree(self._depfile_tmpdir))
+
   def product_type(self):
     return 'classes'
 
@@ -204,72 +210,52 @@ class JavaCompile(NailgunTask):
         raise TaskError(_JMAKE_ERROR_CODES.get(result, default_message))
     return sources_by_target
 
-  ARTIFACT_CACHE_TMPDIR = 'artifact_cache_tmpdir'
-
   def _write_to_artifact_cache(self, vts, sources_by_target):
-    # A temporary, but well-known, dir to munge depfiles in. Once we've written to the cache
-    # we can nuke this dir. It must be well-known so we know where to find the files when we
-    # retrieve them from the cache.
-    depfile_dir = os.path.join(self._depfile_dir, JavaCompile.ARTIFACT_CACHE_TMPDIR)
-    safe_mkdir(depfile_dir)
+    vt_by_target = dict([(vt.target, vt) for vt in vts.versioned_targets])
 
-    try:
-      vt_by_target = dict([(vt.target, vt) for vt in vts.versioned_targets])
+    # This work can happen in the background, assuming depfile_dir isn't cleaned up.
 
-      # This work can happen in the background, assuming depfile_dir isn't cleaned up.
+    # Split the depfile into per-target files.
+    splits = [(sources, JavaCompile.create_depfile_path(self._depfile_tmpdir, [target]))
+              for target, sources in sources_by_target.items()]
+    deps = Dependencies(self._classes_dir)
+    if os.path.exists(self._depfile):
+      deps.load(self._depfile)
+    deps.split(splits)
 
-      # Split the depfile into per-target files.
-      splits = [(sources, JavaCompile.create_depfile_path(depfile_dir, [target]))
-                for target, sources in sources_by_target.items()]
-      deps = Dependencies(self._classes_dir)
-      if os.path.exists(self._depfile):
-        deps.load(self._depfile)
-      deps.split(splits)
+    # Gather up the artifacts.
+    vts_artifactfiles_pairs = []
+    for target, sources in sources_by_target.items():
+      artifacts = [JavaCompile.create_depfile_path(self._depfile_tmpdir, [target])]
+      for source in sources:
+        for cls in deps.classes_by_source.get(source, []):
+          artifacts.append(os.path.join(self._classes_dir, cls))
+      vt = vt_by_target.get(target)
+      if vt is not None:
+        vts_artifactfiles_pairs.append((vt, artifacts))
 
-      # Gather up the artifacts.
-      vts_artifactfiles_pairs = []
-      for target, sources in sources_by_target.items():
-        artifacts = [JavaCompile.create_depfile_path(depfile_dir, [target])]
-        for source in sources:
-          for cls in deps.classes_by_source.get(source, []):
-            artifacts.append(os.path.join(self._classes_dir, cls))
-        vt = vt_by_target.get(target)
-        if vt is not None:
-          vts_artifactfiles_pairs.append((vt, artifacts))
-
-      # Write to the artifact cache.
-      self.update_artifact_cache(vts_artifactfiles_pairs)
-    finally:
-      if os.path.exists(depfile_dir):
-        shutil.rmtree(depfile_dir)
+    # Write to the artifact cache.
+    self.update_artifact_cache(vts_artifactfiles_pairs)
 
   def check_artifact_cache(self, vts):
     # Special handling for java depfiles. Class files are retrieved directly into their
     # final locations in the global classes dir.
     cached_vts, uncached_vts = Task.check_artifact_cache(self, vts)
 
-    # The temporary, but well-known, dir the cached artifacts will retrieve depfiles into.
-    # We can nuke it once we're done merging into the global depfile.
-    depfile_dir = os.path.join(self._depfile_dir, JavaCompile.ARTIFACT_CACHE_TMPDIR)
-
     # Merge the cached analyses into the existing global one.
-    try:
-      if cached_vts:
-        with self.context.new_workunit(name='merge-dependencies'):
-          global_deps = Dependencies(self._classes_dir)
-          if os.path.exists(self._depfile):
-            global_deps.load(self._depfile)
-          for vt in cached_vts:
-            for target in vt.targets:
-              depfile = JavaCompile.create_depfile_path(depfile_dir, [target])
-              if os.path.exists(depfile):
-                deps = Dependencies(self._classes_dir)
-                deps.load(depfile)
-                global_deps.merge(deps)
-          global_deps.save(self._depfile)
-    finally:
-      if os.path.exists(depfile_dir):
-        shutil.rmtree(depfile_dir)
+    if cached_vts:
+      with self.context.new_workunit(name='merge-dependencies'):
+        global_deps = Dependencies(self._classes_dir)
+        if os.path.exists(self._depfile):
+          global_deps.load(self._depfile)
+        for vt in cached_vts:
+          for target in vt.targets:
+            depfile = JavaCompile.create_depfile_path(self._depfile_tmpdir, [target])
+            if os.path.exists(depfile):
+              deps = Dependencies(self._classes_dir)
+              deps.load(depfile)
+              global_deps.merge(deps)
+        global_deps.save(self._depfile)
 
     return cached_vts, uncached_vts
 

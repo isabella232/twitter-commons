@@ -62,8 +62,6 @@ class Context(object):
     self._products = Products()
     self._buildroot = get_buildroot()
     self.requested_goals = requested_goals or []
-    self._worker_pool = \
-      WorkerPool(context=self, num_workers=self._config.getdefault('num_workers', default=8))
 
     self.replace_targets(target_roots)
 
@@ -102,13 +100,12 @@ class Context(object):
     """
     return self._target_roots
 
-  @property
-  def worker_pool(self):
-    """Returns the pool to which tasks can submit work."""
-    return self._worker_pool
-
   def __str__(self):
     return 'Context(id:%s, state:%s, targets:%s)' % (self.id, self.state, self.targets())
+
+  def worker_pool(self):
+    """Returns the pool to which tasks can submit work."""
+    return self.run_tracker.worker_pool()
 
   @contextmanager
   def new_workunit(self, name, labels=list(), cmd=''):

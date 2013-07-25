@@ -198,8 +198,8 @@ class Task(object):
     cached_vts = []
     uncached_vts = OrderedSet(vts)
 
-    res = self.context.worker_pool.submit_work_and_wait(
-      lambda vt: self._artifact_cache.use_cached_files(vt.cache_key), vts)
+    res = self.context.worker_pool().submit_work_and_wait(
+      lambda vt: self._artifact_cache.use_cached_files(vt.cache_key), vts, workunit_name='check')
     for vt, was_in_cache in zip(vts, res):
       if was_in_cache:
         cached_vts.append(vt)
@@ -223,10 +223,13 @@ class Task(object):
         self._report_targets('Caching artifacts for ', list(targets), '.')
         with self.context.new_workunit('update'):
           # Cache the artifacts.
+          args_tuples = []
           for vts, artifactfiles in vts_artifactfiles_pairs:
             if self.context.options.verify_artifact_cache:
-              pass  # TODO: Verify that the artifact we just built is identical to the cached one.
-            self._artifact_cache.insert(vts.cache_key, artifactfiles)
+              pass  # TODO: Verify that the artifact we just built is identical to the cached one?
+            args_tuples.append((vts.cache_key, artifactfiles))
+          self.context.worker_pool().submit_async_work(
+            lambda args: self._artifact_cache.insert(*args), args_tuples)
 
   def _report_targets(self, prefix, targets, suffix):
     self.context.log.info(

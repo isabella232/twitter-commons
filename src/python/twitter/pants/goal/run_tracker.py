@@ -1,13 +1,13 @@
 import httplib
 import json
 import os
-import socket
 import sys
 import time
 import urllib
 from urlparse import urlparse
 
 from contextlib import contextmanager
+from twitter.pants.base.worker_pool import WorkerPool
 
 from twitter.pants.goal.artifact_cache_stats import ArtifactCacheStats
 from twitter.pants.base.run_info import RunInfo
@@ -17,6 +17,8 @@ from twitter.pants.goal.workunit import WorkUnit
 
 class RunTracker(object):
   """Tracks and times the execution of a pants run.
+
+  Also manages background work.
 
   Use like this:
 
@@ -59,6 +61,10 @@ class RunTracker(object):
     # Hit/miss stats for the artifact cache.
     self.artifact_cache_stats = \
       ArtifactCacheStats(os.path.join(self.info_dir, 'artifact_cache_stats'))
+
+    # For background work.
+    self._worker_pool = \
+      WorkerPool(context=self, num_workers=config.getdefault('num_workers', default=8))
 
     # We report to this Report.
     self.report = None
@@ -172,3 +178,7 @@ class RunTracker(object):
       pass  # If the goal is clean-all then the run info dir no longer exists...
 
     self.upload_stats()
+    self._worker_pool.shutdown()
+
+  def worker_pool(self):
+    return self._worker_pool
