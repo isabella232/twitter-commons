@@ -127,14 +127,18 @@ class JavaCompile(NailgunTask):
     # A temporary, but well-known, dir to munge analysis files in before caching. It must be
     # well-known so we know where to find the files when we retrieve them from the cache.
     self._depfile_tmpdir = os.path.join(self._depfile_dir, 'depfile_tmpdir')
-    safe_mkdir(self._depfile_tmpdir)
-    self.context.worker_pool().add_shutdown_hook(lambda: safe_rmtree(self._depfile_tmpdir))
 
   def product_type(self):
     return 'classes'
 
   def can_dry_run(self):
     return True
+
+  def _ensure_depfile_tmpdir(self):
+    # Do this lazily, so we don't trigger creation of a worker pool unless we need it.
+    if not os.path.exists(self._depfile_tmpdir):
+      os.makedirs(self._depfile_tmpdir)
+      self.context.worker_pool().add_shutdown_hook(lambda: safe_rmtree(self._depfile_tmpdir))
 
   def execute(self, targets):
     java_targets = filter(lambda t: has_sources(t, '.java'), targets)
@@ -211,9 +215,10 @@ class JavaCompile(NailgunTask):
     return sources_by_target
 
   def _write_to_artifact_cache(self, vts, sources_by_target):
+    self._ensure_depfile_tmpdir()
     vt_by_target = dict([(vt.target, vt) for vt in vts.versioned_targets])
 
-    # This work can happen in the background, assuming depfile_dir isn't cleaned up.
+    # This work can happen in the background.
 
     # Split the depfile into per-target files.
     splits = [(sources, JavaCompile.create_depfile_path(self._depfile_tmpdir, [target]))
@@ -240,6 +245,8 @@ class JavaCompile(NailgunTask):
   def check_artifact_cache(self, vts):
     # Special handling for java depfiles. Class files are retrieved directly into their
     # final locations in the global classes dir.
+    self._ensure_depfile_tmpdir()
+
     cached_vts, uncached_vts = Task.check_artifact_cache(self, vts)
 
     # Merge the cached analyses into the existing global one.

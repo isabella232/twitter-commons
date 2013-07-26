@@ -45,7 +45,7 @@ class WorkUnit(object):
   RUN = 10       # Running a binary.
   REPL = 11      # Running a repl.
 
-  def __init__(self, run_tracker, parent, name, labels=(), cmd=''):
+  def __init__(self, run_tracker, parent, name, labels=(), cmd='', root_name=None):
     """
     - run_tracker: The RunTracker that tracks this WorkUnit.
     - parent: The containing workunit, if any. E.g., 'compile' might contain 'java', 'scala' etc.,
@@ -55,6 +55,8 @@ class WorkUnit(object):
               display information about this work.
     - cmd: An optional longer string representing this work.
            E.g., the cmd line of a compiler invocation.
+    - root_name: The work root to which this work accrues. If unspecified, defaults to
+                 the work root for the calling thread.
     """
     self._outcome = WorkUnit.UNKNOWN
 
@@ -66,6 +68,7 @@ class WorkUnit(object):
       self.parent.children.append(self)
 
     self.name = name
+    self.root_name = root_name or self.run_tracker.get_root_name()
     self.labels = set(labels)
     self.cmd = cmd
     self.id = uuid.uuid4()
@@ -147,7 +150,7 @@ class WorkUnit(object):
 
   def start_delta_string(self):
     """A convenient string representation of how long after the run started we started."""
-    delta = int(self.start_time) - int(self.run_tracker.root_workunit.start_time)
+    delta = int(self.start_time) - int(self.run_tracker.get_root_workunit().start_time)
     return '%02d:%02d' % (delta / 60, delta % 60)
 
   def ancestors(self):

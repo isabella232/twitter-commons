@@ -215,6 +215,8 @@ class Task(object):
       - artifactfiles is a list of paths to artifacts for the VersionedTargetSet.
     """
     if self._artifact_cache and self.context.options.write_to_artifact_cache:
+      if len(vts_artifactfiles_pairs) == 0:
+        return
       with self.context.new_workunit('cache'):
         # Do some reporting.
         targets = set()
@@ -229,7 +231,7 @@ class Task(object):
               pass  # TODO: Verify that the artifact we just built is identical to the cached one?
             args_tuples.append((vts.cache_key, artifactfiles))
           self.context.worker_pool().submit_async_work(
-            lambda args: self._artifact_cache.insert(*args), args_tuples)
+            lambda *args: self._artifact_cache.insert(*args), args_tuples, workunit_name='cache-insert')
 
   def _report_targets(self, prefix, targets, suffix):
     self.context.log.info(

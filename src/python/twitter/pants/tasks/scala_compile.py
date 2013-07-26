@@ -100,8 +100,6 @@ class ScalaCompile(NailgunTask):
     # A temporary, but well-known, dir to munge analysis files in before caching. It must be
     # well-known so we know where to find the files when we retrieve them from the cache.
     self._analysis_tmpdir = os.path.join(self._analysis_dir, 'artifact_cache_tmpdir')
-    safe_mkdir(self._analysis_tmpdir)
-    self.context.worker_pool().add_shutdown_hook(lambda: safe_rmtree(self._analysis_tmpdir))
 
     # If we are compiling scala libraries with circular deps on java libraries we need to make sure
     # those cycle deps are present.
@@ -121,6 +119,12 @@ class ScalaCompile(NailgunTask):
 
   def can_dry_run(self):
     return True
+
+  def _ensure_analysis_tmpdir(self):
+    # Do this lazily, so we don't trigger creation of a worker pool unless we need it.
+    if not os.path.exists(self._analysis_tmpdir):
+      os.makedirs(self._analysis_tmpdir)
+      self.context.worker_pool().add_shutdown_hook(lambda: safe_rmtree(self._analysis_tmpdir))
 
   def _get_deleted_sources(self):
     """Returns the list of sources present in the last analysis that have since been deleted.
@@ -198,6 +202,8 @@ class ScalaCompile(NailgunTask):
     return ScalaCompile._analysis_for_target(analysis_dir, target) + '.portable'
 
   def _write_to_artifact_cache(self, vts, sources_by_target):
+    self._ensure_analysis_tmpdir()
+
     vt_by_target = dict([(vt.target, vt) for vt in vts.versioned_targets])
 
     # Copy the analysis file, so we can work on it without it changing under us.
@@ -206,7 +212,7 @@ class ScalaCompile(NailgunTask):
     shutil.copyfile(self._analysis_file + '.relations', global_analysis_file_copy + '.relations')
     classes_by_source = self._compute_classes_by_source(global_analysis_file_copy)
 
-    # This work can happen in the background, assuming analysis_dir isn't cleaned up.
+    # This work can happen in the background.
 
     # Split the analysis into per-target files.
     splits = [(sources, ScalaCompile._analysis_for_target(self._analysis_tmpdir, target))
@@ -241,6 +247,8 @@ class ScalaCompile(NailgunTask):
   def check_artifact_cache(self, vts):
     # Special handling for scala analysis files. Class files are retrieved directly into their
     # final locations in the global classes dir.
+    self._ensure_analysis_tmpdir()
+
     cached_vts, uncached_vts = Task.check_artifact_cache(self, vts)
 
     # Merge the cached analyses into the existing global one, and localize the whole thing.

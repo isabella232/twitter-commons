@@ -2,6 +2,7 @@ import httplib
 import json
 import os
 import sys
+import threading
 import time
 import urllib
 from urlparse import urlparse
@@ -13,6 +14,7 @@ from twitter.pants.goal.artifact_cache_stats import ArtifactCacheStats
 from twitter.pants.base.run_info import RunInfo
 from twitter.pants.goal.aggregated_timings import AggregatedTimings
 from twitter.pants.goal.workunit import WorkUnit
+from twitter.pants.reporting.report import Report
 
 
 class RunTracker(object):
@@ -30,7 +32,16 @@ class RunTracker(object):
       ...
   run_tracker.close()
 
+  Can track execution against multiple 'roots', e.g., one for the main thread and another for
+  background threads.
   """
+
+  # The name of the tracking root for the main thread.
+  DEFAULT_ROOT_NAME = 'main'
+
+  # The name of the tracking root for the background threads.
+  BACKGROUND_ROOT_NAME = 'background'
+
   def __init__(self, config):
     self.run_timestamp = time.time()  # A double, so we get subsecond precision for ids.
     cmd_line = ' '.join(['./pants'] + sys.argv[1:])
@@ -62,19 +73,45 @@ class RunTracker(object):
     self.artifact_cache_stats = \
       ArtifactCacheStats(os.path.join(self.info_dir, 'artifact_cache_stats'))
 
-    # For background work.
-    self._worker_pool = \
-      WorkerPool(context=self, num_workers=config.getdefault('num_workers', default=8))
+    # Number of threads for background work.
+    self._num_background_workers = config.getdefault('num_background_workers', default=8)
 
     # We report to this Report.
     self.report = None
 
-    # The workunit representing the entire pants run.
-    self.root_workunit = None
+    # self._roots.name contains the name of the root for the calling thread.
+    # Note that multiple threads may share a name (e.g., all the threads in a pool).
+    self._roots = threading.local()
 
-    # The workunit we're currently executing.
-    # TODO: What does this mean when executing multiple workunits in parallel?
-    self._current_workunit = None
+    self._root_workunits = {}  # name -> current workunit for that name.
+    self._current_workunits = {}  # name -> current workunit for that name.
+
+    # For background work.  Created lazily.
+    self._worker_pool = None
+
+  def register_root(self, name):
+    """Register the root to which work in the calling thread accrues."""
+    self._roots.name = name
+
+  def get_root_name(self):
+    """The name of the calling thread's root."""
+    return self._roots.name
+
+  def get_root_workunit(self):
+    return self._root_workunits.get(self._roots.name)
+
+  def set_root_workunit(self, workunit):
+    self._root_workunits[self._roots.name] = workunit
+
+  def get_current_workunit(self):
+    return self._current_workunits.get(self._roots.name)
+
+  def set_current_workunit(self, workunit):
+    self._current_workunits[self._roots.name] = workunit
+
+  def is_under_default_root(self, workunit):
+    """Is the workunit running under the main thread's root."""
+    return workunit.root_name == RunTracker.DEFAULT_ROOT_NAME
 
   def start(self, report):
     """Start tracking this pants run.
@@ -83,12 +120,15 @@ class RunTracker(object):
     self.report = report
     self.report.open()
 
-    self.root_workunit = WorkUnit(run_tracker=self, parent=None,
-                                  labels=[], name='all', cmd=None)
-    self.root_workunit.start()
+    self.register_root(RunTracker.DEFAULT_ROOT_NAME)  # The default.
 
-    self.report.start_workunit(self.root_workunit)
-    self._current_workunit = self.root_workunit
+    root_workunit = WorkUnit(run_tracker=self, parent=None, labels=[],
+                             name=RunTracker.DEFAULT_ROOT_NAME, cmd=None)
+    self.set_root_workunit(root_workunit)
+    root_workunit.start()
+
+    self.report.start_workunit(root_workunit)
+    self.set_current_workunit(root_workunit)
 
   @contextmanager
   def new_workunit(self, name, labels=list(), cmd=''):
@@ -110,28 +150,29 @@ class RunTracker(object):
     in a workunit, and to success otherwise, so usually you only need to set the
     outcome explicitly if you want to set it to warning.
     """
-    self._current_workunit = WorkUnit(run_tracker=self, parent=self._current_workunit,
-                                      name=name, labels=labels, cmd=cmd)
-    self._current_workunit.start()
+    current_workunit = WorkUnit(run_tracker=self, parent=self.get_current_workunit(),
+                                name=name, labels=labels, cmd=cmd)
+    self.set_current_workunit(current_workunit)
+    current_workunit.start()
     try:
-      self.report.start_workunit(self._current_workunit)
-      yield self._current_workunit
+      self.report.start_workunit(current_workunit)
+      yield current_workunit
     except KeyboardInterrupt:
-      self._current_workunit.set_outcome(WorkUnit.ABORTED)
+      current_workunit.set_outcome(WorkUnit.ABORTED)
       raise
     except:
-      self._current_workunit.set_outcome(WorkUnit.FAILURE)
+      current_workunit.set_outcome(WorkUnit.FAILURE)
       raise
     else:
-      self._current_workunit.set_outcome(WorkUnit.SUCCESS)
+      current_workunit.set_outcome(WorkUnit.SUCCESS)
     finally:
-      self.report.end_workunit(self._current_workunit)
-      self._current_workunit.end()
-      self._current_workunit = self._current_workunit.parent
+      self.report.end_workunit(current_workunit)
+      current_workunit.end()
+      self.set_current_workunit(current_workunit.parent)
 
   def log(self, level, *msg_elements):
     """Log a message against the current workunit."""
-    self.report.log(self._current_workunit, level, *msg_elements)
+    self.report.log(self.get_current_workunit(), level, *msg_elements)
 
   def upload_stats(self):
     """Send timing results to URL specified in pants.ini"""
@@ -164,21 +205,45 @@ class RunTracker(object):
   def end(self):
     """This pants run is over, so stop tracking it.
 
-    Note: If end() has been called once, subsequent calls are no-ops."""
-    while self._current_workunit:
-      self.report.end_workunit(self._current_workunit)
-      self._current_workunit.end()
-      self._current_workunit = self._current_workunit.parent
+    Note: If end() has been called once, subsequent calls are no-ops.
+    """
+    if self._worker_pool:
+      self.log(Report.INFO, "Waiting for background workers to finish.")
+      self._worker_pool.shutdown()
+    self.log(Report.INFO, "Done!")
+
+    def unroll_workunits(name):
+      current_workunit = self._current_workunits.get(name)
+      while current_workunit:
+        self.report.end_workunit(current_workunit)
+        current_workunit.end()
+        parent = current_workunit.parent
+        self._current_workunits[name] = parent
+        current_workunit = parent
+
+    unroll_workunits(RunTracker.DEFAULT_ROOT_NAME)
+    unroll_workunits(RunTracker.BACKGROUND_ROOT_NAME)
+
     self.report.close()
 
     try:
       if self.run_info.get_info('outcome') is None:
-        self.run_info.add_info('outcome', self.root_workunit.outcome_string())
+        self.run_info.add_info('outcome', self.get_root_workunit().outcome_string())
     except IOError:
       pass  # If the goal is clean-all then the run info dir no longer exists...
 
     self.upload_stats()
-    self._worker_pool.shutdown()
 
   def worker_pool(self):
+    if self._worker_pool is None:  # Initialize lazily.
+      self._worker_pool = WorkerPool(name=RunTracker.BACKGROUND_ROOT_NAME, run_tracker=self,
+                                     num_workers=self._num_background_workers)
+      background_root_workunit = WorkUnit(run_tracker=self, parent=None, labels=[],
+                                          name='background', cmd=None,
+                                          root_name=RunTracker.BACKGROUND_ROOT_NAME)
+      self._root_workunits[RunTracker.BACKGROUND_ROOT_NAME] = background_root_workunit
+      self.set_root_workunit(background_root_workunit)
+      background_root_workunit.start()
+      self.report.start_workunit(background_root_workunit)
+      self._current_workunits[RunTracker.BACKGROUND_ROOT_NAME] = background_root_workunit
     return self._worker_pool

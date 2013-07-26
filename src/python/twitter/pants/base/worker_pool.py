@@ -8,9 +8,11 @@ class WorkerPool(object):
   may not be effective. Use this class primarily for IO-bound work.
   """
 
-  def __init__(self, context, num_workers):
-    self._context = context
-    self._pool = ThreadPool(processes=num_workers)
+  def __init__(self, name, run_tracker, num_workers):
+    self._run_tracker = run_tracker
+    # All workers accrue work to the same root.
+    self._pool = ThreadPool(processes=num_workers,
+                            initializer=self._run_tracker.register_root, initargs=(name, ))
     self._shutdown_hooks = []
 
   def add_shutdown_hook(self, hook):
@@ -21,34 +23,40 @@ class WorkerPool(object):
 
     - func: a callable.
     - args_tuples: an iterable of argument tuples for func. func will be called once per arg tuple.
-    - workunit_name: If specified, all the work will be executed in a single workunit of this name.
+    - workunit_name: If specified, each invocation will be executed in a workunit of this name.
     - callback: If specified, a callable taking a single argument, which will be a list
                 of return values of each invocation, in order. Called only if all work succeeded.
     """
-    # TODO: Support workunit tracking in an async context.
-    if len(args_tuples) == 0:
+    if len(args_tuples) == 0:  # map_async hangs on 0-length iterables.
       if callback:
         callback([])
     else:
-      self._pool.map_async(func, args_tuples, chunksize=1, callback=callback)
+      def do_work(*args):
+        self._do_work(func, *args, workunit_name=workunit_name)
+      self._pool.map_async(do_work, args_tuples, chunksize=1, callback=callback)
 
   def submit_work_and_wait(self, func, args_tuples, workunit_name=None):
     """Submit work to be executed on this pool, but wait for it to complete.
 
     - func: a callable.
     - args_tuples: an iterable of argument tuples for func. func will be called once per arg tuple.
-    - workunit_name: If specified, all the work will be executed in a single workunit of this name.
+    - workunit_name: If specified, each invocation will be executed in a workunit of this name.
 
     Returns a list of return values of each invocation, in order.  Throws if any invocation does.
     """
-    def do_work():
-      return self._pool.map(func, args_tuples, chunksize=1)
-
-    if workunit_name:
-      with self._context.new_workunit(name=workunit_name):
-        return do_work()
+    if len(args_tuples) == 0:  # map hangs on 0-length iterables.
+      return []
     else:
-      return do_work()
+      def do_work(*args):
+        self._do_work(func, *args, workunit_name=workunit_name)
+      return self._pool.map(do_work, args_tuples, chunksize=1)
+
+  def _do_work(self, func, args_tuple, workunit_name):
+    if workunit_name:
+      with self._run_tracker.new_workunit(name=workunit_name):
+        return func(*args_tuple)
+    else:
+      return func(*args_tuple)
 
   def shutdown(self):
     self._pool.close()

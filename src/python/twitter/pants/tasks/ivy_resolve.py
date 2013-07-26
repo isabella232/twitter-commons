@@ -203,18 +203,17 @@ class IvyResolve(NailgunTask):
             '-confs'
           ] + self._confs)
 
-      if not os.path.exists(target_classpath_file):
-        print ('Ivy failed to create classpath file at %s %s' % target_classpath_file)
-      if self._artifact_cache and self.context.options.write_to_artifact_cache:
-        global_vts = VersionedTargetSet.from_versioned_targets(invalidation_check.all_vts)
-        self.update_artifact_cache([(global_vts, [target_classpath_file])])
+          if not os.path.exists(target_classpath_file):
+            raise TaskError('Ivy failed to create classpath file at %s %s' % target_classpath_file)
+          if self._artifact_cache and self.context.options.write_to_artifact_cache:
+            global_vts = VersionedTargetSet.from_versioned_targets(invalidation_check.all_vts)
+            self.update_artifact_cache([(global_vts, [target_classpath_file])])
 
-      if os.path.exists(target_classpath_file):
-        with self._cachepath(target_classpath_file) as classpath:
-          for path in classpath:
-            if self._map_jar(path):
-              for conf in self._confs:
-                groups.update_compatible_classpaths(group_key, [(conf, path.strip())])
+      with self._cachepath(target_classpath_file) as classpath:
+        for path in classpath:
+          if self._map_jar(path):
+            for conf in self._confs:
+              groups.update_compatible_classpaths(group_key, [(conf, path.strip())])
 
     if self._report:
       self._generate_ivy_report()
