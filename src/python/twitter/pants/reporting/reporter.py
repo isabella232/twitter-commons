@@ -62,6 +62,6 @@ class Reporter(object):
     """
     pass
 
-  def is_under_default_root(self, workunit):
+  def is_under_main_root(self, workunit):
     """Is the workunit running under the main thread's root."""
-    return self.run_tracker.is_under_default_root(workunit)
+    return self.run_tracker.is_under_main_root(workunit)

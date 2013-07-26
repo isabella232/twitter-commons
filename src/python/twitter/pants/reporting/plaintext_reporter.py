@@ -64,7 +64,7 @@ class PlainTextReporter(Reporter):
 
   def start_workunit(self, workunit):
     """Implementation of Reporter callback."""
-    if not self.is_under_default_root(workunit):
+    if not self.is_under_main_root(workunit):
       return
 
     if workunit.parent and workunit.parent.has_label(WorkUnit.MULTITOOL):
@@ -83,7 +83,7 @@ class PlainTextReporter(Reporter):
 
   def end_workunit(self, workunit):
     """Implementation of Reporter callback."""
-    if not self.is_under_default_root(workunit):
+    if not self.is_under_main_root(workunit):
       return
 
     if workunit.outcome() != WorkUnit.SUCCESS and not self._show_output(workunit):
@@ -95,7 +95,7 @@ class PlainTextReporter(Reporter):
 
   def do_handle_log(self, workunit, level, *msg_elements):
     """Implementation of Reporter callback."""
-    if not self.is_under_default_root(workunit):
+    if not self.is_under_main_root(workunit):
       return
 
     # If the element is a (msg, detail) pair, we ignore the detail. There's no
@@ -108,7 +108,7 @@ class PlainTextReporter(Reporter):
 
   def handle_output(self, workunit, label, s):
     """Implementation of Reporter callback."""
-    if not self.is_under_default_root(workunit):
+    if not self.is_under_main_root(workunit):
       return
 
     if self._show_output_indented(workunit):

@@ -108,7 +108,7 @@ class HtmlReporter(Reporter):
     timing = '%.3f' % duration
     unaccounted_time = None
     # Background work may be idle a lot, no point in reporting that as unaccounted.
-    if self.is_under_default_root(workunit):
+    if self.is_under_main_root(workunit):
       unaccounted_time_secs = workunit.unaccounted_time()
       if unaccounted_time_secs >= 1 and unaccounted_time_secs > 0.05 * duration:
         unaccounted_time = '%.3f' % unaccounted_time_secs

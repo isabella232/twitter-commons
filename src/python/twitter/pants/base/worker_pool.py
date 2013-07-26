@@ -8,11 +8,12 @@ class WorkerPool(object):
   may not be effective. Use this class primarily for IO-bound work.
   """
 
-  def __init__(self, name, run_tracker, num_workers):
+  def __init__(self, parent_workunit, run_tracker, num_workers):
     self._run_tracker = run_tracker
     # All workers accrue work to the same root.
     self._pool = ThreadPool(processes=num_workers,
-                            initializer=self._run_tracker.register_root, initargs=(name, ))
+                            initializer=self._run_tracker.register_thread,
+                            initargs=(parent_workunit, ))
     self._shutdown_hooks = []
 
   def add_shutdown_hook(self, hook):

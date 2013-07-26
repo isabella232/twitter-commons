@@ -26,6 +26,18 @@ class WorkUnit(object):
   SUCCESS = 3
   UNKNOWN = 4
 
+  @staticmethod
+  def _choose(outcome, aborted_val, failure_val, warning_val, success_val, unknown_val):
+    """Returns one of the 5 arguments, depending on the outcome."""
+    if outcome not in range(0, 5):
+      raise Exception('Invalid outcome: %s' % outcome)
+    return (aborted_val, failure_val, warning_val, success_val, unknown_val)[outcome]
+
+  @staticmethod
+  def outcome_string(outcome):
+    """Returns a human-readable string describing the outcome."""
+    return WorkUnit._choose(outcome, 'ABORTED', 'FAILURE', 'WARNING', 'SUCCESS', 'UNKNOWN')
+
   # Labels describing a workunit.  Reporting code can use this to decide how to display
   # information about this workunit.
   #
@@ -45,7 +57,7 @@ class WorkUnit(object):
   RUN = 10       # Running a binary.
   REPL = 11      # Running a repl.
 
-  def __init__(self, run_tracker, parent, name, labels=(), cmd='', root_name=None):
+  def __init__(self, run_tracker, parent, name, labels=(), cmd=''):
     """
     - run_tracker: The RunTracker that tracks this WorkUnit.
     - parent: The containing workunit, if any. E.g., 'compile' might contain 'java', 'scala' etc.,
@@ -55,8 +67,6 @@ class WorkUnit(object):
               display information about this work.
     - cmd: An optional longer string representing this work.
            E.g., the cmd line of a compiler invocation.
-    - root_name: The work root to which this work accrues. If unspecified, defaults to
-                 the work root for the calling thread.
     """
     self._outcome = WorkUnit.UNKNOWN
 
@@ -68,7 +78,6 @@ class WorkUnit(object):
       self.parent.children.append(self)
 
     self.name = name
-    self.root_name = root_name or self.run_tracker.get_root_name()
     self.labels = set(labels)
     self.cmd = cmd
     self.id = uuid.uuid4()
@@ -110,7 +119,7 @@ class WorkUnit(object):
     worst outcome of any of its subunits and any outcome set on it directly."""
     if outcome < self._outcome:
       self._outcome = outcome
-      self.choose(0, 0, 0, 0, 0)  # Dummy call, to validate.
+      self.choose(0, 0, 0, 0, 0)  # Dummy call, to validate outcome.
       if self.parent: self.parent.set_outcome(self._outcome)
 
   _valid_name_re = re.compile(r'\w+')
@@ -132,13 +141,8 @@ class WorkUnit(object):
 
   def choose(self, aborted_val, failure_val, warning_val, success_val, unknown_val):
     """Returns one of the 5 arguments, depending on our outcome."""
-    if self._outcome not in range(0, 5):
-      raise Exception('Invalid outcome: %s' % self._outcome)
-    return (aborted_val, failure_val, warning_val, success_val, unknown_val)[self._outcome]
-
-  def outcome_string(self):
-    """Returns a human-readable string describing our outcome."""
-    return self.choose('ABORTED', 'FAILURE', 'WARNING', 'SUCCESS', 'UNKNOWN')
+    return WorkUnit._choose(self._outcome,
+                            aborted_val, failure_val, warning_val, success_val, unknown_val)
 
   def duration(self):
     """Returns the time (in fractional seconds) spent in this workunit and its children."""
@@ -150,8 +154,14 @@ class WorkUnit(object):
 
   def start_delta_string(self):
     """A convenient string representation of how long after the run started we started."""
-    delta = int(self.start_time) - int(self.run_tracker.get_root_workunit().start_time)
+    delta = int(self.start_time) - int(self.root().start_time)
     return '%02d:%02d' % (delta / 60, delta % 60)
+
+  def root(self):
+    ret = self
+    while ret.parent is not None:
+      ret = ret.parent
+    return ret
 
   def ancestors(self):
     """Returns a list consisting of this workunit and those enclosing it, up to the root."""
