@@ -14,14 +14,13 @@
 # limitations under the License.
 # ==================================================================================================
 
-import itertools
 import os
 import sys
 
 from contextlib import contextmanager
-from multiprocessing.pool import ThreadPool
 
 from twitter.common.collections.orderedset import OrderedSet
+from twitter.pants.base.worker_pool import Work
 from twitter.pants.cache import create_artifact_cache
 
 from twitter.pants.base.hash_utils import hash_file
@@ -199,7 +198,7 @@ class Task(object):
     uncached_vts = OrderedSet(vts)
 
     res = self.context.worker_pool().submit_work_and_wait(
-      lambda vt: self._artifact_cache.use_cached_files(vt.cache_key), vts, workunit_name='check')
+      Work(lambda vt: self._artifact_cache.use_cached_files(vt.cache_key), vts, 'check'))
     for vt, was_in_cache in zip(vts, res):
       if was_in_cache:
         cached_vts.append(vt)
@@ -214,24 +213,33 @@ class Task(object):
       - vts is single VersionedTargetSet.
       - artifactfiles is a list of paths to artifacts for the VersionedTargetSet.
     """
+    self.context.worker_pool().submit_async_work(
+      self.get_update_artifact_cache_work(vts_artifactfiles_pairs))
+
+  def get_update_artifact_cache_work(self, vts_artifactfiles_pairs):
+    """Create a Work instance to update the artifact cache, if we're configured to.
+
+    vts_artifactfiles_pairs - a list of pairs (vts, artifactfiles) where
+      - vts is single VersionedTargetSet.
+      - artifactfiles is a list of paths to artifacts for the VersionedTargetSet.
+    """
     if self._artifact_cache and self.context.options.write_to_artifact_cache:
       if len(vts_artifactfiles_pairs) == 0:
         return
-      with self.context.new_workunit('cache'):
         # Do some reporting.
-        targets = set()
-        for vts, _ in vts_artifactfiles_pairs:
-          targets.update(vts.targets)
-        self._report_targets('Caching artifacts for ', list(targets), '.')
-        with self.context.new_workunit('update'):
-          # Cache the artifacts.
-          args_tuples = []
-          for vts, artifactfiles in vts_artifactfiles_pairs:
-            if self.context.options.verify_artifact_cache:
-              pass  # TODO: Verify that the artifact we just built is identical to the cached one?
-            args_tuples.append((vts.cache_key, artifactfiles))
-          self.context.worker_pool().submit_async_work(
-            lambda *args: self._artifact_cache.insert(*args), args_tuples, workunit_name='cache-insert')
+      targets = set()
+      for vts, _ in vts_artifactfiles_pairs:
+        targets.update(vts.targets)
+      self._report_targets('Caching artifacts for ', list(targets), '.')
+      # Cache the artifacts.
+      args_tuples = []
+      for vts, artifactfiles in vts_artifactfiles_pairs:
+        if self.context.options.verify_artifact_cache:
+          pass  # TODO: Verify that the artifact we just built is identical to the cached one?
+        args_tuples.append((vts.cache_key, artifactfiles))
+      return Work(lambda *args: self._artifact_cache.insert(*args), args_tuples, 'cache-insert')
+    else:
+      return None
 
   def _report_targets(self, prefix, targets, suffix):
     self.context.log.info(

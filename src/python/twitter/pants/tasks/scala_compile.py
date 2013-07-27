@@ -20,6 +20,7 @@ from twitter.common import contextutil
 from twitter.common.dirutil import safe_mkdir, safe_rmtree
 
 from twitter.pants import has_sources, is_scalac_plugin, get_buildroot
+from twitter.pants.base.worker_pool import Work
 from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.targets import resolve_target_sources
 from twitter.pants.targets.scala_library import ScalaLibrary
@@ -212,25 +213,22 @@ class ScalaCompile(NailgunTask):
     shutil.copyfile(self._analysis_file + '.relations', global_analysis_file_copy + '.relations')
     classes_by_source = self._compute_classes_by_source(global_analysis_file_copy)
 
-    # This work can happen in the background.
-
-    # Split the analysis into per-target files.
+    # Set up args for splitting the analysis into per-target files.
     splits = [(sources, ScalaCompile._analysis_for_target(self._analysis_tmpdir, target))
               for target, sources in sources_by_target.items()]
-    self._zinc_utils.run_zinc_split(global_analysis_file_copy, splits)
+    splits_args_tuples = [(global_analysis_file_copy, splits)]
 
-    # Relativize each split.
+    # Set up args for relativizing.
     # TODO: Rebase first, then split? Would require zinc changes to prevent nuking placeholders.
-    with self.context.new_workunit(name='relativize-analysis', labels=[WorkUnit.MULTITOOL]):
-      for target in vts.targets:
-        analysis_file = \
-          ScalaCompile._analysis_for_target(self._analysis_tmpdir, target)
-        portable_analysis_file = \
-          ScalaCompile._portable_analysis_for_target(self._analysis_tmpdir, target)
-        if self._zinc_utils.relativize_analysis_file(analysis_file, portable_analysis_file):
-          raise TaskError('Zinc failed to relativize analysis file: %s' % analysis_file)
+    relativize_args_tuples = []
+    for target in vts.targets:
+      analysis_file = \
+        ScalaCompile._analysis_for_target(self._analysis_tmpdir, target)
+      portable_analysis_file = \
+        ScalaCompile._portable_analysis_for_target(self._analysis_tmpdir, target)
+      relativize_args_tuples.append((analysis_file, portable_analysis_file))
 
-    # Gather up the artifacts.
+    # Set up args for artifact cache updating.
     vts_artifactfiles_pairs = []
     for target, sources in sources_by_target.items():
       artifacts = [ScalaCompile._portable_analysis_for_target(self._analysis_tmpdir, target)]
@@ -241,8 +239,21 @@ class ScalaCompile(NailgunTask):
       if vt is not None:
         vts_artifactfiles_pairs.append((vt, artifacts))
 
-    # Write to the artifact cache.
-    self.update_artifact_cache(vts_artifactfiles_pairs)
+    def split(analysis_file, splits):
+      if self._zinc_utils.run_zinc_split(analysis_file, splits):
+        raise TaskError('Zinc failed to split analysis file: %s' % analysis_file)
+
+    def relativize(analysis_file, portable_analysis_file):
+      if self._zinc_utils.relativize_analysis_file(analysis_file, portable_analysis_file):
+        raise TaskError('Zinc failed to relativize analysis file: %s' % analysis_file)
+
+    # Relativize and then update, in the background.
+    work_chain = [
+      Work(split, splits_args_tuples, 'split-analysis'),
+      Work(relativize, relativize_args_tuples, 'relativize-analysis'),
+      self.get_update_artifact_cache_work(vts_artifactfiles_pairs)
+    ]
+    self.context.worker_pool().submit_async_work_chain(work_chain)
 
   def check_artifact_cache(self, vts):
     # Special handling for scala analysis files. Class files are retrieved directly into their
