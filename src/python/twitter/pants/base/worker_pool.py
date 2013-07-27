@@ -1,6 +1,7 @@
 
 from multiprocessing.pool import ThreadPool
 import threading
+from twitter.pants.reporting.report import Report
 
 
 class Work(object):
@@ -72,10 +73,11 @@ class WorkerPool(object):
       def wrapper(*args):
         try:
           work.func(*args)
-        except Exception:
+        except Exception as e:
           with self._pending_workchains_cond:
             self._pending_workchains -= 1
             self._pending_workchains_cond.notify()
+          self._run_tracker.log(Report.ERROR, '%s' % e)
           raise
       return Work(wrapper, work.args_tuples, work.workunit_name)
 
@@ -98,7 +100,7 @@ class WorkerPool(object):
       return []
     else:
       def do_work(*args):
-        self._do_work(work.func, *args, workunit_name=work.workunit_name)
+        return self._do_work(work.func, *args, workunit_name=work.workunit_name)
       return self._pool.map(do_work, work.args_tuples, chunksize=1)
 
   def _do_work(self, func, args_tuple, workunit_name):

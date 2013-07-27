@@ -146,7 +146,7 @@ class Task(object):
         self.context.options.read_from_artifact_cache:
       with self.context.new_workunit('cache'):
         cached_vts, uncached_vts = \
-          self.check_artifact_cache(invalidation_check.invalid_vts.versioned_targets)
+          self.check_artifact_cache(invalidation_check.invalid_vts)
       if cached_vts:
         # Do some reporting.
         cached_targets = [vt.target for vt in cached_vts]
@@ -198,7 +198,8 @@ class Task(object):
     uncached_vts = OrderedSet(vts)
 
     res = self.context.worker_pool().submit_work_and_wait(
-      Work(lambda vt: self._artifact_cache.use_cached_files(vt.cache_key), vts, 'check'))
+      Work(lambda vt: self._artifact_cache.use_cached_files(vt.cache_key),
+           [(vt, ) for vt in vts], 'check'))
     for vt, was_in_cache in zip(vts, res):
       if was_in_cache:
         cached_vts.append(vt)
