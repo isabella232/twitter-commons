@@ -18,6 +18,7 @@ import os
 import sys
 
 from contextlib import contextmanager
+import itertools
 
 from twitter.common.collections.orderedset import OrderedSet
 from twitter.pants.base.worker_pool import Work
@@ -146,10 +147,10 @@ class Task(object):
         self.context.options.read_from_artifact_cache:
       with self.context.new_workunit('cache'):
         cached_vts, uncached_vts = \
-          self.check_artifact_cache(invalidation_check.invalid_vts)
+          self.check_artifact_cache(self.check_artifact_cache_for(invalidation_check))
       if cached_vts:
         # Do some reporting.
-        cached_targets = [vt.target for vt in cached_vts]
+        cached_targets = list(itertools.chain.from_iterable([vt.targets for vt in cached_vts]))
         for t in cached_targets:
           self.context.run_tracker.artifact_cache_stats.add_hit('default', t)
         self._report_targets('Using cached artifacts for ', cached_targets, '.')
@@ -185,6 +186,14 @@ class Task(object):
     if not self.dry_run:
       for vt in invalidation_check.invalid_vts:
         vt.update()  # In case the caller doesn't update.
+
+  def check_artifact_cache_for(self, invalidation_check):
+    """Decides which VTS to check the artifact cache for.
+
+    By default we check for each invalid target. Can be overridden, e.g., to
+    instead check only for a single artifact for the entire target set.
+    """
+    return invalidation_check.invalid_vts
 
   def check_artifact_cache(self, vts):
     """Checks the artifact cache for the specified list of VersionedTargetSets.

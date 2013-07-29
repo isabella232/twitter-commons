@@ -227,6 +227,12 @@ class IvyResolve(NailgunTask):
       for target in filter(create_jardeps_for, targets):
         self._mapjars(genmap, target)
 
+  def check_artifact_cache_for(self, invalidation_check):
+    # Ivy resolution is an output dependent on the entire target set, and is not divisible
+    # by target. So we can only cache it keyed by the entire target set.
+    global_vts = VersionedTargetSet.from_versioned_targets(invalidation_check.all_vts)
+    return [global_vts]
+
   def _extract_classpathdeps(self, targets):
     """Subclasses can override to filter out a set of targets that should be resolved for classpath
     dependencies.

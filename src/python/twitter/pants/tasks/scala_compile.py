@@ -265,27 +265,35 @@ class ScalaCompile(NailgunTask):
     # Merge the cached analyses into the existing global one, and localize the whole thing.
     analyses_to_merge = []
 
-    # Localize the cached analyses.
-    # TODO: Merge first, then rebase? Would require zinc changes to prevent nuking placeholders.
-    if cached_vts:
-      with self.context.new_workunit(name='localize-analysis', labels=[WorkUnit.MULTITOOL]):
-        for vt in cached_vts:
-          for target in vt.targets:
-            analysis = \
-              ScalaCompile._analysis_for_target(self._analysis_tmpdir, target)
-            portable_analysis = \
-              ScalaCompile._portable_analysis_for_target(self._analysis_tmpdir, target)
-            if os.path.exists(portable_analysis):
-              if self._zinc_utils.localize_analysis_file(portable_analysis, analysis):
-                raise TaskError('Zinc failed to localize cached analysis files.')
-              analyses_to_merge.append(analysis)
+    # Set up args for relativizing.
+    # TODO: Merge first, then rebase once? Would require zinc changes to not nuke placeholders.
+    localize_args_tuples = []
+    for vt in cached_vts:
+      for target in vt.targets:
+        analysis_file = \
+          ScalaCompile._analysis_for_target(self._analysis_tmpdir, target)
+        portable_analysis_file = \
+          ScalaCompile._portable_analysis_for_target(self._analysis_tmpdir, target)
+        if os.path.exists(portable_analysis_file):
+          localize_args_tuples.append((portable_analysis_file, analysis_file))
+          analyses_to_merge.append(analysis_file)
 
-    if len(analyses_to_merge) > 0:
+    def localize(portable_analysis_file, analysis_file):
+      with self.context.new_workunit(name='localize-analysis', labels=[WorkUnit.MULTITOOL]):
+        if self._zinc_utils.localize_analysis_file(portable_analysis_file, analysis_file):
+          raise TaskError('Zinc failed to localize cached analysis file: %s' % portable_analysis_file)
+
+    if len(localize_args_tuples) > 0:
+      # Do the localization work concurrently.
+      self.context.worker_pool().submit_work_and_wait(
+        Work(localize, localize_args_tuples, 'localize-analysis'))
+
+      # Merge the localized analysis with the global one (if any).
+      analyses_to_merge = [x[1] for x in localize_args_tuples]
       if os.path.exists(self._analysis_file):
         analyses_to_merge.append(self._analysis_file)
       with contextutil.temporary_dir() as tmpdir:
         tmp_analysis = os.path.join(tmpdir, 'analysis')
-        # Merge the cached analyses and the global one.
         if self._zinc_utils.run_zinc_merge(analyses_to_merge, tmp_analysis):
           raise TaskError('Zinc failed to merge cached analysis files.')
         shutil.copy(tmp_analysis, self._analysis_file)
