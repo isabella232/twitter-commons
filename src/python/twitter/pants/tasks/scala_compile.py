@@ -247,13 +247,17 @@ class ScalaCompile(NailgunTask):
       if self._zinc_utils.relativize_analysis_file(analysis_file, portable_analysis_file):
         raise TaskError('Zinc failed to relativize analysis file: %s' % analysis_file)
 
-    # Relativize and then update, in the background.
-    work_chain = [
-      Work(split, splits_args_tuples, 'split-analysis'),
-      Work(relativize, relativize_args_tuples, 'relativize-analysis'),
-      self.get_update_artifact_cache_work(vts_artifactfiles_pairs)
-    ]
-    self.context.submit_background_work_chain(work_chain)
+    update_artifact_cache_work = self.get_update_artifact_cache_work(vts_artifactfiles_pairs)
+    if update_artifact_cache_work:
+      # Relativize and then update, in the background.
+      work_chain = [
+        Work(split, splits_args_tuples, 'split'),
+        Work(relativize, relativize_args_tuples, 'relativize'),
+        update_artifact_cache_work
+      ]
+      with self.context.new_workunit(name='cache', labels=[WorkUnit.MULTITOOL],
+          parent=self.context.run_tracker.get_background_root_workunit()) as parent:
+        self.context.submit_background_work_chain(work_chain, workunit_parent=parent)
 
   def check_artifact_cache(self, vts):
     # Special handling for scala analysis files. Class files are retrieved directly into their
@@ -284,7 +288,7 @@ class ScalaCompile(NailgunTask):
 
     if len(localize_args_tuples) > 0:
       # Do the localization work concurrently.
-      with self.context.new_workunit(name='localize-analysis', labels=[WorkUnit.MULTITOOL]) \
+      with self.context.new_workunit(name='analysis', labels=[WorkUnit.MULTITOOL]) \
           as parent:
         self.context.submit_foreground_work_and_wait(
           Work(localize, localize_args_tuples, 'localize'), workunit_parent=parent)

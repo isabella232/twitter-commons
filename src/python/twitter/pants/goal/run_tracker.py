@@ -216,19 +216,22 @@ class RunTracker(object):
 
     self.report.end_workunit(self._main_root_workunit)
     self._main_root_workunit.end()
-    self.log(Report.INFO, "Done!")
-    self.report.close()
 
-    try:
-      if self.run_info.get_info('outcome') is None:
-        outcome = self._main_root_workunit.outcome()
-        if self._background_root_workunit:
-          outcome = min(outcome, self._background_root_workunit.outcome())
-        outcome_str = WorkUnit.outcome_string(outcome)
+    outcome = self._main_root_workunit.outcome()
+    if self._background_root_workunit:
+      outcome = min(outcome, self._background_root_workunit.outcome())
+    outcome_str = WorkUnit.outcome_string(outcome)
+    log_level = WorkUnit.choose_for_outcome(outcome, Report.ERROR, Report.ERROR,
+                                            Report.WARN, Report.INFO, Report.INFO)
+    self.log(log_level, outcome_str)
+
+    if self.run_info.get_info('outcome') is None:
+      try:
         self.run_info.add_info('outcome', outcome_str)
-    except IOError:
-      pass  # If the goal is clean-all then the run info dir no longer exists...
+      except IOError:
+        pass  # If the goal is clean-all then the run info dir no longer exists...
 
+    self.report.close()
     self.upload_stats()
 
   def foreground_worker_pool(self):
@@ -238,13 +241,18 @@ class RunTracker(object):
                                                 num_workers=self._num_foreground_workers)
     return self._foreground_worker_pool
 
-  def background_worker_pool(self):
-    if self._background_worker_pool is None:  # Initialize lazily.
+  def get_background_root_workunit(self):
+    if self._background_root_workunit is None:
       self._background_root_workunit = WorkUnit(run_tracker=self, parent=None, labels=[],
                                                 name='background', cmd=None)
       self._background_root_workunit.start()
       self.report.start_workunit(self._background_root_workunit)
-      self._background_worker_pool = WorkerPool(parent_workunit=self._background_root_workunit,
-                                     run_tracker=self,
-                                     num_workers=self._num_background_workers)
+    return self._background_root_workunit
+
+
+  def background_worker_pool(self):
+    if self._background_worker_pool is None:  # Initialize lazily.
+      self._background_worker_pool = WorkerPool(parent_workunit=self.get_background_root_workunit(),
+                                                run_tracker=self,
+                                                num_workers=self._num_background_workers)
     return self._background_worker_pool

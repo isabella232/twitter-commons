@@ -1,4 +1,4 @@
-
+import collections
 from multiprocessing.pool import ThreadPool
 import threading
 from twitter.pants.goal.workunit import WorkUnit
@@ -68,33 +68,43 @@ class WorkerPool(object):
 
     - work_chain: An iterable of Work instances. Will be invoked serially. Each instance may
                   have a different cardinality. There is no output-input chaining: the argument
-                  tuples must already be present in each work instance.
+                  tuples must already be present in each work instance.  If any work throws an
+                  exception no subsequent work in the chain will be attempted.
     - workunit_parent: If specified, work is accounted for under this workunit.
     """
-    with self._pending_workchains_cond:
-      self._pending_workchains += 1
+    def done():
+      with self._pending_workchains_cond:
+        self._pending_workchains -= 1
+        self._pending_workchains_cond.notify()
+
     def wrap(work):
       def wrapper(*args):
         try:
           work.func(*args)
-        except Exception as e:
-          with self._pending_workchains_cond:
-            self._pending_workchains -= 1
-            self._pending_workchains_cond.notify()
+        except Exception as e:  # Handles errors in the work itself.
+          done()
           self._run_tracker.log(Report.ERROR, '%s' % e)
           raise
       return Work(wrapper, work.args_tuples, work.workunit_name)
 
-    work_iter = iter(work_chain)
+    # We filter out Nones defensively. There shouldn't be any, but if a bug causes one,
+    # Pants might hang indefinitely without this filtering.
+    work_iter = iter(filter(None, work_chain))
     def submit_next():
       try:
         self.submit_async_work(wrap(work_iter.next()), workunit_parent=workunit_parent,
                                callback=lambda x: submit_next())
       except StopIteration:
-        with self._pending_workchains_cond:
-          self._pending_workchains -= 1
-          self._pending_workchains_cond.notify()
-    submit_next()
+        done()  # The success case.
+
+    with self._pending_workchains_cond:
+      self._pending_workchains += 1
+    try:
+      submit_next()
+    except Exception as e:  # Handles errors in the submission code.
+      done()
+      self._run_tracker.log(Report.ERROR, '%s' % e)
+      raise
 
   def submit_work_and_wait(self, work, workunit_parent=None):
     """Submit work to be executed on this pool, but wait for it to complete.

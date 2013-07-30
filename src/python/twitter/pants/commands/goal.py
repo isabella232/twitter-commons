@@ -447,12 +447,6 @@ class Goal(Command):
       return _list_goals(context, 'Unknown goal(s): %s' % ' '.join(phase.name for phase in unknown))
 
     ret = Phase.attempt(context, self.phases)
-
-    if self.options.cleanup_nailguns or self.config.get('nailgun', 'autokill', default = False):
-      if log:
-        log.debug('auto-killing nailguns')
-      NailgunTask.killall(log)
-
     return ret
 
   def cleanup(self):

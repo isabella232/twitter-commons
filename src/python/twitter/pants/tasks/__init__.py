@@ -225,8 +225,12 @@ class Task(object):
       - vts is single VersionedTargetSet.
       - artifactfiles is a list of paths to artifacts for the VersionedTargetSet.
     """
-    self.context.submit_background_work_chain(
-      [self.get_update_artifact_cache_work(vts_artifactfiles_pairs)])
+    update_artifact_cache_work = self.get_update_artifact_cache_work(vts_artifactfiles_pairs)
+    if update_artifact_cache_work:
+      with self.context.new_workunit(name='cache', labels=[WorkUnit.MULTITOOL],
+          parent=self.context.run_tracker.get_background_root_workunit()) as parent:
+        self.context.submit_background_work_chain([update_artifact_cache_work],
+                                                  workunit_parent=parent)
 
   def get_update_artifact_cache_work(self, vts_artifactfiles_pairs):
     """Create a Work instance to update the artifact cache, if we're configured to.
@@ -237,7 +241,7 @@ class Task(object):
     """
     if self._artifact_cache and self.context.options.write_to_artifact_cache:
       if len(vts_artifactfiles_pairs) == 0:
-        return
+        return None
         # Do some reporting.
       targets = set()
       for vts, _ in vts_artifactfiles_pairs:
@@ -249,7 +253,7 @@ class Task(object):
         if self.context.options.verify_artifact_cache:
           pass  # TODO: Verify that the artifact we just built is identical to the cached one?
         args_tuples.append((vts.cache_key, artifactfiles))
-      return Work(lambda *args: self._artifact_cache.insert(*args), args_tuples, 'cache-insert')
+      return Work(lambda *args: self._artifact_cache.insert(*args), args_tuples, 'insert')
     else:
       return None
 

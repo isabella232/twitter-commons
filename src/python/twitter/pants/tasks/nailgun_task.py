@@ -21,7 +21,6 @@ import subprocess
 import threading
 import time
 
-from twitter.common import log
 from twitter.common.dirutil import safe_open
 from twitter.common.python.platforms import Platform
 
@@ -122,9 +121,9 @@ class NailgunTask(Task):
           ret = call_nailgun(main, *opts_args)
           workunit.set_outcome(WorkUnit.FAILURE if ret else WorkUnit.SUCCESS)
           return ret
-        except NailgunError as e:
+        except NailgunError:
           self._ng_shutdown()
-          raise e
+          raise
     else:
       def runjava_workunit_factory(name, labels=list(), cmd=''):
         return self.context.new_workunit(name=name, labels=workunit_labels + labels, cmd=cmd)
@@ -231,17 +230,17 @@ class NailgunTask(Task):
 
     port = endpoint[1]
     nailgun = self._create_ngclient(port, workunit)
-    log.debug('Detected ng server up on port %d' % port)
+    self.context.log.debug('Detected ng server up on port %d' % port)
 
     attempt = 0
     while attempt < max_socket_connect_attempts:
       sock = nailgun.try_connect()
       if sock:
         sock.close()
-        log.info('Connected to ng server pid: %d @ port: %d' % endpoint)
+        self.context.log.debug('Connected to ng server pid: %d @ port: %d' % endpoint)
         return nailgun
       attempt += 1
-      log.debug('Failed to connect on attempt %d' % attempt)
+      self.context.log.debug('Failed to connect on attempt %d' % attempt)
       time.sleep(0.1)
     raise NailgunError('Failed to connect to ng after %d connect attempts'
                        % max_socket_connect_attempts)
@@ -251,7 +250,7 @@ class NailgunTask(Task):
                          out=workunit.output('stdout'), err=workunit.output('stderr'))
 
   def _spawn_nailgun_server(self, workunit):
-    log.info('No ng server found, spawning...')
+    self.context.log.debug('No ng server found, spawning...')
 
     with _safe_open(self._ng_out, 'w'):
       pass  # truncate
@@ -274,9 +273,9 @@ class NailgunTask(Task):
     ng_classpath = os.pathsep.join(binary_util.profile_classpath(self._nailgun_profile,
       workunit_factory=self.context.new_workunit))
     args.extend(['-cp', ng_classpath, 'com.martiansoftware.nailgun.NGServer', ':0'])
-    log.debug('Executing: %s' % ' '.join(args))
+    self.context.log.debug('Executing: %s' % ' '.join(args))
 
-    with binary_util.safe_classpath(logger=log.warn):
+    with binary_util.safe_classpath(logger=self.context.log.warn):
       process = subprocess.Popen(
         args,
         stdin=in_fd,
@@ -285,7 +284,7 @@ class NailgunTask(Task):
         close_fds=True,
         cwd=get_buildroot()
       )
-      log.debug('Spawned ng server @ %d' % process.pid)
+      self.context.log.debug('Spawned ng server @ %d' % process.pid)
       # Prevents finally blocks being executed, unlike sys.exit(). We don't want to execute finally
       # blocks because we might, e.g., clean up tempfiles that the parent still needs.
       os._exit(0)
@@ -343,7 +342,8 @@ class NailgunProcessManager(object):
   def killall(log, everywhere=False):
     for pid in NailgunProcessManager._find_ngs(everywhere=everywhere):
       try:
-        NailgunTask._log_kill(log, pid)
+        if log:
+          NailgunTask._log_kill(log, pid)
         os.kill(pid, signal.SIGKILL)
       except OSError:
         pass

@@ -106,6 +106,7 @@ class PlainTextReporter(Reporter):
     if self.settings.color:
       msg = _colorfunc_map.get(level, lambda x: x)(msg)
     self.emit(self._prefix(workunit, msg))
+    self.flush()
 
   def handle_output(self, workunit, label, s):
     """Implementation of Reporter callback."""
@@ -116,7 +117,7 @@ class PlainTextReporter(Reporter):
       self.emit(self._prefix(workunit, s))
     elif self._show_output_unindented(workunit):
       self.emit(s)
-      self.flush()
+    self.flush()
 
   def emit(self, s):
     self.settings.outfile.write(s)

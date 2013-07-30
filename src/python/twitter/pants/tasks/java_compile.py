@@ -218,7 +218,7 @@ class JavaCompile(NailgunTask):
     self._ensure_depfile_tmpdir()
     vt_by_target = dict([(vt.target, vt) for vt in vts.versioned_targets])
 
-    # This work can happen in the background.
+    # This work can happen in the background, if there's a measurable benefit to that.
 
     # Split the depfile into per-target files.
     splits = [(sources, JavaCompile.create_depfile_path(self._depfile_tmpdir, [target]))

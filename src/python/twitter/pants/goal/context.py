@@ -109,7 +109,7 @@ class Context(object):
 
   def submit_background_work_chain(self, work_chain, workunit_parent=None):
     self.run_tracker.background_worker_pool().submit_async_work_chain(
-      work_chain, workunit_paren=workunit_parent)
+      work_chain, workunit_parent=workunit_parent)
 
   def background_worker_pool(self):
     """Returns the pool to which tasks can submit background work."""
