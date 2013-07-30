@@ -59,10 +59,16 @@ class Task(object):
     spec should be a list of urls/file path prefixes, which are used in that order.
     By default, no artifact caching is used.
     """
+    self._artifact_cache = self.create_artifact_cache(spec)
+
+  def create_artifact_cache(self, spec):
     if len(spec) > 0:
       pants_workdir = self.context.config.getdefault('pants_workdir')
       my_name = self.__class__.__name__
-      self._artifact_cache = create_artifact_cache(self.context.log, pants_workdir, spec, my_name)
+      return create_artifact_cache(self.context.log, pants_workdir, spec, my_name)
+    else:
+      return None
+
 
   def product_type(self):
     """Set the product type for this task.
@@ -232,14 +238,15 @@ class Task(object):
         self.context.submit_background_work_chain([update_artifact_cache_work],
                                                   workunit_parent=parent)
 
-  def get_update_artifact_cache_work(self, vts_artifactfiles_pairs):
+  def get_update_artifact_cache_work(self, vts_artifactfiles_pairs, cache=None):
     """Create a Work instance to update the artifact cache, if we're configured to.
 
     vts_artifactfiles_pairs - a list of pairs (vts, artifactfiles) where
       - vts is single VersionedTargetSet.
       - artifactfiles is a list of paths to artifacts for the VersionedTargetSet.
     """
-    if self._artifact_cache and self.context.options.write_to_artifact_cache:
+    cache = cache or self._artifact_cache
+    if cache and self.context.options.write_to_artifact_cache:
       if len(vts_artifactfiles_pairs) == 0:
         return None
         # Do some reporting.
@@ -253,7 +260,7 @@ class Task(object):
         if self.context.options.verify_artifact_cache:
           pass  # TODO: Verify that the artifact we just built is identical to the cached one?
         args_tuples.append((vts.cache_key, artifactfiles))
-      return Work(lambda *args: self._artifact_cache.insert(*args), args_tuples, 'insert')
+      return Work(lambda *args: cache.insert(*args), args_tuples, 'insert')
     else:
       return None
 
