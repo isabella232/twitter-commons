@@ -138,7 +138,7 @@ class JavaCompile(NailgunTask):
     # Do this lazily, so we don't trigger creation of a worker pool unless we need it.
     if not os.path.exists(self._depfile_tmpdir):
       os.makedirs(self._depfile_tmpdir)
-      self.context.worker_pool().add_shutdown_hook(lambda: safe_rmtree(self._depfile_tmpdir))
+      self.context.background_worker_pool().add_shutdown_hook(lambda: safe_rmtree(self._depfile_tmpdir))
 
   def execute(self, targets):
     java_targets = filter(lambda t: has_sources(t, '.java'), targets)

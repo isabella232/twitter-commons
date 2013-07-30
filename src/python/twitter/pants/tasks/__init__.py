@@ -26,6 +26,7 @@ from twitter.pants.cache import create_artifact_cache
 
 from twitter.pants.base.hash_utils import hash_file
 from twitter.pants.base.build_invalidator import CacheKeyGenerator
+from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.reporting.reporting_utils import items_to_report_element
 from twitter.pants.tasks.cache_manager import CacheManager, InvalidationCheck
 
@@ -206,9 +207,10 @@ class Task(object):
     cached_vts = []
     uncached_vts = OrderedSet(vts)
 
-    res = self.context.worker_pool().submit_work_and_wait(
-      Work(lambda vt: self._artifact_cache.use_cached_files(vt.cache_key),
-           [(vt, ) for vt in vts], 'check'))
+    with self.context.new_workunit(name='check', labels=[WorkUnit.MULTITOOL]) as parent:
+      res = self.context.submit_foreground_work_and_wait(
+        Work(lambda vt: self._artifact_cache.use_cached_files(vt.cache_key),
+             [(vt, ) for vt in vts], 'check'), workunit_parent=parent)
     for vt, was_in_cache in zip(vts, res):
       if was_in_cache:
         cached_vts.append(vt)
@@ -223,8 +225,8 @@ class Task(object):
       - vts is single VersionedTargetSet.
       - artifactfiles is a list of paths to artifacts for the VersionedTargetSet.
     """
-    self.context.worker_pool().submit_async_work(
-      self.get_update_artifact_cache_work(vts_artifactfiles_pairs))
+    self.context.submit_background_work_chain(
+      [self.get_update_artifact_cache_work(vts_artifactfiles_pairs)])
 
   def get_update_artifact_cache_work(self, vts_artifactfiles_pairs):
     """Create a Work instance to update the artifact cache, if we're configured to.

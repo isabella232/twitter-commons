@@ -36,10 +36,10 @@ class RunTracker(object):
   background threads.
   """
 
-  # The name of the tracking root for the main thread.
+  # The name of the tracking root for the main thread (and the foreground worker threads).
   DEFAULT_ROOT_NAME = 'main'
 
-  # The name of the tracking root for the background threads.
+  # The name of the tracking root for the background worker threads.
   BACKGROUND_ROOT_NAME = 'background'
 
   def __init__(self, config):
@@ -73,6 +73,9 @@ class RunTracker(object):
     self.artifact_cache_stats = \
       ArtifactCacheStats(os.path.join(self.info_dir, 'artifact_cache_stats'))
 
+    # Number of threads for foreground work.
+    self._num_foreground_workers = config.getdefault('num_foreground_workers', default=8)
+
     # Number of threads for background work.
     self._num_background_workers = config.getdefault('num_background_workers', default=8)
 
@@ -86,8 +89,12 @@ class RunTracker(object):
     # For main thread work. Created on start().
     self._main_root_workunit = None
 
+    # For concurrent foreground work.  Created lazily if needed.
+    # Associated with the main thread's root workunit.
+    self._foreground_worker_pool = None
+
     # For background work.  Created lazily if needed.
-    self._worker_pool = None
+    self._background_worker_pool = None
     self._background_root_workunit = None
 
   def register_thread(self, parent_workunit):
@@ -115,7 +122,7 @@ class RunTracker(object):
     self.report.start_workunit(self._main_root_workunit)
 
   @contextmanager
-  def new_workunit(self, name, labels=list(), cmd=''):
+  def new_workunit(self, name, labels=list(), cmd='', parent=None):
     """Creates a (hierarchical) subunit of work for the purpose of timing and reporting.
 
     - name: A short name for this work. E.g., 'resolve', 'compile', 'scala', 'zinc'.
@@ -123,6 +130,10 @@ class RunTracker(object):
               display information about this work.
     - cmd: An optional longer string representing this work.
            E.g., the cmd line of a compiler invocation.
+    - parent: If specified, the new workunit is created under this parent. Otherwise it's created
+              under the current workunit for this thread. This allows threadpool work to nest
+              under the workunit that submitted it, instead of under the thread's root workunit,
+              which is fixed when the thread was created.
 
     Use like this:
 
@@ -134,7 +145,9 @@ class RunTracker(object):
     in a workunit, and to success otherwise, so usually you only need to set the
     outcome explicitly if you want to set it to warning.
     """
-    current_workunit = WorkUnit(run_tracker=self, parent=self._threadlocal.current_workunit,
+    enclosing_workunit = self._threadlocal.current_workunit
+    current_workunit = WorkUnit(run_tracker=self,
+                                parent=parent or enclosing_workunit,
                                 name=name, labels=labels, cmd=cmd)
     self._threadlocal.current_workunit = current_workunit
     current_workunit.start()
@@ -152,7 +165,7 @@ class RunTracker(object):
     finally:
       self.report.end_workunit(current_workunit)
       current_workunit.end()
-      self._threadlocal.current_workunit = current_workunit.parent
+      self._threadlocal.current_workunit = enclosing_workunit
 
   def log(self, level, *msg_elements):
     """Log a message against the current workunit."""
@@ -191,11 +204,16 @@ class RunTracker(object):
 
     Note: If end() has been called once, subsequent calls are no-ops.
     """
-    if self._worker_pool:
+    if self._background_worker_pool:
       self.log(Report.INFO, "Waiting for background workers to finish.")
-      self._worker_pool.shutdown()
+      self._background_worker_pool.shutdown()
       self.report.end_workunit(self._background_root_workunit)
       self._background_root_workunit.end()
+
+    if self._foreground_worker_pool:
+      self.log(Report.INFO, "Waiting for foreground workers to finish.")
+      self._foreground_worker_pool.shutdown()
+
     self.report.end_workunit(self._main_root_workunit)
     self._main_root_workunit.end()
     self.log(Report.INFO, "Done!")
@@ -213,13 +231,20 @@ class RunTracker(object):
 
     self.upload_stats()
 
-  def worker_pool(self):
-    if self._worker_pool is None:  # Initialize lazily.
+  def foreground_worker_pool(self):
+    if self._foreground_worker_pool is None:  # Initialize lazily.
+      self._foreground_worker_pool = WorkerPool(parent_workunit=self._main_root_workunit,
+                                                run_tracker=self,
+                                                num_workers=self._num_foreground_workers)
+    return self._foreground_worker_pool
+
+  def background_worker_pool(self):
+    if self._background_worker_pool is None:  # Initialize lazily.
       self._background_root_workunit = WorkUnit(run_tracker=self, parent=None, labels=[],
                                                 name='background', cmd=None)
       self._background_root_workunit.start()
       self.report.start_workunit(self._background_root_workunit)
-      self._worker_pool = WorkerPool(parent_workunit=self._background_root_workunit,
+      self._background_worker_pool = WorkerPool(parent_workunit=self._background_root_workunit,
                                      run_tracker=self,
                                      num_workers=self._num_background_workers)
-    return self._worker_pool
+    return self._background_worker_pool

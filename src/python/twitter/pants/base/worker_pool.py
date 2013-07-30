@@ -1,6 +1,7 @@
 
 from multiprocessing.pool import ThreadPool
 import threading
+from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.reporting.report import Report
 
 
@@ -41,10 +42,11 @@ class WorkerPool(object):
   def add_shutdown_hook(self, hook):
     self._shutdown_hooks.append(hook)
 
-  def submit_async_work(self, work, callback=None):
+  def submit_async_work(self, work,  workunit_parent=None, callback=None):
     """Submit work to be executed in the background.
 
     - work: The work to execute.
+    - workunit_parent: If specified, work is accounted for under this workunit.
     - callback: If specified, a callable taking a single argument, which will be a list
                 of return values of each invocation, in order. Called only if all work succeeded.
 
@@ -57,15 +59,17 @@ class WorkerPool(object):
         callback([])
     else:
       def do_work(*args):
-        self._do_work(work.func, *args, workunit_name=work.workunit_name)
+        self._do_work(work.func, *args, workunit_name=work.workunit_name,
+                      workunit_parent=workunit_parent)
       self._pool.map_async(do_work, work.args_tuples, chunksize=1, callback=callback)
 
-  def submit_async_work_chain(self, work_chain):
+  def submit_async_work_chain(self, work_chain, workunit_parent=None):
     """Submit work to be executed in the background.
 
     - work_chain: An iterable of Work instances. Will be invoked serially. Each instance may
                   have a different cardinality. There is no output-input chaining: the argument
-                  tuples must already be present in each workunit.
+                  tuples must already be present in each work instance.
+    - workunit_parent: If specified, work is accounted for under this workunit.
     """
     with self._pending_workchains_cond:
       self._pending_workchains += 1
@@ -84,15 +88,19 @@ class WorkerPool(object):
     work_iter = iter(work_chain)
     def submit_next():
       try:
-        self.submit_async_work(wrap(work_iter.next()), callback=lambda x: submit_next())
+        self.submit_async_work(wrap(work_iter.next()), workunit_parent=workunit_parent,
+                               callback=lambda x: submit_next())
       except StopIteration:
         with self._pending_workchains_cond:
           self._pending_workchains -= 1
           self._pending_workchains_cond.notify()
     submit_next()
 
-  def submit_work_and_wait(self, work):
+  def submit_work_and_wait(self, work, workunit_parent=None):
     """Submit work to be executed on this pool, but wait for it to complete.
+
+    - work: The work to execute.
+    - workunit_parent: If specified, work is accounted for under this workunit.
 
     Returns a list of return values of each invocation, in order.  Throws if any invocation does.
     """
@@ -100,12 +108,13 @@ class WorkerPool(object):
       return []
     else:
       def do_work(*args):
-        return self._do_work(work.func, *args, workunit_name=work.workunit_name)
+        return self._do_work(work.func, *args, workunit_name=work.workunit_name,
+                             workunit_parent=workunit_parent)
       return self._pool.map(do_work, work.args_tuples, chunksize=1)
 
-  def _do_work(self, func, args_tuple, workunit_name):
+  def _do_work(self, func, args_tuple, workunit_name, workunit_parent):
     if workunit_name:
-      with self._run_tracker.new_workunit(name=workunit_name):
+      with self._run_tracker.new_workunit(name=workunit_name, parent=workunit_parent):
         return func(*args_tuple)
     else:
       return func(*args_tuple)

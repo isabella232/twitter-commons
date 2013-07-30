@@ -125,7 +125,7 @@ class ScalaCompile(NailgunTask):
     # Do this lazily, so we don't trigger creation of a worker pool unless we need it.
     if not os.path.exists(self._analysis_tmpdir):
       os.makedirs(self._analysis_tmpdir)
-      self.context.worker_pool().add_shutdown_hook(lambda: safe_rmtree(self._analysis_tmpdir))
+      self.context.background_worker_pool().add_shutdown_hook(lambda: safe_rmtree(self._analysis_tmpdir))
 
   def _get_deleted_sources(self):
     """Returns the list of sources present in the last analysis that have since been deleted.
@@ -253,7 +253,7 @@ class ScalaCompile(NailgunTask):
       Work(relativize, relativize_args_tuples, 'relativize-analysis'),
       self.get_update_artifact_cache_work(vts_artifactfiles_pairs)
     ]
-    self.context.worker_pool().submit_async_work_chain(work_chain)
+    self.context.submit_background_work_chain(work_chain)
 
   def check_artifact_cache(self, vts):
     # Special handling for scala analysis files. Class files are retrieved directly into their
@@ -279,14 +279,15 @@ class ScalaCompile(NailgunTask):
           analyses_to_merge.append(analysis_file)
 
     def localize(portable_analysis_file, analysis_file):
-      with self.context.new_workunit(name='localize-analysis', labels=[WorkUnit.MULTITOOL]):
-        if self._zinc_utils.localize_analysis_file(portable_analysis_file, analysis_file):
-          raise TaskError('Zinc failed to localize cached analysis file: %s' % portable_analysis_file)
+      if self._zinc_utils.localize_analysis_file(portable_analysis_file, analysis_file):
+        raise TaskError('Zinc failed to localize cached analysis file: %s' % portable_analysis_file)
 
     if len(localize_args_tuples) > 0:
       # Do the localization work concurrently.
-      self.context.worker_pool().submit_work_and_wait(
-        Work(localize, localize_args_tuples, 'localize-analysis'))
+      with self.context.new_workunit(name='localize-analysis', labels=[WorkUnit.MULTITOOL]) \
+          as parent:
+        self.context.submit_foreground_work_and_wait(
+          Work(localize, localize_args_tuples, 'localize'), workunit_parent=parent)
 
       # Merge the localized analysis with the global one (if any).
       analyses_to_merge = [x[1] for x in localize_args_tuples]
