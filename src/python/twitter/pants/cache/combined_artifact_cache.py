@@ -3,7 +3,7 @@ from twitter.pants.cache.artifact_cache import ArtifactCache
 
 class CombinedArtifactCache(ArtifactCache):
   """An artifact cache that delegates to a list of other caches."""
-  def __init__(self, artifact_caches, backfill=False):
+  def __init__(self, artifact_caches, backfill=True):
     """We delegate to artifact_caches, a list of ArtifactCache instances, in order.
 
     If backfill is true then we populate earlier caches that were missing an artifact,
@@ -39,6 +39,7 @@ class CombinedArtifactCache(ArtifactCache):
         for cache in to_backfill:
           cache.insert(cache_key, paths)
         return artifact
+    return None
 
   def delete(self, cache_key):
     for cache in self._artifact_caches:  # Delete from all.
