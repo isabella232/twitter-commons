@@ -1,8 +1,8 @@
 import httplib
-import os
 import urlparse
-from twitter.common.contextutil import temporary_file_path, open_tar, temporary_file
+from twitter.common.contextutil import temporary_file_path, temporary_file
 from twitter.common.quantity import Amount, Data
+from twitter.pants.cache.artifact import TarballArtifact
 from twitter.pants.cache.artifact_cache import ArtifactCache
 
 
@@ -32,13 +32,8 @@ class RESTfulArtifactCache(ArtifactCache):
 
   def try_insert(self, cache_key, build_artifacts):
     with temporary_file_path() as tarfile:
-      # In our tests, gzip is slightly less compressive than bzip2 on .class files,
-      # but decompression times are much faster.
-      mode = 'w:gz' if self.compress else 'w'
-      with open_tar(tarfile, mode, dereference=True) as tarout:
-        for artifact in build_artifacts:
-          # Adds dirs recursively.
-          tarout.add(artifact, os.path.relpath(artifact, self.artifact_root))
+      artifact = TarballArtifact(self.artifact_root, tarfile, self.compress)
+      artifact.collect(build_artifacts)
 
       with open(tarfile, 'rb') as infile:
         path = self._path_for_key(cache_key)
@@ -81,8 +76,8 @@ class RESTfulArtifactCache(ArtifactCache):
           raise self.CacheError('Read only %d bytes from %d expected' % (total_bytes,
                                                                          expected_size))
         # Extract the tarfile.
-        with open_tar(outfile.name, 'r') as tarfile:
-          tarfile.extractall(self.artifact_root)
+        artifact = TarballArtifact(self.artifact_root, outfile.name, self.compress)
+        artifact.extract()
       return True
     except Exception as e:
         self.log.warn('Error while reading from artifact cache: %s' % e)

@@ -16,6 +16,7 @@ class ArtifactCache(object):
 
   class CacheError(Exception):
     """Indicates a problem writing to or reading from the cache."""
+    pass
 
   def __init__(self, log, artifact_root):
     """Create an ArtifactCache.

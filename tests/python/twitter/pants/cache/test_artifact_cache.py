@@ -9,7 +9,7 @@ from twitter.common.dirutil import safe_mkdir
 from twitter.pants.base.build_invalidator import CacheKey
 from twitter.pants.cache import create_artifact_cache, select_best_url
 from twitter.pants.cache.combined_artifact_cache import CombinedArtifactCache
-from twitter.pants.cache.file_based_artifact_cache import FileBasedArtifactCache
+from twitter.pants.cache.local_artifact_cache import LocalArtifactCache
 from twitter.pants.cache.restful_artifact_cache import RESTfulArtifactCache
 from twitter.pants.testutils import MockLogger
 
@@ -71,7 +71,7 @@ class TestArtifactCache(unittest.TestCase):
 
     with temporary_file() as temp:
       path = temp.name  # Must be a real path, since we safe_mkdir it.
-      check(FileBasedArtifactCache, path)
+      check(LocalArtifactCache, path)
       check(RESTfulArtifactCache, 'http://localhost/bar')
       check(CombinedArtifactCache, [path, 'http://localhost/bar'])
 
@@ -79,7 +79,7 @@ class TestArtifactCache(unittest.TestCase):
   def test_local_cache(self):
     with temporary_dir() as artifact_root:
       with temporary_dir() as cache_root:
-        artifact_cache = FileBasedArtifactCache(None, artifact_root, cache_root)
+        artifact_cache = LocalArtifactCache(None, artifact_root, cache_root)
         self.do_test_artifact_cache(artifact_cache)
 
 

@@ -15,7 +15,7 @@
 # ==================================================================================================
 
 from __future__ import print_function
-from twitter.pants.cache.file_based_artifact_cache import FileBasedArtifactCache
+from twitter.pants.cache.local_artifact_cache import LocalArtifactCache
 
 __author__ = 'Brian Wickman'
 
@@ -123,7 +123,7 @@ class PythonChroot(object):
 
     artifact_cache_root = os.path.join(self._config.get('python-setup', 'artifact_cache'),
                                        '%s' % PythonIdentity.get())
-    self._artifact_cache = FileBasedArtifactCache(None, self._root, artifact_cache_root,
+    self._artifact_cache = LocalArtifactCache(None, self._root, artifact_cache_root,
                                                   self._builder.add_dependency_file)
 
   def __del__(self):
