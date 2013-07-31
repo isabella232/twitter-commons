@@ -18,6 +18,10 @@ class Artifact(object):
     # The files known to be in this artifact, relative to artifact_root.
     self._relpaths = set()
 
+  def get_paths(self):
+    for relpath in self._relpaths:
+      yield os.path.join(self._artifact_root, relpath)
+
   def collect(self, paths):
     """Collect the paths (which must be under artifact root) into this artifact."""
     raise NotImplementedError()
@@ -48,18 +52,15 @@ class DirectoryArtifact(Artifact):
         shutil.copytree(path, dst)
       else:
         shutil.copy(path, dst)
-      self._relpaths.add(path)
+      self._relpaths.add(relpath)
 
   def extract(self):
-    if not os.path.exists(self._directory):
-      return False
     for dir_name, _, filenames in os.walk(self._directory):
       for filename in filenames:
         filename = os.path.join(dir_name, filename)
         relpath = os.path.relpath(filename, self._directory)
         self._copy_fn(filename, relpath)
         self._relpaths.add(relpath)
-    return True
 
 
 class TarballArtifact(Artifact):

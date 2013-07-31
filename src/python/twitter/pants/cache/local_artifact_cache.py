@@ -24,19 +24,27 @@ class LocalArtifactCache(ArtifactCache):
     self._copy_fn = copy_fn or copy
     safe_mkdir(self._cache_root)
 
-  def try_insert(self, cache_key, build_artifacts):
+  def try_insert(self, cache_key, paths):
     cache_dir = self._cache_dir_for_key(cache_key)
     safe_rmtree(cache_dir)
     artifact = DirectoryArtifact(self.artifact_root, cache_dir, self._copy_fn)
-    artifact.collect(build_artifacts)
+    artifact.collect(paths)
 
   def has(self, cache_key):
     return os.path.isdir(self._cache_dir_for_key(cache_key))
 
   def use_cached_files(self, cache_key):
     cache_dir = self._cache_dir_for_key(cache_key)
-    artifact = DirectoryArtifact(self.artifact_root, cache_dir, self._copy_fn)
-    artifact.extract()
+    if os.path.exists(cache_dir):
+      artifact = DirectoryArtifact(self.artifact_root, cache_dir, self._copy_fn)
+      artifact.extract()
+      return artifact
+    else:
+      return None
+
+  def get_artifact_for_key(self, cache_key):
+    cache_dir = self._cache_dir_for_key(cache_key)
+    return DirectoryArtifact(self.artifact_root, cache_dir, self._copy_fn)
 
   def delete(self, cache_key):
     safe_rmtree(self._cache_dir_for_key(cache_key))

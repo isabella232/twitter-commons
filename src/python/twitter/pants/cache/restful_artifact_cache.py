@@ -30,34 +30,34 @@ class RESTfulArtifactCache(ArtifactCache):
     self._path_prefix = parsed_url.path.rstrip('/')
     self.compress = compress
 
-  def try_insert(self, cache_key, build_artifacts):
+  def try_insert(self, cache_key, paths):
     with temporary_file_path() as tarfile:
       artifact = TarballArtifact(self.artifact_root, tarfile, self.compress)
-      artifact.collect(build_artifacts)
+      artifact.collect(paths)
 
       with open(tarfile, 'rb') as infile:
-        path = self._path_for_key(cache_key)
-        if not self._request('PUT', path, body=infile):
-          raise self.CacheError('Failed to PUT to %s. Error: 404' % self._url_string(path))
+        remote_path = self._remote_path_for_key(cache_key)
+        if not self._request('PUT', remote_path, body=infile):
+          raise self.CacheError('Failed to PUT to %s. Error: 404' % self._url_string(remote_path))
 
   def has(self, cache_key):
-    return self._request('HEAD', self._path_for_key(cache_key)) is not None
+    return self._request('HEAD', self._remote_path_for_key(cache_key)) is not None
 
   def use_cached_files(self, cache_key):
     # This implementation fetches the appropriate tarball and extracts it.
-    path = self._path_for_key(cache_key)
+    remote_path = self._remote_path_for_key(cache_key)
     try:
       # Send an HTTP request for the tarball.
-      response = self._request('GET', path)
+      response = self._request('GET', remote_path)
       if response is None:
-        return False
+        return None
       expected_size = int(response.getheader('content-length', -1))
       if expected_size == -1:
         raise self.CacheError('No content-length header in HTTP response')
 
       done = False
       self.log.debug('Reading %d bytes from artifact cache at %s' %
-                     (expected_size, self._url_string(path)))
+                     (expected_size, self._url_string(remote_path)))
 
       with temporary_file() as outfile:
         total_bytes = 0
@@ -78,16 +78,16 @@ class RESTfulArtifactCache(ArtifactCache):
         # Extract the tarfile.
         artifact = TarballArtifact(self.artifact_root, outfile.name, self.compress)
         artifact.extract()
-      return True
+        return artifact
     except Exception as e:
         self.log.warn('Error while reading from artifact cache: %s' % e)
-        return False
+        return None
 
   def delete(self, cache_key):
-    path = self._path_for_key(cache_key)
-    self._request('DELETE', path)
+    remote_path = self._remote_path_for_key(cache_key)
+    self._request('DELETE', remote_path)
 
-  def _path_for_key(self, cache_key):
+  def _remote_path_for_key(self, cache_key):
     # Note: it's important to use the id as well as the hash, because two different targets
     # may have the same hash if both have no sources, but we may still want to differentiate them.
     return '%s/%s/%s.tar%s' % (self._path_prefix, cache_key.id, cache_key.hash,

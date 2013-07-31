@@ -114,7 +114,7 @@ class TestArtifactCache(unittest.TestCase):
 
       # Cache it.
       self.assertFalse(artifact_cache.has(key))
-      self.assertFalse(artifact_cache.use_cached_files(key))
+      self.assertFalse(bool(artifact_cache.use_cached_files(key)))
       artifact_cache.insert(key, [path])
       self.assertTrue(artifact_cache.has(key))
 
@@ -123,7 +123,7 @@ class TestArtifactCache(unittest.TestCase):
         outfile.write(TEST_CONTENT2)
 
       # Recover it from the cache.
-      self.assertTrue(artifact_cache.use_cached_files(key))
+      self.assertTrue(bool(artifact_cache.use_cached_files(key)))
 
       # Check that it was recovered correctly.
       with open(path, 'r') as infile:

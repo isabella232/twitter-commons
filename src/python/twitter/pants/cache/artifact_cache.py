@@ -26,7 +26,7 @@ class ArtifactCache(object):
     self.log = log
     self.artifact_root = artifact_root
 
-  def insert(self, cache_key, build_artifacts):
+  def insert(self, cache_key, paths):
     """Cache the output of a build.
 
     If there is an existing set of artifacts for this key they are deleted.
@@ -35,24 +35,22 @@ class ArtifactCache(object):
           outputs.
 
     cache_key: A CacheKey object.
-    build_artifacts: List of paths to generated artifacts. These must be under the artifact_root.
+    paths: List of paths to generated dirs/files. These must be under the artifact_root.
     """
     # It's OK for artifacts not to exist- we assume that the build didn't need to create them
     # in this case (e.g., a no-op build on an empty target).
-    build_artifacts_that_exist = filter(lambda f: os.path.exists(f), build_artifacts)
+    paths_that_exist = filter(lambda f: os.path.exists(f), paths)
     try:
-      self.try_insert(cache_key, build_artifacts_that_exist)
+      self.try_insert(cache_key, paths_that_exist)
     except Exception as e:
       err_msg = 'Error while writing to artifact cache: %s. ' % e
       self.log.error(err_msg)
 
-  def try_insert(self, cache_key, build_artifacts):
+  def try_insert(self, cache_key, paths):
     """Attempt to cache the output of a build, without error-handling.
 
-    If there is an existing set of artifacts for this key they are deleted.
-
     cache_key: A CacheKey object.
-    build_artifacts: List of paths to generated artifacts. These must be under pants_workdir.
+    paths: List of paths to generated dirs/files. These must be under the artifact_root.
     """
     pass
 
@@ -60,9 +58,11 @@ class ArtifactCache(object):
     pass
 
   def use_cached_files(self, cache_key):
-    """Use the artifacts cached for the given key.
+    """Use the files cached for the given key.
 
-    Returns True if files were found and used, False otherwise.
+    Returns an appropriate Artifact instance if files were found and used, None otherwise.
+    Callers will typically only care about the truthiness of the return value. They usually
+    don't need to tinker with the returned instance.
 
     cache_key: A CacheKey object.
     """
