@@ -96,18 +96,15 @@ class ScalaCompile(NailgunTask):
 
     self.context.products.require_data('exclusives_groups')
 
-    local_artifact_cache_spec = \
+    self._local_artifact_cache_spec = \
       context.config.getlist('scala-compile', 'local_artifact_caches2', default=[])
-    remote_artifact_cache_spec = \
+    self._remote_artifact_cache_spec = \
       context.config.getlist('scala-compile', 'remote_artifact_caches2', default=[])
 
-    # We write directly to these.
-    self._local_artifact_cache = self.create_artifact_cache(local_artifact_cache_spec)
-    self._remote_artifact_cache = self.create_artifact_cache(remote_artifact_cache_spec)
-
-    # We read from this, as usual.
-    caches = filter(None, [self._local_artifact_cache, self._remote_artifact_cache])
-    self._artifact_cache = CombinedArtifactCache(caches) if caches else None
+    # We write directly to these. They're created lazily.
+    # We read from self._artifact_cache, as usual, but we set it up in a custom way.
+    self._local_artifact_cache = None
+    self._remote_artifact_cache = None
 
     # A temporary, but well-known, dir to munge analysis files in before caching. It must be
     # well-known so we know where to find the files when we retrieve them from the cache.
@@ -131,6 +128,22 @@ class ScalaCompile(NailgunTask):
 
   def can_dry_run(self):
     return True
+
+  def get_local_artifact_cache(self):
+    if self._local_artifact_cache is None and self._local_artifact_cache_spec is not None:
+      self._local_artifact_cache = self.create_artifact_cache(self._local_artifact_cache_spec)
+    return self._local_artifact_cache
+
+  def get_remote_artifact_cache(self):
+    if self._remote_artifact_cache is None and self._remote_artifact_cache_spec is not None:
+      self._remote_artifact_cache = self.create_artifact_cache(self._remote_artifact_cache_spec)
+    return self._remote_artifact_cache
+
+  def get_artifact_cache(self):
+    if self._artifact_cache is None:
+      caches = filter(None, [self.get_local_artifact_cache(), self.get_remote_artifact_cache()])
+      self._artifact_cache = CombinedArtifactCache(caches) if caches else None
+    return self._artifact_cache
 
   def _ensure_analysis_tmpdir(self):
     # Do this lazily, so we don't trigger creation of a worker pool unless we need it.
@@ -157,8 +170,6 @@ class ScalaCompile(NailgunTask):
     scala_targets = filter(lambda t: has_sources(t, '.scala'), targets)
     if not scala_targets:
       return
-
-    write_to_artifact_cache = self._artifact_cache and self.context.options.write_to_artifact_cache
 
     # Get the exclusives group for the targets to compile.
     # Group guarantees that they'll be a single exclusives key for them.
@@ -188,7 +199,7 @@ class ScalaCompile(NailgunTask):
           sources_by_target = self._process_target_partition(vts, cp)
           all_sources_by_target.update(sources_by_target)
           vts.update()
-          if write_to_artifact_cache:
+          if self.get_artifact_cache() and self.context.options.write_to_artifact_cache:
             self._write_to_artifact_cache(vts, sources_by_target)
 
         # Check for missing dependencies, if needed.
@@ -266,10 +277,10 @@ class ScalaCompile(NailgunTask):
 
     update_artifact_cache_work_local = \
       self.get_update_artifact_cache_work(vts_artifactfiles_pairs_local,
-                                          self._local_artifact_cache)
+                                          self.get_local_artifact_cache())
     update_artifact_cache_work_remote = \
       self.get_update_artifact_cache_work(vts_artifactfiles_pairs_remote,
-                                          self._remote_artifact_cache)
+                                          self.get_remote_artifact_cache())
     if update_artifact_cache_work_local or update_artifact_cache_work_remote:
       work_chain = [
         Work(split, splits_args_tuples, 'split')

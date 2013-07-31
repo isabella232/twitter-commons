@@ -102,8 +102,6 @@ class CodeGen(Task):
         for dependee, gentargets in gentargets_by_dependee.items()
       ))
 
-    write_to_artifact_cache = self._artifact_cache and self.context.options.write_to_artifact_cache
-
     with self.invalidated(gentargets, invalidate_dependents=True) as invalidation_check:
       for vts in invalidation_check.invalid_vts_partitioned:
         invalid_targets = set(vts.targets)
@@ -115,6 +113,9 @@ class CodeGen(Task):
     # Link synthetic targets for all in-play gen targets.
     invalid_vts_by_target = dict([(vt.target, vt) for vt in invalidation_check.invalid_vts])
     vts_artifactfiles_pairs = []
+    write_to_artifact_cache = \
+      self.get_artifact_cache() and self.context.options.write_to_artifact_cache \
+        if invalid_vts_by_target else False
     for lang, tgts in gentargets_bylang.items():
       if tgts:
         langtarget_by_gentarget = {}

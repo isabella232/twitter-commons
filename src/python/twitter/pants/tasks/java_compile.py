@@ -145,8 +145,6 @@ class JavaCompile(NailgunTask):
     if not java_targets:
       return
 
-    write_to_artifact_cache = self._artifact_cache and self.context.options.write_to_artifact_cache
-
     # Get the exclusives group for the targets to compile.
     # Group guarantees that they'll be a single exclusives key for them.
     egroups = self.context.products.get_data('exclusives_groups')
@@ -169,7 +167,7 @@ class JavaCompile(NailgunTask):
           sources_by_target = self._process_target_partition(vts, cp)
           all_sources_by_target.update(sources_by_target)
           vts.update()
-          if write_to_artifact_cache:
+          if self.get_artifact_cache() and self.context.options.write_to_artifact_cache:
             self._write_to_artifact_cache(vts, sources_by_target)
 
         # TODO: Add dependency checking.

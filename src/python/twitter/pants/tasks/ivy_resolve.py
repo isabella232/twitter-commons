@@ -205,7 +205,7 @@ class IvyResolve(NailgunTask):
 
           if not os.path.exists(target_classpath_file):
             raise TaskError('Ivy failed to create classpath file at %s %s' % target_classpath_file)
-          if self._artifact_cache and self.context.options.write_to_artifact_cache:
+          if self.get_artifact_cache() and self.context.options.write_to_artifact_cache:
             global_vts = VersionedTargetSet.from_versioned_targets(invalidation_check.all_vts)
             self.update_artifact_cache([(global_vts, [target_classpath_file])])
 

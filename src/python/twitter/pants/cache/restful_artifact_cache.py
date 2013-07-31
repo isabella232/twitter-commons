@@ -61,8 +61,8 @@ class RESTfulArtifactCache(ArtifactCache):
         raise self.CacheError('No content-length header in HTTP response')
 
       done = False
-      self.log.info('Reading %d bytes from artifact cache at %s' %
-                    (expected_size, self._url_string(path)))
+      self.log.debug('Reading %d bytes from artifact cache at %s' %
+                     (expected_size, self._url_string(path)))
 
       with temporary_file() as outfile:
         total_bytes = 0

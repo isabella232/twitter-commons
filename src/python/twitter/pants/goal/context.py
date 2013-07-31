@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from twitter.common.collections import OrderedSet
 from twitter.common.dirutil import Lock
 from twitter.common.process import ProcessProviderFactory
+from twitter.common.process.process_provider import ProcessProvider
 
 from twitter.pants import get_buildroot
 from twitter.pants import SourceRoot
@@ -21,11 +22,14 @@ from twitter.pants.targets import Pants
 
 # Utility definition for grabbing process info for locking.
 def _process_info(pid):
-  ps = ProcessProviderFactory.get()
-  ps.collect_set([pid])
-  handle = ps.get_handle(pid)
-  cmdline = handle.cmdline().replace('\0', ' ')
-  return '%d (%s)' % (pid, cmdline)
+  try:
+    ps = ProcessProviderFactory.get()
+    ps.collect_set([pid])
+    handle = ps.get_handle(pid)
+    cmdline = handle.cmdline().replace('\0', ' ')
+    return '%d (%s)' % (pid, cmdline)
+  except ProcessProvider.UnknownPidError:
+    return '%d' % pid
 
 
 class Context(object):
