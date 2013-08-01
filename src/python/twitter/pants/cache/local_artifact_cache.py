@@ -26,9 +26,17 @@ class LocalArtifactCache(ArtifactCache):
 
   def try_insert(self, cache_key, paths):
     cache_dir = self._cache_dir_for_key(cache_key)
-    safe_rmtree(cache_dir)
-    artifact = DirectoryArtifact(self.artifact_root, cache_dir, self._copy_fn)
+    # Write to a temporary name, and move it atomically, so if we
+    # crash in the middle we don't leave an incomplete artifact.
+    cache_dir_tmp = cache_dir + '.tmp'
+    safe_rmtree(cache_dir_tmp)
+    artifact = DirectoryArtifact(self.artifact_root, cache_dir_tmp, self._copy_fn)
     artifact.collect(paths)
+    # Note: Race condition here if multiple pants runs (in different workspaces)
+    # try to write the same thing at the same time. However since rename is atomic,
+    # this should not result in corruption.
+    safe_rmtree(cache_dir)
+    os.rename(cache_dir_tmp, cache_dir)
 
   def has(self, cache_key):
     return os.path.isdir(self._cache_dir_for_key(cache_key))
