@@ -260,23 +260,23 @@ class NailgunTask(Task):
       # In the parent tine - block on ng being up for connections
       return self._await_nailgun_server(workunit)
 
+    # NOTE: Don't use self.context.log or self.context.new_workunit here.
+    # They use threadlocal state, which interacts poorly with fork().
     os.setsid()
     in_fd = open('/dev/null', 'w')
     out_fd = safe_open(self._ng_out, 'w')
     err_fd = safe_open(self._ng_err, 'w')
-
     args = ['java']
     if self._ng_server_args:
       args.extend(self._ng_server_args)
     args.append(NailgunTask.PANTS_NG_ARG)
     args.append(self._identifier_arg)
-    ng_classpath = os.pathsep.join(binary_util.profile_classpath(self._nailgun_profile,
-      workunit_factory=self.context.new_workunit))
+    ng_classpath = os.pathsep.join(binary_util.profile_classpath(self._nailgun_profile))
     args.extend(['-cp', ng_classpath, 'com.martiansoftware.nailgun.NGServer', ':0'])
-    self.context.log.debug('Executing: %s' % ' '.join(args))
+    s = ' '.join(args)
 
-    with binary_util.safe_classpath(logger=self.context.log.warn):
-      process = subprocess.Popen(
+    with binary_util.safe_classpath():
+      subprocess.Popen(
         args,
         stdin=in_fd,
         stdout=out_fd,
@@ -284,7 +284,6 @@ class NailgunTask(Task):
         close_fds=True,
         cwd=get_buildroot()
       )
-      self.context.log.debug('Spawned ng server @ %d' % process.pid)
       # Prevents finally blocks being executed, unlike sys.exit(). We don't want to execute finally
       # blocks because we might, e.g., clean up tempfiles that the parent still needs.
       os._exit(0)
