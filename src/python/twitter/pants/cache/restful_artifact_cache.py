@@ -11,13 +11,13 @@ class RESTfulArtifactCache(ArtifactCache):
 
   READ_SIZE = int(Amount(4, Data.MB).as_(Data.BYTES))
 
-  def __init__(self, log, artifact_root, url_base, compress=True):
+  def __init__(self, log, artifact_root, url_base, compress=True, read_only=False):
     """
     url_base: The prefix for urls on some RESTful service. We must be able to PUT and GET to any
               path under this base.
     compress: Whether to compress the artifacts before storing them.
     """
-    ArtifactCache.__init__(self, log, artifact_root)
+    ArtifactCache.__init__(self, log, artifact_root, read_only)
     parsed_url = urlparse.urlparse(url_base)
     if parsed_url.scheme == 'http':
       self._ssl = False
@@ -86,6 +86,11 @@ class RESTfulArtifactCache(ArtifactCache):
   def delete(self, cache_key):
     remote_path = self._remote_path_for_key(cache_key)
     self._request('DELETE', remote_path)
+
+  def prune(self, age_hours):
+    # Doesn't make sense for a client to prune a remote server.
+    # Better to run tmpwatch on the server.
+    pass
 
   def _remote_path_for_key(self, cache_key):
     # Note: it's important to use the id as well as the hash, because two different targets

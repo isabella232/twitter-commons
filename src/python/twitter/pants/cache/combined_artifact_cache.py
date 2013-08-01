@@ -16,7 +16,8 @@ class CombinedArtifactCache(ArtifactCache):
     artifact_root = artifact_caches[0].artifact_root
     if any(x.artifact_root != artifact_root for x in artifact_caches):
       raise ValueError('Combined artifact caches must all have the same artifact root.')
-    ArtifactCache.__init__(self, log, artifact_root)
+    read_only = all(x.read_only for x in artifact_caches)
+    ArtifactCache.__init__(self, log, artifact_root, read_only)
     self._artifact_caches = artifact_caches
     self._backfill = backfill
 
@@ -44,3 +45,7 @@ class CombinedArtifactCache(ArtifactCache):
   def delete(self, cache_key):
     for cache in self._artifact_caches:  # Delete from all.
       cache.delete(cache_key)
+
+  def prune(self, age_hours):
+    for cache in self._artifact_caches:
+      cache.prunt(age_hours)

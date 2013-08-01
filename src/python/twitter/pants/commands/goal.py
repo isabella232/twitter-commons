@@ -193,6 +193,7 @@ class Goal(Command):
            help="Do not colorize log messages."),
     Option("-n", "--dry-run", action="store_true", dest="dry_run", default=False,
       help="Print the commands that would be run, without actually running them."),
+
     Option("--read-from-artifact-cache", "--no-read-from-artifact-cache", action="callback",
       callback=_set_bool, dest="read_from_artifact_cache", default=True,
       help="Whether to read artifacts from cache instead of building them, when possible."),
@@ -202,6 +203,14 @@ class Goal(Command):
     Option("--verify-artifact-cache", "--no-verify-artifact-cache", action="callback",
       callback=_set_bool, dest="verify_artifact_cache", default=False,
       help="Whether to verify that cached artifacts are identical after rebuilding them."),
+
+    Option("--local-artifact-cache-readonly", "--no-local-artifact-cache-readonly", action="callback",
+           callback=_set_bool, dest="local_artifact_cache_readonly", default=False,
+           help="If set, we don't write to local artifact caches, even when writes are enabled."),
+    Option("--remote-artifact-cache-readonly", "--no-remote-artifact-cache-readonly", action="callback",
+           callback=_set_bool, dest="remote_artifact_cache_readonly", default=False,
+           help="If set, we don't write to remote artifact caches, even when writes are enabled."),
+
     Option("--all", dest="target_directory", action="append",
            help="DEPRECATED: Use [dir]: with no flag in a normal target position on the command "
                 "line. (Adds all targets found in the given directory's BUILD file. Can be "

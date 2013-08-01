@@ -18,13 +18,14 @@ class ArtifactCache(object):
     """Indicates a problem writing to or reading from the cache."""
     pass
 
-  def __init__(self, log, artifact_root):
+  def __init__(self, log, artifact_root, read_only=False):
     """Create an ArtifactCache.
 
     All artifacts must be under artifact_root.
     """
     self.log = log
     self.artifact_root = artifact_root
+    self.read_only = read_only  # If true, silently skip writes.
 
   def insert(self, cache_key, paths):
     """Cache the output of a build.
@@ -39,12 +40,13 @@ class ArtifactCache(object):
     """
     # It's OK for artifacts not to exist- we assume that the build didn't need to create them
     # in this case (e.g., a no-op build on an empty target).
-    paths_that_exist = filter(lambda f: os.path.exists(f), paths)
-    try:
-      self.try_insert(cache_key, paths_that_exist)
-    except Exception as e:
-      err_msg = 'Error while writing to artifact cache: %s. ' % e
-      self.log.error(err_msg)
+    if not self.read_only:
+      paths_that_exist = filter(lambda f: os.path.exists(f), paths)
+      try:
+        self.try_insert(cache_key, paths_that_exist)
+      except Exception as e:
+        err_msg = 'Error while writing to artifact cache: %s. ' % e
+        self.log.error(err_msg)
 
   def try_insert(self, cache_key, paths):
     """Attempt to cache the output of a build, without error-handling.
@@ -73,6 +75,10 @@ class ArtifactCache(object):
 
     Deleting non-existent artifacts is a no-op.
     """
+    pass
+
+  def prune(self, age_hours):
+    """Clean up cache files older than age_hours, if possible."""
     pass
 
 

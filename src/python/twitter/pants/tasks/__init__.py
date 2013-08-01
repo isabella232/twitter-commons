@@ -68,7 +68,9 @@ class Task(object):
     if len(spec) > 0:
       pants_workdir = self.context.config.getdefault('pants_workdir')
       my_name = self.__class__.__name__
-      return create_artifact_cache(self.context.log, pants_workdir, spec, my_name)
+      return create_artifact_cache(self.context.log, pants_workdir, spec, my_name,
+                                   self.context.options.local_artifact_cache_readonly,
+                                   self.context.options.remote_artifact_cache_readonly)
     else:
       return None
 
@@ -259,7 +261,7 @@ class Task(object):
       - artifactfiles is a list of paths to artifacts for the VersionedTargetSet.
     """
     cache = cache or self.get_artifact_cache()
-    if cache and self.context.options.write_to_artifact_cache:
+    if cache and self.context.options.write_to_artifact_cache and not cache.read_only:
       if len(vts_artifactfiles_pairs) == 0:
         return None
         # Do some reporting.

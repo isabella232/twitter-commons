@@ -7,13 +7,13 @@ from twitter.pants.cache.artifact_cache import ArtifactCache
 
 class LocalArtifactCache(ArtifactCache):
   """An artifact cache that stores the artifacts in local files."""
-  def __init__(self, log, artifact_root, cache_root, copy_fn=None):
+  def __init__(self, log, artifact_root, cache_root, copy_fn=None, read_only=False):
     """
     cache_root: The locally cached files are stored under this directory.
     copy_fn: An optional function with the signature copy_fn(absolute_src_path, relative_dst_path) that
         will copy cached files into the desired destination. If unspecified, a simple file copy is used.
     """
-    ArtifactCache.__init__(self, log, artifact_root)
+    ArtifactCache.__init__(self, log, artifact_root, read_only)
     self._cache_root = os.path.expanduser(cache_root)
 
     def copy(src, rel_dst):
@@ -56,6 +56,9 @@ class LocalArtifactCache(ArtifactCache):
 
   def delete(self, cache_key):
     safe_rmtree(self._cache_dir_for_key(cache_key))
+
+  def prune(self, age_hours):
+    pass
 
   def _cache_dir_for_key(self, cache_key):
     # Note: it's important to use the id as well as the hash, because two different targets

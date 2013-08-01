@@ -22,7 +22,7 @@ def select_best_url(spec, pinger, log):
   return best_url
 
 
-def create_artifact_cache(log, artifact_root, spec, task_name):
+def create_artifact_cache(log, artifact_root, spec, task_name, local_readonly, remote_readonly):
   """Returns an artifact cache for the specified spec.
 
   spec can be:
@@ -37,7 +37,7 @@ def create_artifact_cache(log, artifact_root, spec, task_name):
     if spec.startswith('/') or spec.startswith('~'):
       path = os.path.join(spec, task_name)
       log.info('%s using local artifact cache at %s' % (task_name, path))
-      return LocalArtifactCache(log, artifact_root, path)
+      return LocalArtifactCache(log, artifact_root, path, read_only=local_readonly)
     elif spec.startswith('http://') or spec.startswith('https://'):
       # Caches are supposed to be close, and we don't want to waste time pinging on no-op builds.
       # So we ping twice with a short timeout.
@@ -46,12 +46,13 @@ def create_artifact_cache(log, artifact_root, spec, task_name):
       if best_url:
         url = best_url.rstrip('/') + '/' + task_name
         log.info('%s using remote artifact cache at %s' % (task_name, url))
-        return RESTfulArtifactCache(log, artifact_root, url)
+        return RESTfulArtifactCache(log, artifact_root, url, read_only=remote_readonly)
       else:
         log.warn('%s has no reachable artifact cache in %s.' % (task_name, spec))
         return None
     else:
       raise ValueError('Invalid artifact cache spec: %s' % spec)
   elif isinstance(spec, (list, tuple)):
-    caches = filter(None, [ create_artifact_cache(log, artifact_root, x, task_name) for x in spec ])
+    caches = filter(None, [ create_artifact_cache(log, artifact_root, x, task_name,
+                                                  local_readonly, remote_readonly) for x in spec ])
     return CombinedArtifactCache(caches) if caches else None
