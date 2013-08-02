@@ -1,7 +1,6 @@
-from contextlib import contextmanager
 import os
 import shutil
-from twitter.common.contextutil import temporary_file_path, open_tar
+from twitter.common.contextutil import open_tar
 from twitter.common.dirutil import safe_mkdir_for, safe_mkdir
 
 

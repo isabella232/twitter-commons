@@ -22,6 +22,7 @@ from twitter.common.dirutil import safe_mkdir, safe_rmtree
 from twitter.pants import has_sources, is_scalac_plugin, get_buildroot
 from twitter.pants.base.worker_pool import Work
 from twitter.pants.cache import CombinedArtifactCache
+from twitter.pants.cache.transforming_artifact_cache import TransformingArtifactCache
 from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.targets import resolve_target_sources
 from twitter.pants.targets.scala_library import ScalaLibrary
@@ -101,11 +102,6 @@ class ScalaCompile(NailgunTask):
     self._remote_artifact_cache_spec = \
       context.config.getlist('scala-compile', 'remote_artifact_caches2', default=[])
 
-    # We write directly to these. They're created lazily.
-    # We read from self._artifact_cache, as usual, but we set it up in a custom way.
-    self._local_artifact_cache = None
-    self._remote_artifact_cache = None
-
     # A temporary, but well-known, dir to munge analysis files in before caching. It must be
     # well-known so we know where to find the files when we retrieve them from the cache.
     self._analysis_tmpdir = os.path.join(self._analysis_dir, 'artifact_cache_tmpdir')
@@ -129,21 +125,37 @@ class ScalaCompile(NailgunTask):
   def can_dry_run(self):
     return True
 
-  def get_local_artifact_cache(self):
-    if self._local_artifact_cache is None and self._local_artifact_cache_spec is not None:
-      self._local_artifact_cache = self.create_artifact_cache(self._local_artifact_cache_spec)
-    return self._local_artifact_cache
-
-  def get_remote_artifact_cache(self):
-    if self._remote_artifact_cache is None and self._remote_artifact_cache_spec is not None:
-      self._remote_artifact_cache = self.create_artifact_cache(self._remote_artifact_cache_spec)
-    return self._remote_artifact_cache
-
   def get_artifact_cache(self):
     if self._artifact_cache is None:
-      caches = filter(None, [self.get_local_artifact_cache(), self.get_remote_artifact_cache()])
+      local_cache = self.create_artifact_cache(self._local_artifact_cache_spec)
+      remote_cache = self.create_artifact_cache(self._remote_artifact_cache_spec)
+      if remote_cache:
+        remote_cache = TransformingArtifactCache(remote_cache,
+                                                 pre_write_func=self._relativize_artifact,
+                                                 post_read_func=self._localize_artifact)
+      caches = filter(None, [local_cache, remote_cache])
       self._artifact_cache = CombinedArtifactCache(caches) if caches else None
     return self._artifact_cache
+
+  def _relativize_artifact(self, paths):
+    new_paths = []
+    for path in paths:
+      if path.endswith('.analysis') and os.path.exists(path):
+        portable_analysis = path + '.portable'
+        if self._zinc_utils.relativize_analysis_file(path, portable_analysis):
+          raise TaskError('Zinc failed to relativize analysis file: %s' % path)
+        new_paths.append(portable_analysis)
+      else:
+        new_paths.append(path)
+    return new_paths
+
+  def _localize_artifact(self, paths):
+    for path in paths:
+      if path.endswith('.analysis.portable') and os.path.exists(path):
+        analysis = path[:-9]
+        if self._zinc_utils.localize_analysis_file(path, analysis):
+          raise TaskError('Zinc failed to localize cached analysis file: %s' % path)
+        os.unlink(path)
 
   def _ensure_analysis_tmpdir(self):
     # Do this lazily, so we don't trigger creation of a worker pool unless we need it.
@@ -226,7 +238,6 @@ class ScalaCompile(NailgunTask):
 
   def _write_to_artifact_cache(self, vts, sources_by_target):
     self._ensure_analysis_tmpdir()
-
     vt_by_target = dict([(vt.target, vt) for vt in vts.versioned_targets])
 
     # Copy the analysis file, so we can work on it without it changing under us.
@@ -240,19 +251,8 @@ class ScalaCompile(NailgunTask):
               for target, sources in sources_by_target.items()]
     splits_args_tuples = [(global_analysis_file_copy, splits)]
 
-    # Set up args for relativizing.
-    # TODO: Rebase first, then split? Would require zinc changes to prevent nuking placeholders.
-    relativize_args_tuples = []
-    for target in vts.targets:
-      analysis_file = \
-        ScalaCompile._analysis_for_target(self._analysis_tmpdir, target)
-      portable_analysis_file = \
-        ScalaCompile._portable_analysis_for_target(self._analysis_tmpdir, target)
-      relativize_args_tuples.append((analysis_file, portable_analysis_file))
-
     # Set up args for artifact cache updating.
-    vts_artifactfiles_pairs_local = []
-    vts_artifactfiles_pairs_remote = []
+    vts_artifactfiles_pairs = []
     for target, sources in sources_by_target.items():
       artifacts = []
       for source in sources:
@@ -262,36 +262,19 @@ class ScalaCompile(NailgunTask):
       if vt is not None:
         analysis_file = \
           ScalaCompile._analysis_for_target(self._analysis_tmpdir, target)
-        portable_analysis_file = \
-          ScalaCompile._portable_analysis_for_target(self._analysis_tmpdir, target)
-        vts_artifactfiles_pairs_local.append((vt, artifacts + [analysis_file]))
-        vts_artifactfiles_pairs_remote.append((vt, artifacts + [portable_analysis_file]))
+        vts_artifactfiles_pairs.append((vt, artifacts + [analysis_file]))
 
     def split(analysis_file, splits):
       if self._zinc_utils.run_zinc_split(analysis_file, splits):
         raise TaskError('Zinc failed to split analysis file: %s' % analysis_file)
 
-    def relativize(analysis_file, portable_analysis_file):
-      if self._zinc_utils.relativize_analysis_file(analysis_file, portable_analysis_file):
-        raise TaskError('Zinc failed to relativize analysis file: %s' % analysis_file)
-
-    update_artifact_cache_work_local = \
-      self.get_update_artifact_cache_work(vts_artifactfiles_pairs_local,
-                                          self.get_local_artifact_cache())
-    update_artifact_cache_work_remote = \
-      self.get_update_artifact_cache_work(vts_artifactfiles_pairs_remote,
-                                          self.get_remote_artifact_cache())
-    if update_artifact_cache_work_local or update_artifact_cache_work_remote:
+    update_artifact_cache_work = \
+      self.get_update_artifact_cache_work(vts_artifactfiles_pairs)
+    if update_artifact_cache_work:
       work_chain = [
-        Work(split, splits_args_tuples, 'split')
+        Work(split, splits_args_tuples, 'split'),
+        update_artifact_cache_work
       ]
-      if update_artifact_cache_work_local:
-        work_chain.extend([ update_artifact_cache_work_local ])
-      if update_artifact_cache_work_remote:
-        work_chain.extend([
-          Work(relativize, relativize_args_tuples, 'relativize'),
-          update_artifact_cache_work_remote
-        ])
       with self.context.new_workunit(name='cache', labels=[WorkUnit.MULTITOOL],
           parent=self.context.run_tracker.get_background_root_workunit()) as parent:
         self.context.submit_background_work_chain(work_chain, workunit_parent=parent)
@@ -300,36 +283,14 @@ class ScalaCompile(NailgunTask):
     # Special handling for scala analysis files. Class files are retrieved directly into their
     # final locations in the global classes dir.
     self._ensure_analysis_tmpdir()
-
     cached_vts, uncached_vts = Task.check_artifact_cache(self, vts)
 
     analyses_to_merge = []
-
-    # Set up args for relativizing.
-    # TODO: Merge first, then rebase once? Would require zinc changes to not nuke placeholders.
-    localize_args_tuples = []
     for vt in cached_vts:
       for target in vt.targets:
-        analysis_file = \
-          ScalaCompile._analysis_for_target(self._analysis_tmpdir, target)
-        portable_analysis_file = \
-          ScalaCompile._portable_analysis_for_target(self._analysis_tmpdir, target)
-        if os.path.exists(portable_analysis_file):  # Got it from the remote cache.
-          localize_args_tuples.append((portable_analysis_file, analysis_file))
+        analysis_file = ScalaCompile._analysis_for_target(self._analysis_tmpdir, target)
+        if os.path.exists(analysis_file):
           analyses_to_merge.append(analysis_file)
-        elif os.path.exists(analysis_file):  # Got it from the local cache.
-          analyses_to_merge.append(analysis_file)
-
-    def localize(portable_analysis_file, analysis_file):
-      if self._zinc_utils.localize_analysis_file(portable_analysis_file, analysis_file):
-        raise TaskError('Zinc failed to localize cached analysis file: %s' % portable_analysis_file)
-
-    if len(localize_args_tuples) > 0:
-      # Do the localization work concurrently.
-      with self.context.new_workunit(name='analysis', labels=[WorkUnit.MULTITOOL]) \
-          as parent:
-        self.context.submit_foreground_work_and_wait(
-          Work(localize, localize_args_tuples, 'localize'), workunit_parent=parent)
 
     if len(analyses_to_merge) > 0:
       # Merge the localized analysis with the global one (if any).
