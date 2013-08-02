@@ -69,11 +69,11 @@ class TestArtifactCache(unittest.TestCase):
       self.assertTrue(isinstance(cache, expected_type))
       self.assertEquals(cache.artifact_root, artifact_root)
 
-    with temporary_file() as temp:
-      path = temp.name  # Must be a real path, since we safe_mkdir it.
-      check(LocalArtifactCache, path)
+    with temporary_dir() as tmpdir:
+      cachedir = os.path.join(tmpdir, 'cachedir')  # Must be a real path, so we can safe_mkdir it.
+      check(LocalArtifactCache, cachedir)
       check(RESTfulArtifactCache, 'http://localhost/bar')
-      check(CombinedArtifactCache, [path, 'http://localhost/bar'])
+      check(CombinedArtifactCache, [cachedir, 'http://localhost/bar'])
 
 
   def test_local_cache(self):
