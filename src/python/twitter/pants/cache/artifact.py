@@ -21,6 +21,9 @@ class Artifact(object):
     for relpath in self._relpaths:
       yield os.path.join(self._artifact_root, relpath)
 
+  def override_paths(self, paths):  # Use with care.
+    self._relpaths = set([os.path.relpath(path, self._artifact_root) for path in paths])
+
   def collect(self, paths):
     """Collect the paths (which must be under artifact root) into this artifact."""
     raise NotImplementedError()

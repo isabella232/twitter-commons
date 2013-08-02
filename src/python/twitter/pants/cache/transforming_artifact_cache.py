@@ -23,7 +23,7 @@ class TransformingArtifactCache(ArtifactCache):
   def use_cached_files(self, cache_key):
     artifact = self._cache.use_cached_files(cache_key)
     if artifact and self._post_read_func:
-      self._post_read_func(artifact.get_paths())
+      artifact.override_paths(self._post_read_func(artifact.get_paths()))
     return artifact
 
   def delete(self, cache_key):

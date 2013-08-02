@@ -150,12 +150,17 @@ class ScalaCompile(NailgunTask):
     return new_paths
 
   def _localize_artifact(self, paths):
+    new_paths = []
     for path in paths:
       if path.endswith('.analysis.portable') and os.path.exists(path):
         analysis = path[:-9]
         if self._zinc_utils.localize_analysis_file(path, analysis):
           raise TaskError('Zinc failed to localize cached analysis file: %s' % path)
         os.unlink(path)
+        new_paths.append(analysis)
+      else:
+        new_paths.append(path)
+    return new_paths
 
   def _ensure_analysis_tmpdir(self):
     # Do this lazily, so we don't trigger creation of a worker pool unless we need it.
