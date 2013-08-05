@@ -51,14 +51,8 @@ class RESTfulArtifactCache(ArtifactCache):
       response = self._request('GET', remote_path)
       if response is None:
         return None
-      expected_size = int(response.getheader('content-length', -1))
-      if expected_size == -1:
-        raise self.CacheError('No content-length header in HTTP response')
 
       done = False
-      self.log.debug('Reading %d bytes from artifact cache at %s' %
-                     (expected_size, self._url_string(remote_path)))
-
       with temporary_file() as outfile:
         total_bytes = 0
         # Read the data in a loop.
@@ -69,12 +63,9 @@ class RESTfulArtifactCache(ArtifactCache):
             done = True
           total_bytes += len(data)
         outfile.close()
-        self.log.debug('Read %d bytes' % total_bytes)
+        self.log.debug('Read %d bytes from artifact cache at %s' %
+                       (total_bytes,self._url_string(remote_path)))
 
-        # Check the size.
-        if total_bytes != expected_size:
-          raise self.CacheError('Read only %d bytes from %d expected' % (total_bytes,
-                                                                         expected_size))
         # Extract the tarfile.
         artifact = TarballArtifact(self.artifact_root, outfile.name, self.compress)
         artifact.extract()

@@ -84,6 +84,8 @@ class NailgunTask(Task):
     # Allows us to identify the nailgun process by its cmd-line.
     self._identifier_arg = '-Dpants.ng.identifier=%s' % os.path.relpath(workdir, get_buildroot())
 
+    self._current_pidport = None
+
     self._ng_out = os.path.join(workdir, 'stdout')
     self._ng_err = os.path.join(workdir, 'stderr')
 
@@ -194,10 +196,11 @@ class NailgunTask(Task):
         pass
 
   def _get_nailgun_endpoint(self):
-    pid_port = NailgunTask._find(self._identifier_arg)
-    if pid_port:
-      self.context.log.debug('found ng server @ pid:%d port:%d' % pid_port)
-    return pid_port
+    if not self._current_pidport:
+      self._current_pidport = NailgunTask._find(self._identifier_arg)
+      if self._current_pidport:
+        self.context.log.debug('found ng server @ pid:%d port:%d' % self._current_pidport)
+    return self._current_pidport
 
   def _get_nailgun_client(self, workunit):
     with self._spawn_lock:
