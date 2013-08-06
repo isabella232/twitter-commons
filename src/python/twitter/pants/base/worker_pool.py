@@ -137,3 +137,6 @@ class WorkerPool(object):
       self._pool.join()
       for hook in self._shutdown_hooks:
         hook()
+
+  def abort(self):
+    self._pool.terminate()

@@ -81,8 +81,8 @@ class DefaultSourceScope(SourceScope):
 TARGET_SOURCES = DefaultSourceScope(recursive=False, include_buildfile=False)
 TRANSITIVE_SOURCES = DefaultSourceScope(recursive=True, include_buildfile=False)
 
-
-CACHE_KEY_GEN_VERSION = '1'
+# Bump this to invalidate all existing keys in artifact caches etc.
+CACHE_KEY_GEN_VERSION = '2'
 
 class CacheKeyGenerator(object):
   """Generates cache keys for versions of target sets."""

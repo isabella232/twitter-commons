@@ -166,7 +166,7 @@ class ScalaCompile(NailgunTask):
     # Do this lazily, so we don't trigger creation of a worker pool unless we need it.
     if not os.path.exists(self._analysis_tmpdir):
       os.makedirs(self._analysis_tmpdir)
-      self.context.background_worker_pool().add_shutdown_hook(lambda: safe_rmtree(self._analysis_tmpdir))
+      #self.context.background_worker_pool().add_shutdown_hook(lambda: safe_rmtree(self._analysis_tmpdir))
 
   def _get_deleted_sources(self):
     """Returns the list of sources present in the last analysis that have since been deleted.
@@ -209,12 +209,10 @@ class ScalaCompile(NailgunTask):
     # invalid targets to become valid.
     with self.invalidated(scala_targets, invalidate_dependents=True,
                           partition_size_hint=self._partition_size_hint) as invalidation_check:
-      all_sources_by_target = {}
       if not self.dry_run:
         # Process partitions of invalid targets one by one.
         for vts in invalidation_check.invalid_vts_partitioned:
           sources_by_target = self._process_target_partition(vts, cp)
-          all_sources_by_target.update(sources_by_target)
           vts.update()
           if self.get_artifact_cache() and self.context.options.write_to_artifact_cache:
             self._write_to_artifact_cache(vts, sources_by_target)
@@ -226,8 +224,9 @@ class ScalaCompile(NailgunTask):
 
         # Provide the target->class and source->class mappings to downstream tasks if needed.
         if self.context.products.isrequired('classes'):
+          sources_by_target = self._compute_sources_by_target(scala_targets)
           classes_by_source = self._compute_classes_by_source()
-          self._add_all_products_to_genmap(all_sources_by_target, classes_by_source)
+          self._add_all_products_to_genmap(sources_by_target, classes_by_source)
 
     # Update the classpath for downstream tasks.
     for conf in self._confs:
@@ -317,17 +316,7 @@ class ScalaCompile(NailgunTask):
     Postcondition: The individual targets in vts are up-to-date, as if each were
                    compiled individually.
     """
-    def calculate_sources(target):
-      """Find a target's source files."""
-      sources = []
-      srcs = \
-        [os.path.join(target.target_base, src) for src in target.sources if src.endswith('.scala')]
-      sources.extend(srcs)
-      if (isinstance(target, ScalaLibrary) or isinstance(target, ScalaTests)) and target.java_sources:
-        sources.extend(resolve_target_sources(target.java_sources, '.java'))
-      return sources
-
-    sources_by_target = dict([(t, calculate_sources(t)) for t in vts.targets])
+    sources_by_target = self._compute_sources_by_target(vts.targets)
     sources = list(itertools.chain.from_iterable(sources_by_target.values()))
 
     if not sources:
@@ -350,6 +339,17 @@ class ScalaCompile(NailgunTask):
                                     self._classes_dir,self._analysis_file, {}):
           raise TaskError('Compile failed.')
     return sources_by_target
+
+  def _compute_sources_by_target(self, targets):
+    def calculate_sources(target):
+      sources = []
+      srcs = \
+        [os.path.join(target.target_base, src) for src in target.sources if src.endswith('.scala')]
+      sources.extend(srcs)
+      if (isinstance(target, ScalaLibrary) or isinstance(target, ScalaTests)) and target.java_sources:
+        sources.extend(resolve_target_sources(target.java_sources, '.java'))
+      return sources
+    return dict([(t, calculate_sources(t)) for t in targets])
 
   def _compute_classes_by_source(self, analysis_file=None):
     """Compute src->classes."""

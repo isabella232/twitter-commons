@@ -160,12 +160,10 @@ class JavaCompile(NailgunTask):
 
     with self.invalidated(java_targets, invalidate_dependents=True,
                           partition_size_hint=self._partition_size_hint) as invalidation_check:
-      all_sources_by_target = {}
       if not self.dry_run:
         for vts in invalidation_check.invalid_vts_partitioned:
           # Compile, using partitions for efficiency.
           sources_by_target = self._process_target_partition(vts, cp)
-          all_sources_by_target.update(sources_by_target)
           vts.update()
           if self.get_artifact_cache() and self.context.options.write_to_artifact_cache:
             self._write_to_artifact_cache(vts, sources_by_target)
@@ -175,9 +173,10 @@ class JavaCompile(NailgunTask):
         # Provide the target->class and source->class mappings to downstream tasks if needed.
         if self.context.products.isrequired('classes'):
           if os.path.exists(self._depfile):
+            sources_by_target = self._compute_sources_by_target(java_targets)
             deps = Dependencies(self._classes_dir)
             deps.load(self._depfile)
-            self._add_all_products_to_genmap(all_sources_by_target, deps.classes_by_source)
+            self._add_all_products_to_genmap(sources_by_target, deps.classes_by_source)
 
         # Produce a monolithic apt processor service info file for further compilation rounds
         # and the unit test classpath.
@@ -193,8 +192,9 @@ class JavaCompile(NailgunTask):
         self.write_processor_info(processor_info_file, all_processors)
 
   def _process_target_partition(self, vts, cp):
-    sources_by_target, fingerprint = self.calculate_sources(vts.targets)
+    sources_by_target = self._compute_sources_by_target(vts.targets)
     sources = list(itertools.chain.from_iterable(sources_by_target.values()))
+    fingerprint = Target.identify(vts.targets)
 
     if not sources:
       self.context.log.warn('Skipping java compile for targets with no sources:\n  %s' % vts.targets)
@@ -269,17 +269,17 @@ class JavaCompile(NailgunTask):
     compilation_id = Target.maybe_readable_identify(targets)
     return os.path.join(depfile_dir, compilation_id) + '.dependencies'
 
-  def calculate_sources(self, targets):
-    sources = defaultdict(set)
+  def _compute_sources_by_target(self, targets):
+    sources_by_target = defaultdict(set)
     def collect_sources(target):
       src = (os.path.join(target.target_base, source)
              for source in target.sources if source.endswith('.java'))
       if src:
-        sources[target].update(src)
+        sources_by_target[target].update(src)
 
     for target in targets:
       collect_sources(target)
-    return sources, Target.identify(targets)
+    return sources_by_target
 
   def compile(self, classpath, sources, fingerprint, depfile):
     jmake_classpath = self.profile_classpath(self._jmake_profile)

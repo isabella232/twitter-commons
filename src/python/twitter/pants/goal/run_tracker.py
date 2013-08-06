@@ -97,6 +97,8 @@ class RunTracker(object):
     self._background_worker_pool = None
     self._background_root_workunit = None
 
+    self._aborted = False
+
   def register_thread(self, parent_workunit):
     """Register the parent workunit for all work in the calling thread.
 
@@ -156,6 +158,7 @@ class RunTracker(object):
       yield current_workunit
     except KeyboardInterrupt:
       current_workunit.set_outcome(WorkUnit.ABORTED)
+      self._aborted = True
       raise
     except:
       current_workunit.set_outcome(WorkUnit.FAILURE)
@@ -205,14 +208,22 @@ class RunTracker(object):
     Note: If end() has been called once, subsequent calls are no-ops.
     """
     if self._background_worker_pool:
-      self.log(Report.INFO, "Waiting for background workers to finish.")
-      self._background_worker_pool.shutdown()
+      if self._aborted:
+        self.log(Report.INFO, "Aborting background workers.")
+        self._background_worker_pool.abort()
+      else:
+        self.log(Report.INFO, "Waiting for background workers to finish.")
+        self._background_worker_pool.shutdown()
       self.report.end_workunit(self._background_root_workunit)
       self._background_root_workunit.end()
 
     if self._foreground_worker_pool:
-      self.log(Report.INFO, "Waiting for foreground workers to finish.")
-      self._foreground_worker_pool.shutdown()
+      if self._aborted:
+        self.log(Report.INFO, "Aborting foreground workers.")
+        self._foreground_worker_pool.abort()
+      else:
+        self.log(Report.INFO, "Waiting for foreground workers to finish.")
+        self._foreground_worker_pool.shutdown()
 
     self.report.end_workunit(self._main_root_workunit)
     self._main_root_workunit.end()
