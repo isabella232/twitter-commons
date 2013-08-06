@@ -16,6 +16,7 @@
 import itertools
 import os
 import shutil
+import uuid
 from twitter.common import contextutil
 from twitter.common.dirutil import safe_mkdir, safe_rmtree
 
@@ -166,7 +167,7 @@ class ScalaCompile(NailgunTask):
     # Do this lazily, so we don't trigger creation of a worker pool unless we need it.
     if not os.path.exists(self._analysis_tmpdir):
       os.makedirs(self._analysis_tmpdir)
-      #self.context.background_worker_pool().add_shutdown_hook(lambda: safe_rmtree(self._analysis_tmpdir))
+      self.context.background_worker_pool().add_shutdown_hook(lambda: safe_rmtree(self._analysis_tmpdir))
 
   def _get_deleted_sources(self):
     """Returns the list of sources present in the last analysis that have since been deleted.
@@ -245,7 +246,7 @@ class ScalaCompile(NailgunTask):
     vt_by_target = dict([(vt.target, vt) for vt in vts.versioned_targets])
 
     # Copy the analysis file, so we can work on it without it changing under us.
-    global_analysis_file_copy = os.path.join(self._analysis_tmpdir, 'analysis')
+    global_analysis_file_copy = os.path.join(self._analysis_tmpdir, 'analysis.' + str(uuid.uuid4()))
     shutil.copyfile(self._analysis_file, global_analysis_file_copy)
     shutil.copyfile(self._analysis_file + '.relations', global_analysis_file_copy + '.relations')
     classes_by_source = self._compute_classes_by_source(global_analysis_file_copy)
