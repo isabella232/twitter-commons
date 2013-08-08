@@ -76,7 +76,7 @@ class TarballArtifact(Artifact):
     # In our tests, gzip is slightly less compressive than bzip2 on .class files,
     # but decompression times are much faster.
     mode = 'w:gz' if self._compress else 'w'
-    with open_tar(self._tarfile, mode, dereference=True) as tarout:
+    with open_tar(self._tarfile, mode, dereference=True, errorlevel=2) as tarout:
       for path in paths:
         # Adds dirs recursively.
         relpath = os.path.relpath(path, self._artifact_root)
@@ -84,6 +84,6 @@ class TarballArtifact(Artifact):
         self._relpaths.add(relpath)
 
   def extract(self):
-    with open_tar(self._tarfile, 'r') as tarin:
+    with open_tar(self._tarfile, 'r', errorlevel=2) as tarin:
       tarin.extractall(self._artifact_root)
       self._relpaths.update(tarin.getnames())
