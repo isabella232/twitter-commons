@@ -1,7 +1,5 @@
-import collections
 from multiprocessing.pool import ThreadPool
 import threading
-from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.reporting.report import Report
 
 
