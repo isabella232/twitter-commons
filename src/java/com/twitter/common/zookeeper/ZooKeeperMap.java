@@ -16,21 +16,6 @@
 
 package com.twitter.common.zookeeper;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ForwardingMap;
-import com.google.common.collect.Sets;
-import com.twitter.common.base.Command;
-import com.twitter.common.base.ExceptionalSupplier;
-import com.twitter.common.base.MorePreconditions;
-import com.twitter.common.util.BackoffHelper;
-import com.twitter.common.zookeeper.ZooKeeperClient.ZooKeeperConnectionException;
-import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.WatchedEvent;
-import org.apache.zookeeper.Watcher;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +24,23 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ForwardingMap;
+import com.google.common.collect.Sets;
+
+import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.WatchedEvent;
+import org.apache.zookeeper.Watcher;
+
+import com.twitter.common.base.Command;
+import com.twitter.common.base.ExceptionalSupplier;
+import com.twitter.common.base.MorePreconditions;
+import com.twitter.common.util.BackoffHelper;
+import com.twitter.common.zookeeper.ZooKeeperClient.ZooKeeperConnectionException;
 
 /**
  * A ZooKeeper backed {@link Map}.  Initialized with a node path, this map represents child nodes
@@ -49,7 +51,7 @@ import java.util.logging.Logger;
  * parent, as well as on the parent itself.  Instances of this class should be created via the
  * {@link #create} factory method.
  *
- * As of ZooKeeper Version 3.1, the maximum allowable size of a data node is 1 MB  A single
+ * As of ZooKeeper Version 3.1, the maximum allowable size of a data node is 1 MB.  A single
  * client should be able to hold up to maintain several thousand watches, but this depends on rate
  * of data change as well.
  *
@@ -65,10 +67,45 @@ import java.util.logging.Logger;
 public class ZooKeeperMap<V> extends ForwardingMap<String, V> {
 
   /**
+   * An optional listener which can be supplied and triggered when entries in a ZooKeeperMap
+   * are added, changed or removed. For a ZooKeeperMap of type <V>, the listener will fire a
+   * "nodeChanged" event with the name of the ZNode that changed, and its resulting value as
+   * interpreted by the provided deserializer. Removal of child nodes triggers the "nodeRemoved"
+   * method indicating the name of the ZNode which is no longer present in the map.
+   */
+  public interface Listener<V> {
+
+    /**
+     * Fired when a node is added to the ZooKeeperMap or changed.
+     *
+     * @param nodeName indicates the name of the ZNode that was added or changed.
+     * @param value is the new value of the node after passing through your supplied deserializer.
+     */
+    void nodeChanged(String nodeName, V value);
+
+    /**
+     * Fired when a node is removed from the ZooKeeperMap.
+     *
+     * @param nodeName indicates the name of the ZNode that was removed from the ZooKeeperMap.
+     */
+    void nodeRemoved(String nodeName);
+  }
+
+  /**
    * Default deserializer for the constructor if you want to simply store the zookeeper byte[] data
    * in this map.
    */
   public static final Function<byte[], byte[]> BYTE_ARRAY_VALUES = Functions.identity();
+
+  /**
+   * A listener that ignores all events.
+   */
+  public static <T> Listener<T> noopListener() {
+    return new Listener<T>() {
+      @Override public void nodeChanged(String nodeName, T value) { }
+      @Override public void nodeRemoved(String nodeName) { }
+    };
+  }
 
   private static final Logger LOG = Logger.getLogger(ZooKeeperMap.class.getName());
 
@@ -80,9 +117,40 @@ public class ZooKeeperMap<V> extends ForwardingMap<String, V> {
   private final Map<String, V> unmodifiableLocalMap;
   private final BackoffHelper backoffHelper;
 
+  private final Listener<V> mapListener;
+
   // Whether it's safe to re-establish watches if our zookeeper session has expired.
   private final Object safeToRewatchLock;
   private volatile boolean safeToRewatch;
+
+  /**
+   * Returns an initialized ZooKeeperMap.  The given path must exist at the time of
+   * creation or a {@link KeeperException} will be thrown.
+   *
+   * @param zkClient a zookeeper client
+   * @param nodePath path to a node whose data will be watched
+   * @param deserializer a function that converts byte[] data from a zk node to this map's
+   *     value type V
+   * @param listener is a Listener which fires when values are added, changed, or removed.
+   *
+   * @throws InterruptedException if the underlying zookeeper server transaction is interrupted
+   * @throws KeeperException.NoNodeException if the given nodePath doesn't exist
+   * @throws KeeperException if the server signals an error
+   * @throws ZooKeeperConnectionException if there was a problem connecting to the zookeeper
+   *     cluster
+   */
+  public static <V> ZooKeeperMap<V> create(
+      ZooKeeperClient zkClient,
+      String nodePath,
+      Function<byte[], V> deserializer,
+      Listener<V> listener)
+      throws InterruptedException, KeeperException, ZooKeeperConnectionException {
+
+    ZooKeeperMap<V> zkMap = new ZooKeeperMap<V>(zkClient, nodePath, deserializer, listener);
+    zkMap.init();
+    return zkMap;
+  }
+
 
   /**
    * Returns an initialized ZooKeeperMap.  The given path must exist at the time of
@@ -99,12 +167,13 @@ public class ZooKeeperMap<V> extends ForwardingMap<String, V> {
    * @throws ZooKeeperConnectionException if there was a problem connecting to the zookeeper
    *     cluster
    */
-  public static <V> ZooKeeperMap<V> create(ZooKeeperClient zkClient, String nodePath,
-      Function<byte[], V> deserializer) throws InterruptedException, KeeperException,
-      ZooKeeperConnectionException {
-    ZooKeeperMap<V> zkMap = new ZooKeeperMap<V>(zkClient, nodePath, deserializer);
-    zkMap.init();
-    return zkMap;
+  public static <V> ZooKeeperMap<V> create(
+      ZooKeeperClient zkClient,
+      String nodePath,
+      Function<byte[], V> deserializer)
+      throws InterruptedException, KeeperException, ZooKeeperConnectionException {
+
+    return ZooKeeperMap.create(zkClient, nodePath, deserializer, ZooKeeperMap.<V>noopListener());
   }
 
   /**
@@ -119,6 +188,7 @@ public class ZooKeeperMap<V> extends ForwardingMap<String, V> {
    * @param nodePath top-level node path under which the map data lives
    * @param deserializer a function that converts byte[] data from a zk node to this map's
    *     value type V
+   * @param mapListener is a Listener which fires when values are added, changed, or removed.
    *
    * @throws InterruptedException if the underlying zookeeper server transaction is interrupted
    * @throws KeeperException.NoNodeException if the given nodePath doesn't exist
@@ -127,10 +197,16 @@ public class ZooKeeperMap<V> extends ForwardingMap<String, V> {
    *     cluster
    */
   @VisibleForTesting
-  ZooKeeperMap(ZooKeeperClient zkClient, String nodePath,
-      Function<byte[], V> deserializer) throws InterruptedException, KeeperException,
-      ZooKeeperConnectionException {
+  ZooKeeperMap(
+      ZooKeeperClient zkClient,
+      String nodePath,
+      Function<byte[], V> deserializer,
+      Listener<V> mapListener)
+      throws InterruptedException, KeeperException, ZooKeeperConnectionException {
+
     super();
+
+    this.mapListener = Preconditions.checkNotNull(mapListener);
     this.zkClient = Preconditions.checkNotNull(zkClient);
     this.nodePath = MorePreconditions.checkNotBlank(nodePath);
     this.deserializer = Preconditions.checkNotNull(deserializer);
@@ -156,8 +232,7 @@ public class ZooKeeperMap<V> extends ForwardingMap<String, V> {
    *     cluster
    */
   @VisibleForTesting
-  void init() throws InterruptedException, KeeperException,
-      ZooKeeperConnectionException {
+  void init() throws InterruptedException, KeeperException, ZooKeeperConnectionException {
     Watcher watcher = zkClient.registerExpirationHandler(new Command() {
       @Override public void execute() {
         /*
@@ -220,8 +295,9 @@ public class ZooKeeperMap<V> extends ForwardingMap<String, V> {
     });
   }
 
-  private synchronized void watchChildren() throws InterruptedException, KeeperException,
-      ZooKeeperConnectionException {
+  private synchronized void watchChildren()
+      throws InterruptedException, KeeperException, ZooKeeperConnectionException {
+
     /*
      * Add a watch on the parent node itself, and attempt to rewatch if it
      * gets deleted
@@ -258,7 +334,7 @@ public class ZooKeeperMap<V> extends ForwardingMap<String, V> {
     updateChildren(Sets.newHashSet(children));
   }
 
-  private void tryAddChild(final String child) throws InterruptedException{
+  private void tryAddChild(final String child) throws InterruptedException {
     backoffHelper.doUntilSuccess(new ExceptionalSupplier<Boolean, InterruptedException>() {
       @Override public Boolean get() throws InterruptedException {
         try {
@@ -274,8 +350,9 @@ public class ZooKeeperMap<V> extends ForwardingMap<String, V> {
   }
 
   // TODO(Adam Samet) - Make this use the ZooKeeperNode class.
-  private void addChild(final String child) throws InterruptedException, KeeperException,
-      ZooKeeperConnectionException {
+  private void addChild(final String child)
+      throws InterruptedException, KeeperException, ZooKeeperConnectionException {
+
     final Watcher nodeWatcher = new Watcher() {
       @Override
       public void process(WatchedEvent event) {
@@ -304,11 +381,13 @@ public class ZooKeeperMap<V> extends ForwardingMap<String, V> {
   @VisibleForTesting
   void removeEntry(String key) {
     localMap.remove(key);
+    mapListener.nodeRemoved(key);
   }
 
   @VisibleForTesting
   void putEntry(String key, V value) {
     localMap.put(key, value);
+    mapListener.nodeChanged(key, value);
   }
 
   private void rewatchDataNodes() throws InterruptedException {
