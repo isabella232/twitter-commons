@@ -2,7 +2,7 @@ import os
 import shutil
 import uuid
 
-from twitter.common.dirutil import safe_mkdir, safe_rmtree, safe_mkdir_for
+from twitter.common.dirutil import safe_mkdir, safe_mkdir_for, safe_delete
 from twitter.pants.cache.artifact import TarballArtifact
 from twitter.pants.cache.artifact_cache import ArtifactCache
 
@@ -47,7 +47,7 @@ class LocalArtifactCache(ArtifactCache):
     os.rename(tarfile_tmp, tarfile)
 
   def has(self, cache_key):
-    return os.path.isdir(self._cache_dir_for_key(cache_key))
+    return os.path.isfile(self._cache_file_for_key(cache_key))
 
   def use_cached_files(self, cache_key):
     tarfile = self._cache_file_for_key(cache_key)
@@ -59,15 +59,10 @@ class LocalArtifactCache(ArtifactCache):
       return None
 
   def delete(self, cache_key):
-    safe_rmtree(self._cache_dir_for_key(cache_key))
+    safe_delete(self._cache_file_for_key(cache_key))
 
   def prune(self, age_hours):
     pass
-
-  def _cache_dir_for_key(self, cache_key):
-    # Note: it's important to use the id as well as the hash, because two different targets
-    # may have the same hash if both have no sources, but we may still want to differentiate them.
-    return os.path.join(self._cache_root, cache_key.id, cache_key.hash)
 
   def _cache_file_for_key(self, cache_key):
     # Note: it's important to use the id as well as the hash, because two different targets

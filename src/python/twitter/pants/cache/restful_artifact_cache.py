@@ -86,8 +86,8 @@ class RESTfulArtifactCache(ArtifactCache):
   def _remote_path_for_key(self, cache_key):
     # Note: it's important to use the id as well as the hash, because two different targets
     # may have the same hash if both have no sources, but we may still want to differentiate them.
-    return '%s/%s/%s.tar%s' % (self._path_prefix, cache_key.id, cache_key.hash,
-                               '.gz' if self.compress else '')
+    return '%s/%s/%s%s' % (self._path_prefix, cache_key.id, cache_key.hash,
+                               '.tar.gz' if self.compress else '.tar')
 
   def _connect(self):
     if self._ssl:
