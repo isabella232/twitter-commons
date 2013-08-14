@@ -287,27 +287,28 @@ class ScalaCompile(NailgunTask):
   def check_artifact_cache(self, vts):
     # Special handling for scala analysis files. Class files are retrieved directly into their
     # final locations in the global classes dir.
-    self._ensure_analysis_tmpdir()
-    cached_vts, uncached_vts = Task.check_artifact_cache(self, vts)
 
-    analyses_to_merge = []
-    for vt in cached_vts:
-      for target in vt.targets:
-        analysis_file = ScalaCompile._analysis_for_target(self._analysis_tmpdir, target)
-        if os.path.exists(analysis_file):
-          analyses_to_merge.append(analysis_file)
-
-    if len(analyses_to_merge) > 0:
+    def post_process_cached_vts(cached_vts):
       # Merge the localized analysis with the global one (if any).
-      if os.path.exists(self._analysis_file):
-        analyses_to_merge.append(self._analysis_file)
-      with contextutil.temporary_dir() as tmpdir:
-        tmp_analysis = os.path.join(tmpdir, 'analysis')
-        if self._zinc_utils.run_zinc_merge(analyses_to_merge, tmp_analysis):
-          raise TaskError('Zinc failed to merge cached analysis files.')
-        shutil.copy(tmp_analysis, self._analysis_file)
-        shutil.copy(tmp_analysis + '.relations', self._analysis_file + '.relations')
-    return cached_vts, uncached_vts
+      analyses_to_merge = []
+      for vt in cached_vts:
+        for target in vt.targets:
+          analysis_file = ScalaCompile._analysis_for_target(self._analysis_tmpdir, target)
+          if os.path.exists(analysis_file):
+            analyses_to_merge.append(analysis_file)
+
+      if len(analyses_to_merge) > 0:
+        if os.path.exists(self._analysis_file):
+          analyses_to_merge.append(self._analysis_file)
+        with contextutil.temporary_dir() as tmpdir:
+          tmp_analysis = os.path.join(tmpdir, 'analysis')
+          if self._zinc_utils.run_zinc_merge(analyses_to_merge, tmp_analysis):
+            raise TaskError('Zinc failed to merge cached analysis files.')
+          shutil.copy(tmp_analysis, self._analysis_file)
+          shutil.copy(tmp_analysis + '.relations', self._analysis_file + '.relations')
+
+    self._ensure_analysis_tmpdir()
+    return Task.do_check_artifact_cache(self, vts, post_process_cached_vts=post_process_cached_vts)
 
   def _process_target_partition(self, vts, cp):
     """Needs invoking only on invalid targets.

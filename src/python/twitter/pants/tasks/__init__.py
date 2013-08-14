@@ -218,6 +218,14 @@ class Task(object):
     Returns a pair (cached, uncached) of VersionedTargets that were
     satisfied/unsatisfied from the cache.
     """
+    return self.do_check_artifact_cache(vts)
+
+  def do_check_artifact_cache(self, vts, post_process_cached_vts=None):
+    """Checks the artifact cache for the specified list of VersionedTargetSets.
+
+    Returns a pair (cached, uncached) of VersionedTargets that were
+    satisfied/unsatisfied from the cache.
+    """
     if not vts:
       return [], []
 
@@ -232,12 +240,16 @@ class Task(object):
       if was_in_cache:
         cached_vts.append(vt)
         uncached_vts.discard(vt)
-        vt.update()
     # Note that while the input vts may represent multiple targets (for tasks that overrride
     # check_artifact_cache_for), the ones we return must represent single targets.
     def flatten(vts):
       return list(itertools.chain.from_iterable([vt.versioned_targets for vt in vts]))
-    return flatten(cached_vts), flatten(uncached_vts)
+    all_cached_vts, all_uncached_vts = flatten(cached_vts), flatten(uncached_vts)
+    if post_process_cached_vts:
+      post_process_cached_vts(all_cached_vts)
+    for vt in all_cached_vts:
+      vt.update()
+    return all_cached_vts, all_uncached_vts
 
   def update_artifact_cache(self, vts_artifactfiles_pairs):
     """Write to the artifact cache, if we're configured to.

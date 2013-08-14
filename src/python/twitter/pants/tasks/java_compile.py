@@ -243,26 +243,25 @@ class JavaCompile(NailgunTask):
   def check_artifact_cache(self, vts):
     # Special handling for java depfiles. Class files are retrieved directly into their
     # final locations in the global classes dir.
+
+    def post_process_cached_vts(cached_vts):
+      # Merge the cached analyses into the existing global one.
+      if cached_vts:
+        with self.context.new_workunit(name='merge-dependencies'):
+          global_deps = Dependencies(self._classes_dir)
+          if os.path.exists(self._depfile):
+            global_deps.load(self._depfile)
+          for vt in cached_vts:
+            for target in vt.targets:
+              depfile = JavaCompile.create_depfile_path(self._depfile_tmpdir, [target])
+              if os.path.exists(depfile):
+                deps = Dependencies(self._classes_dir)
+                deps.load(depfile)
+                global_deps.merge(deps)
+          global_deps.save(self._depfile)
+
     self._ensure_depfile_tmpdir()
-
-    cached_vts, uncached_vts = Task.check_artifact_cache(self, vts)
-
-    # Merge the cached analyses into the existing global one.
-    if cached_vts:
-      with self.context.new_workunit(name='merge-dependencies'):
-        global_deps = Dependencies(self._classes_dir)
-        if os.path.exists(self._depfile):
-          global_deps.load(self._depfile)
-        for vt in cached_vts:
-          for target in vt.targets:
-            depfile = JavaCompile.create_depfile_path(self._depfile_tmpdir, [target])
-            if os.path.exists(depfile):
-              deps = Dependencies(self._classes_dir)
-              deps.load(depfile)
-              global_deps.merge(deps)
-        global_deps.save(self._depfile)
-
-    return cached_vts, uncached_vts
+    return Task.do_check_artifact_cache(self, vts, post_process_cached_vts=post_process_cached_vts)
 
   @staticmethod
   def create_depfile_path(depfile_dir, targets):
