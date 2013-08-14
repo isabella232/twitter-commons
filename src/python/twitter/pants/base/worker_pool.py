@@ -118,7 +118,9 @@ class WorkerPool(object):
       def do_work(*args):
         return self._do_work(work.func, *args, workunit_name=work.workunit_name,
                              workunit_parent=workunit_parent)
-      return self._pool.map(do_work, work.args_tuples, chunksize=1)
+      # We need to specify a timeout explicitly, because otherwise python ignores SIGINT when waiting
+      # on a condition variable, so we won't be able to ctrl-c out.
+      return self._pool.map_async(do_work, work.args_tuples, chunksize=1).get(timeout=1000000000)
 
   def _do_work(self, func, args_tuple, workunit_name, workunit_parent):
     if workunit_name:
