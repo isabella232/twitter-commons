@@ -36,15 +36,9 @@ class Artifact(object):
 
 class DirectoryArtifact(Artifact):
   """An artifact stored as loose files under a directory."""
-  def __init__(self, artifact_root, directory, copy_fn=None):
+  def __init__(self, artifact_root, directory):
     Artifact.__init__(self, artifact_root)
     self._directory = directory
-
-    def copy(src, rel_dst):
-      dst = os.path.join(self._artifact_root, rel_dst)
-      safe_mkdir_for(dst)
-      shutil.copy(src, dst)
-    self._copy_fn = copy_fn or copy
 
   def collect(self, paths):
     for path in paths or ():
@@ -62,7 +56,9 @@ class DirectoryArtifact(Artifact):
       for filename in filenames:
         filename = os.path.join(dir_name, filename)
         relpath = os.path.relpath(filename, self._directory)
-        self._copy_fn(filename, relpath)
+        dst = os.path.join(self._artifact_root, relpath)
+        safe_mkdir_for(dst)
+        shutil.copy(filename, dst)
         self._relpaths.add(relpath)
 
 
