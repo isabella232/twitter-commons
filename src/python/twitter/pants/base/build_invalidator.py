@@ -81,8 +81,9 @@ class DefaultSourceScope(SourceScope):
 TARGET_SOURCES = DefaultSourceScope(recursive=False, include_buildfile=False)
 TRANSITIVE_SOURCES = DefaultSourceScope(recursive=True, include_buildfile=False)
 
-# Bump this to invalidate all existing keys in artifact caches etc.
-CACHE_KEY_GEN_VERSION = '4'
+# Bump this to invalidate all existing keys in artifact caches across all pants deployments in the world.
+# Do this if you've fixed a bug that caused bad artifacts to be cached.
+GLOBAL_CACHE_KEY_GEN_VERSION = '4'
 
 class CacheKeyGenerator(object):
   """Generates cache keys for versions of target sets."""
@@ -108,6 +109,12 @@ class CacheKeyGenerator(object):
         sorted(list(itertools.chain(*[cache_key.sources for cache_key in cache_keys])))
       return CacheKey(combined_id, combined_hash, combined_num_sources, combined_sources)
 
+  def __init__(self, cache_key_gen_version=None):
+    """cache_key_gen_version - If provided, added to all cache keys. Allows you to invalidate all cache
+                               keys in a single pants repo, by changing this value in config.
+    """
+    self._cache_key_gen_version = (cache_key_gen_version or '') + '_' + GLOBAL_CACHE_KEY_GEN_VERSION
+
   def key_for_target(self, target, sources=TARGET_SOURCES, fingerprint_extra=None):
     """Get a key representing the given target and its sources.
 
@@ -130,7 +137,7 @@ class CacheKeyGenerator(object):
     actual_srcs = self._sources_hash(sha, srcs)
     if fingerprint_extra:
       fingerprint_extra(sha)
-    sha.update(CACHE_KEY_GEN_VERSION)
+    sha.update(self._cache_key_gen_version)
     return CacheKey(target.id, sha.hexdigest(), len(actual_srcs), actual_srcs)
 
   def key_for(self, target_id, sources):
@@ -177,7 +184,7 @@ class BuildInvalidator(object):
   """Invalidates build targets based on the SHA1 hash of source files and other inputs."""
 
   def __init__(self, root):
-    self._root = os.path.join(root, CACHE_KEY_GEN_VERSION)
+    self._root = os.path.join(root, GLOBAL_CACHE_KEY_GEN_VERSION)
     safe_mkdir(self._root)
 
   def needs_update(self, cache_key):

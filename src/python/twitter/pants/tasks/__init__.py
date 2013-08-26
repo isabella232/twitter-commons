@@ -47,8 +47,8 @@ class Task(object):
 
   def __init__(self, context):
     self.context = context
-    self.dry_run = self.can_dry_run() and self.context.options.dry_run
-    self._cache_key_generator = CacheKeyGenerator()
+    self.dry_run = self.can_dry_run() and context.options.dry_run
+    self._cache_key_generator = CacheKeyGenerator(context.config.getdefault('cache_key_gen_version', default=None))
     self._artifact_cache_spec = None
     self._artifact_cache = None
     self._build_invalidator_dir = os.path.join(context.config.get('tasks', 'build_invalidator'),
