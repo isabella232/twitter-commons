@@ -13,14 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===================================================================================================
+
 import itertools
 import os
 import shutil
 import uuid
 from twitter.common import contextutil
+from twitter.common.contextutil import safe_file
 from twitter.common.dirutil import safe_mkdir, safe_rmtree
 
 from twitter.pants import has_sources, is_scalac_plugin, get_buildroot
+from twitter.pants.base.hash_utils import hash_file
 from twitter.pants.base.worker_pool import Work
 from twitter.pants.cache import CombinedArtifactCache
 from twitter.pants.cache.transforming_artifact_cache import TransformingArtifactCache
@@ -337,9 +340,19 @@ class ScalaCompile(NailgunTask):
         # change triggering the error is reverted, we won't rebuild to restore the missing
         # classfiles. So we force-invalidate here, to be on the safe side.
         vts.force_invalidate()   # TODO: Still need this?
-        if self._zinc_utils.compile(classpath, sources + deleted_sources,
-                                    self._classes_dir,self._analysis_file, {}):
-          raise TaskError('Compile failed.')
+        # We work on a copy of the analysis file. We can't work directly on self._analysis_file
+        # because zinc's internal analysis cache will have stale analysis that doesn't include
+        # things we've merged in externally.  We use a hash of the analysis file as the safe_file
+        # suffix so that we can still benefit from zinc's internal analysis cache in the cases
+        # where the analysis file has indeed not changed.
+        suffix = hash_file(self._analysis_file)
+        with safe_file(self._analysis_file, suffix=suffix) as analysis_file:
+          if self._zinc_utils.compile(classpath, sources + deleted_sources,
+                                      self._classes_dir, analysis_file, {}):
+            raise TaskError('Compile failed.')
+        # Must do this manually, because zinc generates the relations file based off the
+        # safe_file path, not the original analysis file path.
+        shutil.move(analysis_file + '.relations', self._analysis_file + '.relations')
     return sources_by_target
 
   def _compute_sources_by_target(self, targets):
