@@ -345,7 +345,7 @@ class ScalaCompile(NailgunTask):
         # things we've merged in externally.  We use a hash of the analysis file as the safe_file
         # suffix so that we can still benefit from zinc's internal analysis cache in the cases
         # where the analysis file has indeed not changed.
-        suffix = hash_file(self._analysis_file)
+        suffix = hash_file(self._analysis_file) if os.path.exists(self._analysis_file) else None
         with safe_file(self._analysis_file, suffix=suffix) as analysis_file:
           if self._zinc_utils.compile(classpath, sources + deleted_sources,
                                       self._classes_dir, analysis_file, {}):
