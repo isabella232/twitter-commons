@@ -19,7 +19,7 @@ import os
 import shutil
 import uuid
 from twitter.common import contextutil
-from twitter.common.contextutil import safe_file
+from twitter.common.contextutil import safe_file, temporary_file_path
 from twitter.common.dirutil import safe_mkdir, safe_rmtree
 
 from twitter.pants import has_sources, is_scalac_plugin, get_buildroot
@@ -335,24 +335,37 @@ class ScalaCompile(NailgunTask):
         items_to_report_element([t.address.reference() for t in vts.targets], 'target'), '.')
       classpath = [entry for conf, entry in cp if conf in self._confs]
       deleted_sources = self._get_deleted_sources()
+      all_sources = sources + deleted_sources
       with self.context.new_workunit('compile'):
         # Zinc may delete classfiles, then later exit on a compilation error. Then if the
         # change triggering the error is reverted, we won't rebuild to restore the missing
         # classfiles. So we force-invalidate here, to be on the safe side.
-        vts.force_invalidate()   # TODO: Still need this?
-        # We work on a copy of the analysis file. We can't work directly on self._analysis_file
-        # because zinc's internal analysis cache will have stale analysis that doesn't include
-        # things we've merged in externally.  We use a hash of the analysis file as the safe_file
-        # suffix so that we can still benefit from zinc's internal analysis cache in the cases
-        # where the analysis file has indeed not changed.
-        suffix = hash_file(self._analysis_file) if os.path.exists(self._analysis_file) else None
-        with safe_file(self._analysis_file, suffix=suffix) as analysis_file:
+        vts.force_invalidate()   # TODO: Do we still need this?
+        # Split out the analysis for the source files we're compiling. This is to prevent
+        # zinc from deleting classfiles compiled from other sources.
+        with temporary_file_path() as split_analysis_tmp:
+          if os.path.exists(self._analysis_file):
+            if self._zinc_utils.run_zinc_split(self._analysis_file, [(all_sources, split_analysis_tmp)]):
+              raise TaskError('Analysis split failed.')
+          # We use an analysis file with a well-known name, to take advantage of zinc's
+          # analysis cache. We must use a unique name per contents, because we may merge stuff
+          # (e.g., from the artifact cache) into the analysis file, in which case zinc's cached
+          # version will be stale.
+          # TODO: Could this be keyed by target ids instead of a hash of the contents? Probably not.
+          split_analysis = self._analysis_file + '.%s' % uuid.uuid4() #hash_file(split_analysis_tmp)
+          if os.path.exists(split_analysis_tmp):
+            shutil.copy(split_analysis_tmp, split_analysis)
+
           if self._zinc_utils.compile(classpath, sources + deleted_sources,
-                                      self._classes_dir, analysis_file, {}):
+                                      self._classes_dir, split_analysis, {}):
             raise TaskError('Compile failed.')
-        # Must do this manually, because zinc generates the relations file based off the
-        # safe_file path, not the original analysis file path.
-        shutil.move(analysis_file + '.relations', self._analysis_file + '.relations')
+          merged_analysis = split_analysis + '.merged'
+          if self._zinc_utils.run_zinc_merge([split_analysis, self._analysis_file], merged_analysis):
+            raise TaskError('Analysis merge failed.')
+          shutil.move(merged_analysis, self._analysis_file)
+          shutil.move(merged_analysis + '.relations', self._analysis_file + '.relations')
+          os.unlink(split_analysis)
+          os.unlink(split_analysis + '.relations')
     return sources_by_target
 
   def _compute_sources_by_target(self, targets):
