@@ -334,8 +334,7 @@ class ScalaCompile(NailgunTask):
         ' in ',
         items_to_report_element([t.address.reference() for t in vts.targets], 'target'), '.')
       classpath = [entry for conf, entry in cp if conf in self._confs]
-      deleted_sources = self._get_deleted_sources()
-      all_sources = sources + deleted_sources
+      deleted_sources = self._get_deleted_sources()  # So zinc knows to delete them.
       with self.context.new_workunit('compile'):
         # Zinc may delete classfiles, then later exit on a compilation error. Then if the
         # change triggering the error is reverted, we won't rebuild to restore the missing
@@ -345,7 +344,8 @@ class ScalaCompile(NailgunTask):
         # zinc from deleting classfiles compiled from other sources.
         with temporary_file_path() as split_analysis_tmp:
           if os.path.exists(self._analysis_file):
-            if self._zinc_utils.run_zinc_split(self._analysis_file, [(all_sources, split_analysis_tmp)]):
+            if self._zinc_utils.run_zinc_split(self._analysis_file,
+                                               [(sources + deleted_sources, split_analysis_tmp)]):
               raise TaskError('Analysis split failed.')
           # We use an analysis file with a well-known name, to take advantage of zinc's
           # analysis cache. We must use a unique name per contents, because we may merge stuff
@@ -356,8 +356,7 @@ class ScalaCompile(NailgunTask):
           if os.path.exists(split_analysis_tmp):
             shutil.copy(split_analysis_tmp, split_analysis)
 
-          if self._zinc_utils.compile(classpath, sources + deleted_sources,
-                                      self._classes_dir, split_analysis, {}):
+          if self._zinc_utils.compile(classpath, sources, self._classes_dir, split_analysis, {}):
             raise TaskError('Compile failed.')
           merged_analysis = split_analysis + '.merged'
           if self._zinc_utils.run_zinc_merge([split_analysis, self._analysis_file], merged_analysis):
