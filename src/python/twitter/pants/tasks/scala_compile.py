@@ -19,11 +19,10 @@ import os
 import shutil
 import uuid
 from twitter.common import contextutil
-from twitter.common.contextutil import safe_file, temporary_file_path
+from twitter.common.contextutil import temporary_file_path
 from twitter.common.dirutil import safe_mkdir, safe_rmtree
 
 from twitter.pants import has_sources, is_scalac_plugin, get_buildroot
-from twitter.pants.base.hash_utils import hash_file
 from twitter.pants.base.worker_pool import Work
 from twitter.pants.cache import CombinedArtifactCache
 from twitter.pants.cache.transforming_artifact_cache import TransformingArtifactCache
