@@ -158,7 +158,9 @@ class ScalaCompile(NailgunTask):
       if path.endswith('.analysis.portable') and os.path.exists(path):
         analysis = path[:-9]
         if self._zinc_utils.localize_analysis_file(path, analysis):
-          raise TaskError('Zinc failed to localize cached analysis file: %s' % path)
+          self.context.log.debug('Zinc failed to localize cached analysis file: %s. '
+                                 'Ignoring artifact.' % path)
+          return None
         os.unlink(path)
         new_paths.append(analysis)
       else:
