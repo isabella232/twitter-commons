@@ -30,6 +30,7 @@ class TransformingArtifactCache(ArtifactCache):
       if new_paths is None:  # Failure. Delete artifact and pretend it was never found.
         for path in paths:
           safe_delete(path)
+        self.delete(cache_key)
         artifact = None
       else:
         artifact.override_paths(new_paths)
