@@ -146,8 +146,8 @@ class ScalaCompile(NailgunTask):
       if path.endswith('.analysis'):
         portable_analysis = path + '.portable'
         if self._zinc_utils.relativize_analysis_file(path, portable_analysis):
-          self.context.log.debug('Zinc failed to relativize analysis file: %s. '
-                                 'Will not cache artifact. ' % path)
+          self.context.log.info('Zinc failed to relativize analysis file: %s. '
+                                'Will not cache artifact. ' % path)
         new_paths.append(portable_analysis)
       else:
         new_paths.append(path)
@@ -159,8 +159,8 @@ class ScalaCompile(NailgunTask):
       if path.endswith('.analysis.portable'):
         analysis = path[:-9]
         if self._zinc_utils.localize_analysis_file(path, analysis):
-          self.context.log.debug('Zinc failed to localize cached analysis file: %s. '
-                                 'Will not use cached artifact.' % path)
+          self.context.log.info('Zinc failed to localize cached analysis file: %s. '
+                                'Will not use cached artifact.' % path)
           return None
         os.unlink(path)
         new_paths.append(analysis)
