@@ -27,7 +27,7 @@ class ArtifactCache(object):
     self.artifact_root = artifact_root
     self.read_only = read_only  # If true, silently skip writes.
 
-  def insert(self, cache_key, paths):
+  def insert(self, cache_key, paths, strict=True):
     """Cache the output of a build.
 
     If there is an existing set of artifacts for this key they are deleted.
@@ -37,16 +37,19 @@ class ArtifactCache(object):
 
     cache_key: A CacheKey object.
     paths: List of paths to generated dirs/files. These must be under the artifact_root.
+    strict: If False, nonexistent paths are silently ignored. Otherwise an error is thrown.
     """
     # It's OK for artifacts not to exist- we assume that the build didn't need to create them
     # in this case (e.g., a no-op build on an empty target).
     if not self.read_only:
       paths_that_exist = filter(lambda f: os.path.exists(f), paths)
       try:
+        if strict and paths_that_exist != paths:
+          raise ArtifactCache.CacheError('Tried to cache nonexistent files: %s' %
+                                         list(set(paths) - set(paths_that_exist)))
         self.try_insert(cache_key, paths_that_exist)
       except Exception as e:
-        err_msg = 'Error while writing to artifact cache: %s. ' % e
-        self.log.error(err_msg)
+        self.log.error('Error while writing to artifact cache: %s. ' % e)
 
   def try_insert(self, cache_key, paths):
     """Attempt to cache the output of a build, without error-handling.

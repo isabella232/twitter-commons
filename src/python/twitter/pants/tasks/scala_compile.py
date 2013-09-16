@@ -143,10 +143,11 @@ class ScalaCompile(NailgunTask):
   def _relativize_artifact(self, paths):
     new_paths = []
     for path in paths:
-      if path.endswith('.analysis') and os.path.exists(path):
+      if path.endswith('.analysis'):
         portable_analysis = path + '.portable'
         if self._zinc_utils.relativize_analysis_file(path, portable_analysis):
-          raise TaskError('Zinc failed to relativize analysis file: %s' % path)
+          self.context.log.debug('Zinc failed to relativize analysis file: %s. '
+                                 'Will not cache artifact. ' % path)
         new_paths.append(portable_analysis)
       else:
         new_paths.append(path)
@@ -155,11 +156,11 @@ class ScalaCompile(NailgunTask):
   def _localize_artifact(self, paths):
     new_paths = []
     for path in paths:
-      if path.endswith('.analysis.portable') and os.path.exists(path):
+      if path.endswith('.analysis.portable'):
         analysis = path[:-9]
         if self._zinc_utils.localize_analysis_file(path, analysis):
           self.context.log.debug('Zinc failed to localize cached analysis file: %s. '
-                                 'Ignoring artifact.' % path)
+                                 'Will not use cached artifact.' % path)
           return None
         os.unlink(path)
         new_paths.append(analysis)
@@ -271,7 +272,8 @@ class ScalaCompile(NailgunTask):
       if vt is not None:
         analysis_file = \
           ScalaCompile._analysis_for_target(self._analysis_tmpdir, target)
-        vts_artifactfiles_pairs.append((vt, artifacts + [analysis_file]))
+        if os.path.exists(analysis_file):
+          vts_artifactfiles_pairs.append((vt, artifacts + [analysis_file]))
 
     def split(analysis_file, splits):
       if self._zinc_utils.run_zinc_split(analysis_file, splits):
