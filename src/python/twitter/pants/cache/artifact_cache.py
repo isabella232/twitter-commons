@@ -37,10 +37,7 @@ class ArtifactCache(object):
 
     cache_key: A CacheKey object.
     paths: List of paths to generated dirs/files. These must be under the artifact_root.
-    strict: If False, nonexistent paths are silently ignored. Otherwise an error is thrown.
     """
-    # It's OK for artifacts not to exist- we assume that the build didn't need to create them
-    # in this case (e.g., a no-op build on an empty target).
     if not self.read_only:
       missing_files = filter(lambda f: not os.path.exists(f), paths)
       try:

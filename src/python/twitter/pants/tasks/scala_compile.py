@@ -148,6 +148,7 @@ class ScalaCompile(NailgunTask):
         if self._zinc_utils.relativize_analysis_file(path, portable_analysis):
           self.context.log.info('Zinc failed to relativize analysis file: %s. '
                                 'Will not cache artifact. ' % path)
+          return None
         new_paths.append(portable_analysis)
       else:
         new_paths.append(path)
@@ -272,8 +273,8 @@ class ScalaCompile(NailgunTask):
       if vt is not None:
         analysis_file = \
           ScalaCompile._analysis_for_target(self._analysis_tmpdir, target)
-        if os.path.exists(analysis_file):
-          vts_artifactfiles_pairs.append((vt, artifacts + [analysis_file]))
+        # NOTE: analysis_file doesn't exist yet.
+        vts_artifactfiles_pairs.append((vt, artifacts + [analysis_file]))
 
     def split(analysis_file, splits):
       if self._zinc_utils.run_zinc_split(analysis_file, splits):
