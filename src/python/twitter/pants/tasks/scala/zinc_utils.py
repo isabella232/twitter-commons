@@ -48,7 +48,17 @@ class ZincUtils(object):
 
     # The target scala version.
     self._compile_profile = context.config.get('scala-compile', 'compile-profile')
-    self._zinc_profile = context.config.get('scala-compile', 'zinc-profile')
+
+    # The zinc version (and its own scala version).
+    # HACK ALERT: This is temporary, to smooth over the transition to zinc 0.3.0.
+    import sys
+    if 'beta' in sys.argv[0]:
+      print('NOTE: Using zinc 0.3.0')
+      self._zinc_profile = context.config.get('scala-compile', 'zinc-profile-for-beta')
+    else:
+      self._zinc_profile = context.config.get('scala-compile', 'zinc-profile')
+
+    # Compiler plugins.
     self._plugins_profile = context.config.get('scala-compile', 'scalac-plugins-profile')
 
     self._main = context.config.get('scala-compile', 'main')
@@ -117,7 +127,10 @@ class ZincUtils(object):
 
     args.extend([
       '-analysis-cache', analysis_file,
-      '-classpath', ':'.join(self._zinc_classpath + classpath),
+      # We add compiler_classpath to ensure the scala-library jar is on the classpath.
+      # TODO: This also adds the compiler jar to the classpath, which compiled code shouldn't
+      # usually need. Be more selective?
+      '-classpath', ':'.join(self._compiler_classpath + classpath),
       '-d', output_dir
     ])
     args.extend(sources)
@@ -136,8 +149,10 @@ class ZincUtils(object):
   # splits - a list of (sources, dst_cache), where sources is a list of the sources whose analysis
   #          should be split into dst_cache.
   def run_zinc_split(self, src_analysis_file, splits):
+    # Must use the abspath of the sources, because that's what Zinc uses internally.
     zinc_split_args = [
-      '-split', ','.join(['{%s}:%s' % (':'.join(x[0]), x[1]) for x in splits]),
+      '-split', ','.join(
+        ['{%s}:%s' % (':'.join([os.path.abspath(p) for p in x[0]]), x[1]) for x in splits]),
     ]
     return self.run_zinc_analysis(src_analysis_file, zinc_split_args, workunit_name='split')
 
