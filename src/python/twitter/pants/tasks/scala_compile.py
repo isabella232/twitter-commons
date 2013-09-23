@@ -274,7 +274,9 @@ class ScalaCompile(NailgunTask):
         analysis_file = \
           ScalaCompile._analysis_for_target(self._analysis_tmpdir, target)
         # NOTE: analysis_file doesn't exist yet.
-        vts_artifactfiles_pairs.append((vt, artifacts + [analysis_file]))
+        # We stick the relations file in the artifact as well, for ease of debugging.
+        # It's not needed for correctness.
+        vts_artifactfiles_pairs.append((vt, artifacts + [analysis_file, analysis_file + '.relations']))
 
     def split(analysis_file, splits):
       if self._zinc_utils.run_zinc_split(analysis_file, splits):
@@ -360,7 +362,11 @@ class ScalaCompile(NailgunTask):
           if os.path.exists(split_analysis_tmp):
             shutil.copy(split_analysis_tmp, split_analysis)
 
-          if self._zinc_utils.compile(classpath, sources, self._classes_dir, split_analysis, {}):
+          # We have to treat our output dir as an upstream element, so zinc can find analysis for
+          # previous partitions.
+          classpath.append(self._classes_dir)
+          upstream = { self._classes_dir: self._analysis_file }
+          if self._zinc_utils.compile(classpath, sources, self._classes_dir, split_analysis, upstream):
             raise TaskError('Compile failed.')
           merged_analysis = split_analysis + '.merged'
           if self._zinc_utils.run_zinc_merge([split_analysis, self._analysis_file], merged_analysis):
