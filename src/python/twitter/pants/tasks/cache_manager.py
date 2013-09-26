@@ -64,6 +64,7 @@ class VersionedTargetSet(object):
     self.cache_key = CacheKeyGenerator.combine_cache_keys([vt.cache_key
                                                            for vt in versioned_targets])
     self.num_sources = self.cache_key.num_sources
+    self.sources = self.cache_key.sources
     self.valid = not cache_manager.needs_update(self.cache_key)
 
   def update(self):

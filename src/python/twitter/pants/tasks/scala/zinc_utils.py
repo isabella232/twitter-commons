@@ -184,7 +184,7 @@ class ZincUtils(object):
     # in those rare cases.
     with temporary_dir() as tmp_analysis_dir:
       tmp_analysis_file = os.path.join(tmp_analysis_dir, "analysis")
-      shutil.copy(src, tmp_analysis_file)
+      ZincUtils._copy_analysis(src, tmp_analysis_file)
       rebasings = [
         (self._java_home, ''),  # Erase java deps.
         (self._ivy_home, ZincUtils.IVY_HOME_PLACEHOLDER),
@@ -192,24 +192,20 @@ class ZincUtils(object):
       ]
       exit_code = self.run_zinc_rebase(tmp_analysis_file, rebasings)
       if not exit_code:
-        shutil.copy(tmp_analysis_file, dst)
+        ZincUtils._copy_analysis(tmp_analysis_file, dst)
       return exit_code
 
   def localize_analysis_file(self, src, dst):
     with temporary_dir() as tmp_analysis_dir:
       tmp_analysis_file = os.path.join(tmp_analysis_dir, "analysis")
-      shutil.copy(src, tmp_analysis_file)
+      ZincUtils._copy_analysis(src, tmp_analysis_file)
       rebasings = [
         (ZincUtils.IVY_HOME_PLACEHOLDER, self._ivy_home),
         (ZincUtils.PANTS_HOME_PLACEHOLDER, self._pants_home),
       ]
       exit_code = self.run_zinc_rebase(tmp_analysis_file, rebasings)
       if not exit_code:
-        shutil.copy(tmp_analysis_file, dst)
-        tmp_relations_file = tmp_analysis_file + '.relations'
-        dst_relations_file = dst + '.relations'
-        if os.path.exists(tmp_relations_file):
-          shutil.copy(tmp_relations_file, dst_relations_file)
+        ZincUtils._copy_analysis(tmp_analysis_file, dst)
       return exit_code
 
   def write_plugin_info(self, resources_dir, target):
@@ -285,3 +281,19 @@ class ZincUtils(object):
     if len(unresolved_plugins) > 0:
       raise TaskError('Could not find requested plugins: %s' % list(unresolved_plugins))
     return plugins
+
+  @staticmethod
+  def _move_analysis(src, dst):
+    ZincUtils.copy_or_move_analysis(shutil.move, src, dst)
+
+  @staticmethod
+  def _copy_analysis(src, dst):
+    ZincUtils.copy_or_move_analysis(shutil.copy, src, dst)
+
+  @staticmethod
+  def copy_or_move_analysis(func, src, dst):
+    if os.path.exists(src):
+      func(src, dst)
+      relations = src + '.relations'
+      if os.path.exists(relations):
+        func(relations, dst + '.relations')

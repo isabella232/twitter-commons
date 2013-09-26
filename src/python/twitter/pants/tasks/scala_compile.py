@@ -16,13 +16,12 @@
 
 import itertools
 import os
-import shutil
 import uuid
 from twitter.common import contextutil
-from twitter.common.contextutil import temporary_file_path
 from twitter.common.dirutil import safe_mkdir, safe_rmtree
 
 from twitter.pants import has_sources, is_scalac_plugin, get_buildroot
+from twitter.pants.base import Target
 from twitter.pants.base.worker_pool import Work
 from twitter.pants.cache import CombinedArtifactCache
 from twitter.pants.cache.transforming_artifact_cache import TransformingArtifactCache
@@ -92,7 +91,8 @@ class ScalaCompile(NailgunTask):
     safe_mkdir(self._classes_dir)
     safe_mkdir(self._analysis_dir)
 
-    self._analysis_file = os.path.join(self._analysis_dir, 'global_analysis')
+    self._analysis_file = os.path.join(self._analysis_dir, 'global_analysis.valid')
+    self._invalid_analysis_file = os.path.join(self._analysis_dir, 'global_analysis.invalid')
     self._resources_dir = os.path.join(workdir, 'resources')
 
     # The ivy confs for which we're building.
@@ -217,12 +217,85 @@ class ScalaCompile(NailgunTask):
     with self.invalidated(scala_targets, invalidate_dependents=True,
                           partition_size_hint=self._partition_size_hint) as invalidation_check:
       if not self.dry_run:
-        # Process partitions of invalid targets one by one.
+        invalid_targets = [vt.target for vt in invalidation_check.invalid_vts]
+        # The analysis for invalid and deleted sources is no longer valid.
+        invalid_sources_by_target = self._compute_sources_by_target(invalid_targets)
+        invalid_sources = list(itertools.chain.from_iterable(invalid_sources_by_target.values()))
+        deleted_sources = self._get_deleted_sources()
+
+        # Work in a tmpdir so we don't stomp the main analysis files on error.
+        # The tmpdir is cleaned up in a shutdown hook, because background work
+        # may need to access files we create here even after this method returns.
+        self._ensure_analysis_tmpdir()
+        tmpdir = os.path.join(self._analysis_tmpdir, str(uuid.uuid4()))
+        os.mkdir(tmpdir)
+        valid_analysis_tmp = os.path.join(tmpdir, 'valid_analysis')
+        newly_invalid_analysis_tmp = os.path.join(tmpdir, 'newly_invalid_analysis')
+        invalid_analysis_tmp = os.path.join(tmpdir, 'invalid_analysis')
+        if os.path.exists(self._analysis_file):
+          if self._zinc_utils.run_zinc_split(self._analysis_file,
+                                             ((invalid_sources + deleted_sources, newly_invalid_analysis_tmp),
+                                              ([], valid_analysis_tmp))):
+            raise TaskError('Failed to split off invalid analysis.')
+          if os.path.exists(self._invalid_analysis_file):
+            if self._zinc_utils.run_zinc_merge([self._invalid_analysis_file, newly_invalid_analysis_tmp],
+                                               invalid_analysis_tmp):
+              raise TaskError('Failed to merge prior and current invalid analysis.')
+          else:
+            invalid_analysis_tmp = newly_invalid_analysis_tmp
+
+          # Now it's OK to overwrite the main analysis files with the new state.
+          ZincUtils._move_analysis(valid_analysis_tmp, self._analysis_file)
+          ZincUtils._move_analysis(invalid_analysis_tmp, self._invalid_analysis_file)
+
+        # Figure out the sources and analysis belonging to each partition.
+        partitions = []  # Each element is a triple (vts, sources_by_target, analysis).
         for vts in invalidation_check.invalid_vts_partitioned:
-          sources_by_target = self._process_target_partition(vts, cp)
+          partition_tmpdir = os.path.join(tmpdir, Target.maybe_readable_identify(vts.targets))
+          os.mkdir(partition_tmpdir)
+          sources = list(itertools.chain.from_iterable(
+            [invalid_sources_by_target.get(t, []) for t in vts.targets]))
+          analysis_file = os.path.join(partition_tmpdir, 'analysis')
+          partitions.append((vts, sources, analysis_file))
+
+        # Split per-partition files out of the global invalid analysis.
+        if os.path.exists(self._invalid_analysis_file):
+          splits = [(x[1], x[2]) for x in partitions]
+          if self._zinc_utils.run_zinc_split(self._invalid_analysis_file, splits):
+            raise TaskError('Failed to split invalid analysis into per-partition files.')
+
+        # Now compile partitions one by one.
+        for partition in partitions:
+          (vts, sources, analysis_file) = partition
+          self._process_target_partition(partition, cp)
+          # No exception was thrown, therefore the compile succeded and analysis_file is now valid.
+
+          if os.path.exists(analysis_file):  # The compilation created an analysis.
+            # Kick off the background artifact cache write.
+            if self.get_artifact_cache() and self.context.options.write_to_artifact_cache:
+              self._write_to_artifact_cache(analysis_file, vts, invalid_sources_by_target)
+
+            # Merge the newly-valid analysis into our global valid analysis.
+            if os.path.exists(self._analysis_file):
+              new_valid_analysis = analysis_file + '.valid.new'
+              if self._zinc_utils.run_zinc_merge([self._analysis_file, analysis_file], new_valid_analysis):
+                raise TaskError('Failed to merge new analysis back into valid analysis file.')
+              ZincUtils._move_analysis(new_valid_analysis, self._analysis_file)
+            else:  # We need to keep analysis_file around. Background tasks may need it.
+              ZincUtils._copy_analysis(analysis_file, self._analysis_file)
+
+          if os.path.exists(self._invalid_analysis_file):
+            # Trim out the newly-valid sources from our global invalid analysis.
+            new_invalid_analysis = analysis_file + '.invalid.new'
+            discarded_invalid_analysis = analysis_file + '.invalid.discard'
+            if self._zinc_utils.run_zinc_split(self._invalid_analysis_file,
+                [(sources, discarded_invalid_analysis), ([], new_invalid_analysis)]):
+              raise TaskError('Failed to trim invalid analysis file.')
+            ZincUtils._move_analysis(new_invalid_analysis, self._invalid_analysis_file)
+
+          # Now that all the analysis accounting is complete, we can safely mark the
+          # targets as valid.
           vts.update()
-          if self.get_artifact_cache() and self.context.options.write_to_artifact_cache:
-            self._write_to_artifact_cache(vts, sources_by_target)
 
         # Check for missing dependencies, if needed.
         if invalidation_check.invalid_vts and os.path.exists(self._analysis_file):
@@ -231,9 +304,9 @@ class ScalaCompile(NailgunTask):
 
         # Provide the target->class and source->class mappings to downstream tasks if needed.
         if self.context.products.isrequired('classes'):
-          sources_by_target = self._compute_sources_by_target(scala_targets)
+          invalid_sources_by_target = self._compute_sources_by_target(scala_targets)
           classes_by_source = self._compute_classes_by_source()
-          self._add_all_products_to_genmap(sources_by_target, classes_by_source)
+          self._add_all_products_to_genmap(invalid_sources_by_target, classes_by_source)
 
     # Update the classpath for downstream tasks.
     for conf in self._confs:
@@ -247,20 +320,16 @@ class ScalaCompile(NailgunTask):
   def _portable_analysis_for_target(analysis_dir, target):
     return ScalaCompile._analysis_for_target(analysis_dir, target) + '.portable'
 
-  def _write_to_artifact_cache(self, vts, sources_by_target):
-    self._ensure_analysis_tmpdir()
+  def _write_to_artifact_cache(self, analysis_file, vts, sources_by_target):
     vt_by_target = dict([(vt.target, vt) for vt in vts.versioned_targets])
 
     # Copy the analysis file, so we can work on it without it changing under us.
-    global_analysis_file_copy = os.path.join(self._analysis_tmpdir, 'analysis.' + str(uuid.uuid4()))
-    shutil.copyfile(self._analysis_file, global_analysis_file_copy)
-    shutil.copyfile(self._analysis_file + '.relations', global_analysis_file_copy + '.relations')
-    classes_by_source = self._compute_classes_by_source(global_analysis_file_copy)
+    classes_by_source = self._compute_classes_by_source(analysis_file)
 
     # Set up args for splitting the analysis into per-target files.
-    splits = [(sources, ScalaCompile._analysis_for_target(self._analysis_tmpdir, target))
-              for target, sources in sources_by_target.items()]
-    splits_args_tuples = [(global_analysis_file_copy, splits)]
+    splits = [(sources_by_target.get(t, []), ScalaCompile._analysis_for_target(self._analysis_tmpdir, t))
+              for t in vts.targets]
+    splits_args_tuples = [(analysis_file, splits)]
 
     # Set up args for artifact cache updating.
     vts_artifactfiles_pairs = []
@@ -313,69 +382,47 @@ class ScalaCompile(NailgunTask):
           tmp_analysis = os.path.join(tmpdir, 'analysis')
           if self._zinc_utils.run_zinc_merge(analyses_to_merge, tmp_analysis):
             raise TaskError('Zinc failed to merge cached analysis files.')
-          shutil.copy(tmp_analysis, self._analysis_file)
-          shutil.copy(tmp_analysis + '.relations', self._analysis_file + '.relations')
+          ZincUtils._copy_analysis(tmp_analysis, self._analysis_file)
 
     self._ensure_analysis_tmpdir()
     return Task.do_check_artifact_cache(self, vts, post_process_cached_vts=post_process_cached_vts)
 
-  def _process_target_partition(self, vts, cp):
+  def _process_target_partition(self, partition, cp):
     """Needs invoking only on invalid targets.
+
+    partition - a triple (vts, sources_by_target, analysis_file).
 
     May be invoked concurrently on independent target sets.
 
     Postcondition: The individual targets in vts are up-to-date, as if each were
                    compiled individually.
     """
-    sources_by_target = self._compute_sources_by_target(vts.targets)
-    sources = list(itertools.chain.from_iterable(sources_by_target.values()))
+    (vts, sources, analysis_file) = partition
 
     if not sources:
       self.context.log.warn('Skipping scala compile for targets with no sources:\n  %s' % vts.targets)
     else:
       # Do some reporting.
       self.context.log.info(
-        'Operating on a partition containing ',
-        items_to_report_element(vts.cache_key.sources, 'source'),
+        'Compiling a partition containing ',
+        items_to_report_element(sources, 'source'),
         ' in ',
         items_to_report_element([t.address.reference() for t in vts.targets], 'target'), '.')
       classpath = [entry for conf, entry in cp if conf in self._confs]
-      deleted_sources = self._get_deleted_sources()  # So zinc knows to delete them.
       with self.context.new_workunit('compile'):
         # Zinc may delete classfiles, then later exit on a compilation error. Then if the
         # change triggering the error is reverted, we won't rebuild to restore the missing
         # classfiles. So we force-invalidate here, to be on the safe side.
-        vts.force_invalidate()   # TODO: Do we still need this?
-        # Split out the analysis for the source files we're compiling. This is to prevent
-        # zinc from deleting classfiles compiled from other sources.
-        with temporary_file_path() as split_analysis_tmp:
-          if os.path.exists(self._analysis_file):
-            if self._zinc_utils.run_zinc_split(self._analysis_file,
-                                               [(sources + deleted_sources, split_analysis_tmp)]):
-              raise TaskError('Analysis split failed.')
-          # We use an analysis file with a well-known name, to take advantage of zinc's
-          # analysis cache. We must use a unique name per contents, because we may merge stuff
-          # (e.g., from the artifact cache) into the analysis file, in which case zinc's cached
-          # version will be stale.
-          # TODO: Could this be keyed by target ids instead of a hash of the contents? Probably not.
-          split_analysis = self._analysis_file + '.%s' % uuid.uuid4() #hash_file(split_analysis_tmp)
-          if os.path.exists(split_analysis_tmp):
-            shutil.copy(split_analysis_tmp, split_analysis)
+        # TODO: Do we still need this? Zinc has a safe mode now, but it might be very expensive,
+        # as it backs up class files.
+        vts.force_invalidate()
 
-          # We have to treat our output dir as an upstream element, so zinc can find analysis for
-          # previous partitions.
-          classpath.append(self._classes_dir)
-          upstream = { self._classes_dir: self._analysis_file }
-          if self._zinc_utils.compile(classpath, sources, self._classes_dir, split_analysis, upstream):
-            raise TaskError('Compile failed.')
-          merged_analysis = split_analysis + '.merged'
-          if self._zinc_utils.run_zinc_merge([split_analysis, self._analysis_file], merged_analysis):
-            raise TaskError('Analysis merge failed.')
-          shutil.move(merged_analysis, self._analysis_file)
-          shutil.move(merged_analysis + '.relations', self._analysis_file + '.relations')
-          os.unlink(split_analysis)
-          os.unlink(split_analysis + '.relations')
-    return sources_by_target
+        # We have to treat our output dir as an upstream element, so zinc can find valid
+        # analysis for previous partitions.
+        classpath.append(self._classes_dir)
+        upstream = { self._classes_dir: self._analysis_file }
+        if self._zinc_utils.compile(classpath, sources, self._classes_dir, analysis_file, upstream):
+          raise TaskError('Compile failed.')
 
   def _compute_sources_by_target(self, targets):
     def calculate_sources(target):
