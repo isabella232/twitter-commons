@@ -75,8 +75,9 @@ class ZincUtils(object):
     self._compiler_classpath = cp_for_profile(self._compile_profile)
     self._plugin_jars = cp_for_profile(self._plugins_profile) if self._plugins_profile else []
 
-    zinc_jars = ZincUtils.identify_zinc_jars(self._compiler_classpath, self._zinc_classpath)
+    zinc_jars = ZincUtils.identify_zinc_jars(self._zinc_classpath)
     self._zinc_jar_args = []
+    self._zinc_jar_args.extend(['-scala-path', ':'.join(self._compiler_classpath)])
     for (name, jarpath) in zinc_jars.items():  # The zinc jar names are also the flag names.
       self._zinc_jar_args.extend(['-%s' % name, jarpath])
 
@@ -221,18 +222,17 @@ class ZincUtils(object):
 
   # These are the names of the various jars zinc needs. They are, conveniently and
   # non-coincidentally, the names of the flags used to pass the jar locations to zinc.
-  compiler_jar_names = ['scala-library', 'scala-compiler']  # Compiler version.
-  zinc_jar_names = ['compiler-interface', 'sbt-interface']  # Other jars zinc needs pointers to.
+  compiler_jar_names = ['scala-library', 'scala-compiler', 'scala-reflect']  # Compiler version.
+  zinc_jar_names = ['compiler-interface', 'sbt-interface' ]  # Other jars zinc needs pointers to.
 
   @staticmethod
-  def identify_zinc_jars(compiler_classpath, zinc_classpath):
-    """Find the named jars in the compiler and zinc classpaths.
+  def identify_zinc_jars(zinc_classpath):
+    """Find the named jars in the zinc classpath.
 
     TODO: When profiles migrate to regular pants jar() deps instead of ivy.xml files we can
           make these mappings explicit instead of deriving them by jar name heuristics.
     """
     ret = OrderedDict()
-    ret.update(ZincUtils.identify_jars(ZincUtils.compiler_jar_names, compiler_classpath))
     ret.update(ZincUtils.identify_jars(ZincUtils.zinc_jar_names, zinc_classpath))
     return ret
 

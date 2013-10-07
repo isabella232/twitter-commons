@@ -216,7 +216,7 @@ class ScalaCompile(NailgunTask):
     # invalid targets to become valid.
     with self.invalidated(scala_targets, invalidate_dependents=True,
                           partition_size_hint=self._partition_size_hint) as invalidation_check:
-      if not self.dry_run:
+      if invalidation_check.invalid_vts and not self.dry_run:
         invalid_targets = [vt.target for vt in invalidation_check.invalid_vts]
         # The analysis for invalid and deleted sources is no longer valid.
         invalid_sources_by_target = self._compute_sources_by_target(invalid_targets)
@@ -259,7 +259,7 @@ class ScalaCompile(NailgunTask):
           partitions.append((vts, sources, analysis_file))
 
         # Split per-partition files out of the global invalid analysis.
-        if os.path.exists(self._invalid_analysis_file):
+        if os.path.exists(self._invalid_analysis_file) and partitions:
           splits = [(x[1], x[2]) for x in partitions]
           if self._zinc_utils.run_zinc_split(self._invalid_analysis_file, splits):
             raise TaskError('Failed to split invalid analysis into per-partition files.')
