@@ -232,21 +232,22 @@ class ScalaCompile(NailgunTask):
         valid_analysis_tmp = os.path.join(tmpdir, 'valid_analysis')
         newly_invalid_analysis_tmp = os.path.join(tmpdir, 'newly_invalid_analysis')
         invalid_analysis_tmp = os.path.join(tmpdir, 'invalid_analysis')
-        if os.path.exists(self._analysis_file):
-          if self._zinc_utils.run_zinc_split(self._analysis_file,
-                                             ((invalid_sources + deleted_sources, newly_invalid_analysis_tmp),
-                                              ([], valid_analysis_tmp))):
-            raise TaskError('Failed to split off invalid analysis.')
-          if os.path.exists(self._invalid_analysis_file):
-            if self._zinc_utils.run_zinc_merge([self._invalid_analysis_file, newly_invalid_analysis_tmp],
-                                               invalid_analysis_tmp):
-              raise TaskError('Failed to merge prior and current invalid analysis.')
-          else:
-            invalid_analysis_tmp = newly_invalid_analysis_tmp
+        if ZincUtils.is_nonempty_analysis(self._analysis_file):
+          with self.context.new_workunit(name='prepare-analysis'):
+            if self._zinc_utils.run_zinc_split(self._analysis_file,
+                                               ((invalid_sources + deleted_sources, newly_invalid_analysis_tmp),
+                                                ([], valid_analysis_tmp))):
+              raise TaskError('Failed to split off invalid analysis.')
+            if ZincUtils.is_nonempty_analysis(self._invalid_analysis_file):
+              if self._zinc_utils.run_zinc_merge([self._invalid_analysis_file, newly_invalid_analysis_tmp],
+                                                 invalid_analysis_tmp):
+                raise TaskError('Failed to merge prior and current invalid analysis.')
+            else:
+              invalid_analysis_tmp = newly_invalid_analysis_tmp
 
-          # Now it's OK to overwrite the main analysis files with the new state.
-          ZincUtils._move_analysis(valid_analysis_tmp, self._analysis_file)
-          ZincUtils._move_analysis(invalid_analysis_tmp, self._invalid_analysis_file)
+            # Now it's OK to overwrite the main analysis files with the new state.
+            ZincUtils._move_analysis(valid_analysis_tmp, self._analysis_file)
+            ZincUtils._move_analysis(invalid_analysis_tmp, self._invalid_analysis_file)
 
         # Figure out the sources and analysis belonging to each partition.
         partitions = []  # Each element is a triple (vts, sources_by_target, analysis).
@@ -259,10 +260,11 @@ class ScalaCompile(NailgunTask):
           partitions.append((vts, sources, analysis_file))
 
         # Split per-partition files out of the global invalid analysis.
-        if os.path.exists(self._invalid_analysis_file) and partitions:
-          splits = [(x[1], x[2]) for x in partitions]
-          if self._zinc_utils.run_zinc_split(self._invalid_analysis_file, splits):
-            raise TaskError('Failed to split invalid analysis into per-partition files.')
+        if ZincUtils.is_nonempty_analysis(self._invalid_analysis_file) and partitions:
+          with self.context.new_workunit(name='partition-analysis'):
+            splits = [(x[1], x[2]) for x in partitions]
+            if self._zinc_utils.run_zinc_split(self._invalid_analysis_file, splits):
+              raise TaskError('Failed to split invalid analysis into per-partition files.')
 
         # Now compile partitions one by one.
         for partition in partitions:
@@ -276,22 +278,24 @@ class ScalaCompile(NailgunTask):
               self._write_to_artifact_cache(analysis_file, vts, invalid_sources_by_target)
 
             # Merge the newly-valid analysis into our global valid analysis.
-            if os.path.exists(self._analysis_file):
-              new_valid_analysis = analysis_file + '.valid.new'
-              if self._zinc_utils.run_zinc_merge([self._analysis_file, analysis_file], new_valid_analysis):
-                raise TaskError('Failed to merge new analysis back into valid analysis file.')
+            if ZincUtils.is_nonempty_analysis(self._analysis_file):
+              with self.context.new_workunit(name='update-upstream-analysis'):
+                new_valid_analysis = analysis_file + '.valid.new'
+                if self._zinc_utils.run_zinc_merge([self._analysis_file, analysis_file], new_valid_analysis):
+                  raise TaskError('Failed to merge new analysis back into valid analysis file.')
               ZincUtils._move_analysis(new_valid_analysis, self._analysis_file)
             else:  # We need to keep analysis_file around. Background tasks may need it.
               ZincUtils._copy_analysis(analysis_file, self._analysis_file)
 
-          if os.path.exists(self._invalid_analysis_file):
-            # Trim out the newly-valid sources from our global invalid analysis.
-            new_invalid_analysis = analysis_file + '.invalid.new'
-            discarded_invalid_analysis = analysis_file + '.invalid.discard'
-            if self._zinc_utils.run_zinc_split(self._invalid_analysis_file,
-                [(sources, discarded_invalid_analysis), ([], new_invalid_analysis)]):
-              raise TaskError('Failed to trim invalid analysis file.')
-            ZincUtils._move_analysis(new_invalid_analysis, self._invalid_analysis_file)
+          if ZincUtils.is_nonempty_analysis(self._invalid_analysis_file):
+            with self.context.new_workunit(name='trim-downstream-analysis'):
+              # Trim out the newly-valid sources from our global invalid analysis.
+              new_invalid_analysis = analysis_file + '.invalid.new'
+              discarded_invalid_analysis = analysis_file + '.invalid.discard'
+              if self._zinc_utils.run_zinc_split(self._invalid_analysis_file,
+                  [(sources, discarded_invalid_analysis), ([], new_invalid_analysis)]):
+                raise TaskError('Failed to trim invalid analysis file.')
+              ZincUtils._move_analysis(new_invalid_analysis, self._invalid_analysis_file)
 
           # Now that all the analysis accounting is complete, we can safely mark the
           # targets as valid.

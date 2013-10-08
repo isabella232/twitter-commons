@@ -283,6 +283,17 @@ class ZincUtils(object):
     return plugins
 
   @staticmethod
+  def is_nonempty_analysis(path):
+    """Returns true iff path exists and points to a non-empty analysis."""
+    relfile = path + '.relations'
+    if not os.path.exists(relfile):
+      return False
+    empty_prefix = 'products:\n\n'  # Empty analyses have a blank line instead of products.
+    with open(relfile, 'r') as infile:
+      prefix = infile.read(len(empty_prefix))
+    return prefix != empty_prefix
+
+  @staticmethod
   def _move_analysis(src, dst):
     ZincUtils.copy_or_move_analysis(shutil.move, src, dst)
 
