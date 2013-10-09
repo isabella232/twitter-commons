@@ -306,11 +306,11 @@ class ScalaCompile(NailgunTask):
           deps_cache = JvmDependencyCache(self.context, scala_targets, self._analysis_file, self._classes_dir)
           deps_cache.check_undeclared_dependencies()
 
-        # Provide the target->class and source->class mappings to downstream tasks if needed.
-        if self.context.products.isrequired('classes'):
-          invalid_sources_by_target = self._compute_sources_by_target(scala_targets)
-          classes_by_source = self._compute_classes_by_source()
-          self._add_all_products_to_genmap(invalid_sources_by_target, classes_by_source)
+    # Provide the target->class and source->class mappings to downstream tasks if needed.
+    if self.context.products.isrequired('classes'):
+      sources_by_target = self._compute_sources_by_target(scala_targets)
+      classes_by_source = self._compute_classes_by_source()
+      self._add_all_products_to_genmap(sources_by_target, classes_by_source)
 
     # Update the classpath for downstream tasks.
     for conf in self._confs:
