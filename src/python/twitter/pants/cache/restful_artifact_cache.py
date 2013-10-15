@@ -71,8 +71,8 @@ class RESTfulArtifactCache(ArtifactCache):
         artifact.extract()
         return artifact
     except Exception as e:
-        self.log.warn('Error while reading from artifact cache: %s' % e)
-        return None
+      self.log.warn('Error while reading from remote artifact cache: %s' % e)
+      return None
 
   def delete(self, cache_key):
     remote_path = self._remote_path_for_key(cache_key)

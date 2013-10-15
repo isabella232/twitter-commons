@@ -3,7 +3,7 @@ import shutil
 import uuid
 
 from twitter.common.dirutil import safe_mkdir, safe_mkdir_for, safe_delete
-from twitter.pants.cache.artifact import TarballArtifact
+from twitter.pants.cache.artifact import TarballArtifact, ArtifactError
 from twitter.pants.cache.artifact_cache import ArtifactCache
 
 
@@ -50,12 +50,16 @@ class LocalArtifactCache(ArtifactCache):
     return os.path.isfile(self._cache_file_for_key(cache_key))
 
   def use_cached_files(self, cache_key):
-    tarfile = self._cache_file_for_key(cache_key)
-    if os.path.exists(tarfile):
-      artifact = TarballArtifact(self.artifact_root, tarfile, self._compress)
-      artifact.extract()
-      return artifact
-    else:
+    try:
+      tarfile = self._cache_file_for_key(cache_key)
+      if os.path.exists(tarfile):
+        artifact = TarballArtifact(self.artifact_root, tarfile, self._compress)
+        artifact.extract()
+        return artifact
+      else:
+        return None
+    except Exception as e:
+      self.log.warn('Error while reading from local artifact cache: %s' % e)
       return None
 
   def delete(self, cache_key):
