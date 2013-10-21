@@ -3,7 +3,7 @@ import os
 import re
 import uuid
 
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from pystache.renderer import Renderer
 
 from twitter.common.dirutil import safe_mkdir
@@ -43,7 +43,7 @@ class HtmlReporter(Reporter):
     self._report_file = None
 
     # We redirect stdout, stderr etc. of tool invocations to these files.
-    self._output_files = {}  # path -> fileobj.
+    self._output_files = defaultdict(dict)  # workunit_id -> {path -> fileobj}.
 
   def report_path(self):
     """The path to the main report file."""
@@ -57,8 +57,10 @@ class HtmlReporter(Reporter):
   def close(self):
     """Implementation of Reporter callback."""
     self._report_file.close()
-    for f in self._output_files.values():
-      f.close()
+    # Make sure everything's closed.
+    for files in self._output_files.values():
+      for f in files.values():
+        f.close()
 
   def start_workunit(self, workunit):
     """Implementation of Reporter callback."""
@@ -159,15 +161,19 @@ class HtmlReporter(Reporter):
     self._overwrite('artifact_cache_stats',
                     render_cache_stats(self.run_tracker.artifact_cache_stats))
 
+    for f in self._output_files[workunit.id].values():
+      f.close()
+
   def handle_output(self, workunit, label, s):
     """Implementation of Reporter callback."""
     if os.path.exists(self._html_dir):  # Make sure we're not immediately after a clean-all.
       path = os.path.join(self._html_dir, '%s.%s' % (workunit.id, label))
-      if path not in self._output_files:
+      output_files = self._output_files[workunit.id]
+      if path not in output_files:
         f = open(path, 'w')
-        self._output_files[path] = f
+        output_files[path] = f
       else:
-        f = self._output_files[path]
+        f = output_files[path]
       f.write(self._htmlify_text(s))
       # We must flush in the same thread as the write.
       f.flush()

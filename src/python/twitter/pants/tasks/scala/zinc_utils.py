@@ -26,6 +26,7 @@ from twitter.common.contextutil import open_zip as open_jar, temporary_dir
 from twitter.common.dirutil import  safe_open
 
 from twitter.pants import get_buildroot
+from twitter.pants.base.hash_utils import hash_file
 from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.tasks import TaskError
 from twitter.pants.binary_util import find_java_home
@@ -131,6 +132,7 @@ class ZincUtils(object):
       '-d', output_dir
     ])
     args.extend(sources)
+    self.log_zinc_file(analysis_file)
     return self.run_zinc(args, workunit_labels=[WorkUnit.COMPILER])
 
   # Run zinc in analysis manipulation mode.
@@ -140,7 +142,7 @@ class ZincUtils(object):
       '-cache', analysis_file,
     ]
     zinc_analysis_args.extend(args)
-    return self.run_zinc(args=zinc_analysis_args, workunit_name=workunit_name)
+    return self.run_zinc(args=zinc_analysis_args, workunit_name=workunit_name, workunit_labels=[WorkUnit.COMPILER])
 
   # src_cache - split this analysis cache.
   # splits - a list of (sources, dst_cache), where sources is a list of the sources whose analysis
@@ -151,6 +153,7 @@ class ZincUtils(object):
       '-split', ','.join(
         ['{%s}:%s' % (':'.join([os.path.abspath(p) for p in x[0]]), x[1]) for x in splits]),
     ]
+    self.log_zinc_file(src_analysis_file)
     return self.run_zinc_analysis(src_analysis_file, zinc_split_args, workunit_name='split')
 
   # src_analysis_files - a list of analysis files to merge into dst_analysis_file.
@@ -158,6 +161,8 @@ class ZincUtils(object):
     zinc_merge_args = [
       '-merge', ':'.join(src_analysis_files),
     ]
+    for analysis_file in src_analysis_files:
+      self.log_zinc_file(analysis_file)
     return self.run_zinc_analysis(dst_analysis_file, zinc_merge_args, workunit_name='merge')
 
   # cache - the analysis cache to rebase.
@@ -281,6 +286,9 @@ class ZincUtils(object):
     if len(unresolved_plugins) > 0:
       raise TaskError('Could not find requested plugins: %s' % list(unresolved_plugins))
     return plugins
+
+  def log_zinc_file(self, analysis_file):
+    self.context.log.debug('Calling zinc on: %s (%s)' % (analysis_file, hash_file(analysis_file).upper() if os.path.exists(analysis_file) else 'nonexistent'))
 
   @staticmethod
   def is_nonempty_analysis(path):
