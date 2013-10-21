@@ -99,7 +99,7 @@ CASCADING2_REV = '2.1.6-wip-114'
 jar_library(name = 'cascading2-core',
             dependencies = [
               jar(org = 'cascading', name = 'cascading-core', rev = CASCADING2_REV)
-                .exclude(org = 'org.apache.hadoop', name="hadoop-core")
+                .exclude(org = 'org.apache.hadoop', name='hadoop-core')
             ])
 
 jar_library(name = 'cascading-kryo',
@@ -120,13 +120,13 @@ jar_library(name = 'maple',
 jar_library(name = 'cascading2-local',
             dependencies = [
               jar(org = 'cascading', name = 'cascading-local', rev = CASCADING2_REV)
-                .exclude(org = 'org.apache.hadoop', name="hadoop-core")
+                .exclude(org = 'org.apache.hadoop', name='hadoop-core')
             ])
 
 jar_library(name = 'cascading2-hadoop',
             dependencies = [
               jar(org = 'cascading', name = 'cascading-hadoop', rev = CASCADING2_REV)
-                .exclude(org = 'org.apache.hadoop', name="hadoop-core")
+                .exclude(org = 'org.apache.hadoop', name='hadoop-core')
             ])
 
 
@@ -152,7 +152,7 @@ jar_library(name = 'cglib',
 
 jar_library(name = 'checkstyle',
             dependencies = [
-              jar(org = 'com.puppycrawl.tools', name = 'checkstyle', rev = '5.5')
+              jar(org = 'com.puppycrawl.tools', name = 'checkstyle', rev = '5.6')
                 .exclude(org = 'com.google.collections', name = 'google-collections')
                 .with_sources(),
               # Needs this as the replacement for the excluded google-collections.
