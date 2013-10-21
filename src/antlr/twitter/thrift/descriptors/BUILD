@@ -20,4 +20,3 @@ python_antlr_library(
   sources = globs('*.g'),
   dependencies = [pants('src/thrift/com/twitter/thrift/descriptors:descriptors-py'),]
 )
-
