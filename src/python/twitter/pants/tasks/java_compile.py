@@ -25,6 +25,7 @@ from twitter.common.dirutil import safe_open, safe_mkdir, safe_rmtree
 
 from twitter.pants import has_sources, is_apt, Task
 from twitter.pants.base.target import Target
+from twitter.pants.binary_util import bootstrap_classpath
 from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.reporting.reporting_utils import items_to_report_element
 from twitter.pants.tasks import TaskError
@@ -100,8 +101,8 @@ class JavaCompile(NailgunTask):
     safe_mkdir(self._classes_dir)
     safe_mkdir(self._depfile_dir)
 
-    self._jmake_profile = context.config.get('java-compile', 'jmake-profile')
-    self._compiler_profile = context.config.get('java-compile', 'compiler-profile')
+    self._external_tools = context.config.getlist('java-compile', 'external-tools')
+    self._compiler_bootstrap_tools = context.config.getlist('java-compile', 'compiler-bootstrap-tools')
 
     self._opts = context.config.getlist('java-compile', 'args')
     self._jvm_args = context.config.getlist('java-compile', 'jvm_args')
@@ -281,15 +282,18 @@ class JavaCompile(NailgunTask):
     return sources_by_target
 
   def compile(self, classpath, sources, fingerprint, depfile):
-    jmake_classpath = self.profile_classpath(self._jmake_profile)
-
+    jmake_classpath = bootstrap_classpath(self._external_tools,
+                                          context=self.context,
+                                          java_runner=self.runjava_indivisible)
     opts = [
       '-classpath', ':'.join(classpath),
       '-d', self._classes_dir,
       '-pdb', os.path.join(self._classes_dir, '%s.dependencies.pdb' % fingerprint),
     ]
 
-    compiler_classpath = self.profile_classpath(self._compiler_profile)
+    compiler_classpath = bootstrap_classpath(self._compiler_bootstrap_tools,
+                                             context=self.context,
+                                             java_runner=self.runjava_indivisible)
     opts.extend([
       '-jcpath', ':'.join(compiler_classpath),
       '-jcmainclass', 'com.twitter.common.tools.Compiler',
@@ -298,8 +302,12 @@ class JavaCompile(NailgunTask):
     opts.extend(map(lambda arg: '-C%s' % arg, self._javac_opts))
 
     opts.extend(self._opts)
-    return self.runjava_indivisible(_JMAKE_MAIN, classpath=jmake_classpath, opts=opts, args=sources,
-                                    jvmargs=self._jvm_args, workunit_name='jmake',
+    return self.runjava_indivisible(_JMAKE_MAIN,
+                                    classpath=jmake_classpath,
+                                    opts=opts,
+                                    args=sources,
+                                    jvmargs=self._jvm_args,
+                                    workunit_name='jmake',
                                     workunit_labels=[WorkUnit.COMPILER])
 
   def write_processor_info(self, processor_info_file, processors):
