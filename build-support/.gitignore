@@ -1,2 +1,3 @@
 # bin is excluded at the top level - this undoes that restriction locally.
 !bin
+ivy_bootstrap_tools/
