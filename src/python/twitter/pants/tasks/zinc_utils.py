@@ -29,7 +29,7 @@ from twitter.common.dirutil import  safe_open
 
 from twitter.pants import get_buildroot
 from twitter.pants.tasks import TaskError
-from twitter.pants.binary_util import find_java_home, profile_classpath
+from twitter.pants.binary_util import bootstrap_classpath, find_java_home
 
 
 # Well known metadata file required to register scalac plugins with nsc.
@@ -47,9 +47,10 @@ class ZincUtils(object):
 
     self._pants_home = get_buildroot()
 
-    self._compile_profile = context.config.get('scala-compile', 'compile-profile')  # The target scala version.
-    self._zinc_profile = context.config.get('scala-compile', 'zinc-profile')
-    self._plugins_profile = context.config.get('scala-compile', 'scalac-plugins-profile')
+    # The target scala version.
+    self._compile_bootstrap_tools = context.config.getlist('scala-compile', 'compile-bootstrap-tools')
+    self._zinc_bootstrap_tools = context.config.getlist('scala-compile', 'zinc-bootstrap-tools')
+    self._plugins_bootstrap_tools = context.config.getlist('scala-compile', 'scalac-plugins-bootstrap-tools')
 
     self._main = context.config.get('scala-compile', 'main')
     self._scalac_args = context.config.getlist('scala-compile', 'args')
@@ -60,13 +61,18 @@ class ZincUtils(object):
     else:
       self._scalac_args.extend(context.config.getlist('scala-compile', 'no_warning_args'))
 
-    def classpath_for_profile(profile):
-      return profile_classpath(profile, java_runner=self._java_runner, config=self._context.config)
+    self._zinc_classpath = bootstrap_classpath(self._zinc_bootstrap_tools,
+                                               context=self.context,
+                                               java_runner=self._java_runner)
+    self._compiler_classpath = bootstrap_classpath(self._compile_bootstrap_tools,
+                                                   context=self.context,
+                                                   java_runner=self._java_runner)
 
-    self._zinc_classpath = classpath_for_profile(self._zinc_profile)
-    self._compiler_classpath = classpath_for_profile(self._compile_profile)
-    self._plugin_jars = (classpath_for_profile(self._plugins_profile) if self._plugins_profile
-                         else [])
+    self._plugin_jars = []
+    if self._plugins_bootstrap_tools:
+      self._plugin_jars = bootstrap_classpath(self._plugins_bootstrap_tools,
+                                              context=self.context,
+                                              java_runner=self._java_runner)
 
     zinc_jars = ZincUtils.identify_zinc_jars(self._compiler_classpath, self._zinc_classpath)
     self._zinc_jar_args = []
@@ -74,9 +80,9 @@ class ZincUtils(object):
       self._zinc_jar_args.extend(['-%s' % name, jarpath])
 
     # Allow multiple flags and also comma-separated values in a single flag.
-    plugin_names = [p for val in context.options.plugins for p in val.split(',')]\
-    if context.options.plugins is not None\
-    else context.config.getlist('scala-compile', 'scalac-plugins', default=[])
+    plugin_names = ([p for val in context.options.plugins for p in val.split(',')]
+                    if context.options.plugins is not None
+                    else context.config.getlist('scala-compile', 'scalac-plugins', default=[]))
     plugin_args = context.config.getdict('scala-compile', 'scalac-plugin-args', default={})
     active_plugins = self.find_plugins(plugin_names)
 

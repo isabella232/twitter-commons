@@ -28,7 +28,7 @@ from twitter.common.dirutil import  safe_open
 from twitter.pants import get_buildroot
 from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.tasks import TaskError
-from twitter.pants.binary_util import find_java_home
+from twitter.pants.binary_util import bootstrap_classpath, find_java_home
 
 
 # Well known metadata file required to register scalac plugins with nsc.
@@ -47,9 +47,9 @@ class ZincUtils(object):
     self._pants_home = get_buildroot()
 
     # The target scala version.
-    self._compile_profile = context.config.get('scala-compile', 'compile-profile')
-    self._zinc_profile = context.config.get('scala-compile', 'zinc-profile')
-    self._plugins_profile = context.config.get('scala-compile', 'scalac-plugins-profile')
+    self._compile_bootstrap_tools = context.config.getlist('scala-compile', 'compile-bootstrap-tools')
+    self._zinc_bootstrap_tools = context.config.getlist('scala-compile', 'zinc-bootstrap-tools')
+    self._plugins_bootstrap_tools = context.config.getlist('scala-compile', 'scalac-plugins-bootstrap-tools')
 
     self._main = context.config.get('scala-compile', 'main')
     self._scalac_args = context.config.getlist('scala-compile', 'args')
@@ -60,10 +60,29 @@ class ZincUtils(object):
     else:
       self._scalac_args.extend(context.config.getlist('scala-compile', 'no_warning_args'))
 
-    cp_for_profile = self._nailgun_task.profile_classpath
-    self._zinc_classpath = cp_for_profile(self._zinc_profile)
-    self._compiler_classpath = cp_for_profile(self._compile_profile)
-    self._plugin_jars = cp_for_profile(self._plugins_profile) if self._plugins_profile else []
+    # For localizing/relativizing analysis files.
+    self._java_home = os.path.realpath(os.path.dirname(find_java_home()))
+    self._ivy_home = os.path.realpath(context.config.get('ivy', 'cache_dir'))
+    self._initialized = False
+
+  def lazy_init(self):
+    if self._initialized:
+      return
+    else:
+      self._initialized = True
+
+    self._zinc_classpath = bootstrap_classpath(self._zinc_bootstrap_tools,
+                                               context=self.context,
+                                               java_runner=self._nailgun_task.runjava_indivisible)
+    self._compiler_classpath = bootstrap_classpath(self._compile_bootstrap_tools,
+                                                   context=self.context,
+                                                   java_runner=self._nailgun_task.runjava_indivisible)
+
+    self._plugin_jars = []
+    if self._plugins_bootstrap_tools:
+      self._plugin_jars = bootstrap_classpath(self._plugins_bootstrap_tools,
+                                              context=self.context,
+                                              java_runner=self._nailgun_task.runjava_indivisible)
 
     zinc_jars = ZincUtils.identify_zinc_jars(self._compiler_classpath, self._zinc_classpath)
     self._zinc_jar_args = []
@@ -71,10 +90,10 @@ class ZincUtils(object):
       self._zinc_jar_args.extend(['-%s' % name, jarpath])
 
     # Allow multiple flags and also comma-separated values in a single flag.
-    plugin_names = [p for val in context.options.plugins for p in val.split(',')] \
-      if context.options.plugins is not None \
-      else context.config.getlist('scala-compile', 'scalac-plugins', default=[])
-    plugin_args = context.config.getdict('scala-compile', 'scalac-plugin-args', default={})
+    plugin_names = [p for val in self.context.options.plugins for p in val.split(',')] \
+      if self.context.options.plugins is not None \
+      else self.context.config.getlist('scala-compile', 'scalac-plugins', default=[])
+    plugin_args = self.context.config.getdict('scala-compile', 'scalac-plugin-args', default={})
     active_plugins = self.find_plugins(plugin_names)
 
     for name, jar in active_plugins.items():
@@ -82,15 +101,13 @@ class ZincUtils(object):
       for arg in plugin_args.get(name, []):
         self._scalac_args.append('-P:%s:%s' % (name, arg))
 
-    # For localizing/relativizing analysis files.
-    self._java_home = os.path.realpath(os.path.dirname(find_java_home()))
-    self._ivy_home = os.path.realpath(context.config.get('ivy', 'cache_dir'))
-
   def plugin_jars(self):
     """The jars containing code for enabled plugins."""
+    self.lazy_init()
     return self._plugin_jars
 
   def run_zinc(self, args, workunit_name='zinc', workunit_labels=None):
+    self.lazy_init()
     zinc_args = [
       '-log-level', self.context.options.log_level or 'info',
       '-mirror-analysis',
@@ -99,21 +116,24 @@ class ZincUtils(object):
       zinc_args.append('-no-color')
     zinc_args.extend(self._zinc_jar_args)
     zinc_args.extend(args)
-    return self._nailgun_task.runjava_indivisible(self._main, classpath=self._zinc_classpath,
-                             args=zinc_args, jvmargs=self._jvm_args, workunit_name=workunit_name,
-                             workunit_labels=workunit_labels)
+    return self._nailgun_task.runjava_indivisible(self._main,
+                                                  classpath=self._zinc_classpath,
+                                                  args=zinc_args,
+                                                  jvmargs=self._jvm_args,
+                                                  workunit_name=workunit_name,
+                                                  workunit_labels=workunit_labels)
 
   def compile(self, classpath, sources, output_dir, analysis_file, upstream_analysis_files):
     # To pass options to scalac simply prefix with -S.
     args = ['-S' + x for x in self._scalac_args]
 
-    if len(upstream_analysis_files) > 0:
+    if len(upstream_analysis_files):
       # upstream_analysis_files is a map to pairs of (artifact_file, class_basedir).
       # For the command-line argument here, we need to change that to map the same keys
       # to just the artifact_file.
-      args.extend(
-        ['-analysis-map', ','.join(['%s:%s' % (kv[0], kv[1].analysis_file)
-                                    for kv in upstream_analysis_files.items()])])
+      args.extend(['-analysis-map',
+                   ','.join(['%s:%s' % (kv[0], kv[1].analysis_file)
+                             for kv in upstream_analysis_files.items()])])
 
     args.extend([
       '-analysis-cache', analysis_file,
@@ -252,7 +272,7 @@ class ZincUtils(object):
     plugins = {}
     # plugin_jars is the universe of all possible plugins and their transitive deps.
     # Here we select the ones to actually use.
-    for jar in self._plugin_jars:
+    for jar in self.plugin_jars():
       with open_jar(jar, 'r') as jarfile:
         try:
           with closing(jarfile.open(_PLUGIN_INFO_FILE, 'r')) as plugin_info_file:
