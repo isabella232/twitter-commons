@@ -16,7 +16,7 @@
 
 import os
 import shutil
-from twitter.pants.binary_util import profile_classpath, runjava_indivisible
+from twitter.pants.binary_util import bootstrap_classpath, runjava_indivisible
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.jvm_task import JvmTask
 
@@ -38,13 +38,14 @@ class BenchmarkRun(JvmTask):
 
   def __init__(self, context):
     Task.__init__(self, context)
-    self.profile = context.config.get('benchmark-run', 'profile',
-                                      default="benchmark-caliper-0.5")
-    self.confs = context.config.getlist('benchmark-run', 'confs')
-    self.java_args = context.config.getlist('benchmark-run', 'args',
-                                            default=['-Xmx1g', '-XX:MaxPermSize=256m'])
-    self.agent_profile = context.config.get('benchmark-run', 'agent_profile',
-                                            default="benchmark-java-allocation-instrumenter-2.1")
+    config = context.config
+    self._benchmark_bootstrap_tools = config.getlist('benchmark-run', 'bootstrap-tools',
+                                                     default=['3rdparty:benchmark-caliper-0.5'])
+    self.confs = config.getlist('benchmark-run', 'confs')
+    self.java_args = config.getlist('benchmark-run', 'args',
+                                    default=['-Xmx1g', '-XX:MaxPermSize=256m'])
+    self._agent_bootstrap_tools = config.getlist('benchmark-run', 'agent_profile',
+                                                 default=['3rdparty:benchmark-java-allocation-instrumenter-2.1'])
     # TODO(Steve Gury):
     # Find all the target classes from the Benchmark target itself
     # https://jira.twitter.biz/browse/AWESOME-1938
@@ -55,7 +56,7 @@ class BenchmarkRun(JvmTask):
       # For rewriting JDK classes to work, the JAR file has to be listed specifically in
       # the JAR manifest as something that goes in the bootclasspath.
       # The MANIFEST list a jar 'allocation.jar' this is why we have to rename it
-      agent_jar = os.readlink(profile_classpath(self.agent_profile)[0])
+      agent_jar = os.readlink(bootstrap_classpath(self._agent_bootstrap_tools, context=context)[0])
       allocation_jar = os.path.join(os.path.dirname(agent_jar), "allocation.jar")
       # TODO(Steve Gury): Find a solution to avoid copying the jar every run and being resilient
       # to version upgrade
@@ -69,7 +70,7 @@ class BenchmarkRun(JvmTask):
   def execute(self, targets):
     exit_code = runjava_indivisible(
       jvmargs=self.java_args,
-      classpath=self.classpath(profile_classpath(self.profile), confs=self.confs),
+      classpath=self.classpath(bootstrap_classpath(self._benchmark_bootstrap_tools), context=self.context),
       main='com.google.caliper.Runner',
       opts=self.caliper_args,
       workunit_name='caliper'
