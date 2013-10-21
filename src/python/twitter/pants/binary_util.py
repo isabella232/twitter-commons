@@ -29,6 +29,7 @@ from twitter.common.contextutil import environment_as, temporary_file, temporary
 from twitter.common.dirutil import chmod_plus_x, safe_delete, safe_mkdir, safe_open, touch
 from twitter.common.lang import Compatibility
 from twitter.pants.goal.workunit import WorkUnit
+from twitter.pants.tasks.ivy_utils import IvyUtils
 
 if Compatibility.PY3:
   import urllib.request as urllib_request
@@ -313,6 +314,64 @@ def _subprocess_call_with_args(cmd, args, call=subprocess.call,
       return result
     else:
       raise e
+
+def bootstrap_classpath(external_tools, context, *args, **kwargs):
+  return list(itertools.chain.from_iterable(bootstrap_tool_classpath(tool, context, *args, **kwargs)
+                                            for tool in external_tools))
+
+def bootstrap_tool_classpath(external_tool,
+                             context,
+                             java_runner=None,
+                             config=None,
+                             ivy_jar=None,
+                             ivy_settings=None,
+                             workunit_factory=None):
+  java_runner = java_runner or runjava_indivisible
+
+  bootstrap_tools_dir = context.config.get('ivy-bootstrap-tools', 'workdir')
+  clean_tool_name = external_tool.replace(':', '_').translate(None, '/')
+  target_workdir = os.path.join(bootstrap_tools_dir, clean_tool_name)
+  bootstrap_tool_libdir = os.path.join(bootstrap_tools_dir, '%s.libs' % clean_tool_name)
+  bootstrap_tool_check = '%s.checked' % bootstrap_tool_libdir
+  if not os.path.exists(bootstrap_tool_check):
+    ivy_classpath = [ivy_jar] if ivy_jar else context.config.getlist('ivy', 'classpath')
+
+    safe_mkdir(bootstrap_tool_libdir)
+    ivy_settings = ivy_settings or context.config.get('ivy', 'ivy_settings')
+    ivy_xml = os.path.join(bootstrap_tools_dir, '%s.ivy.xml' % clean_tool_name)
+    ivy_opts = [
+      '-settings', ivy_settings,
+
+      # TODO(John Sirois): this pattern omits an [organisation]- prefix to satisfy IDEA jar naming
+      # needs for scala - isolate this hack to idea.py where it belongs
+      '-retrieve', '%s/[artifact]-[revision](-[classifier]).[ext]' % bootstrap_tool_libdir,
+
+      '-sync',
+      '-symlink',
+      '-types', 'jar', 'bundle',
+      '-confs', 'default'
+    ]
+
+    ivy_utils = IvyUtils(config=context.config,
+                         options=context.options,
+                         log=context.log)
+
+    targets = list(context.resolve(external_tool))
+
+    ivy_utils.exec_ivy(
+      target_workdir=target_workdir,
+      targets=targets,
+      args=ivy_opts,
+      runjava=runjava_indivisible,
+      workunit_name='%s:bootstrap' % external_tool,
+      workunit_factory=workunit_factory,
+      ivy_classpath=ivy_classpath,
+    )
+
+    touch(bootstrap_tool_check)
+
+  return [os.path.join(bootstrap_tool_libdir, jar) for jar in os.listdir(bootstrap_tool_libdir)]
+
 
 def profile_classpath(profile, java_runner=None, config=None, ivy_jar=None, ivy_settings=None,
                       workunit_factory=None):
