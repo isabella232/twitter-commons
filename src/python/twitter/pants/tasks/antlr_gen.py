@@ -59,8 +59,8 @@ class AntlrGen(CodeGen, NailgunTask):
       java_out = self._java_out(target)
       safe_mkdir(java_out)
 
-      antlr_profile = self._antlr_profile(target)
-      antlr_classpath = self.profile_classpath(antlr_profile)
+      antlr_bootstrap_tools = self._antlr_bootstrap_tools(target)
+      antlr_classpath = self.bootstrap_classpath(antlr_bootstrap_tools)
       antlr_opts = ["-o", java_out]
 
       java_main = None
@@ -129,9 +129,9 @@ class AntlrGen(CodeGen, NailgunTask):
         deps.update(self.context.resolve(dep))
     return deps
 
-  def _antlr_profile(self, target):
+  def _antlr_bootstrap_tools(self, target):
     key = self._CONFIG_SECTION_BY_COMPILER[target.compiler]
-    return self.context.config.get(key, 'antlr_profile')
+    return self.context.config.getlist(key, 'javadeps')
 
   def _java_out(self, target):
     key = self._CONFIG_SECTION_BY_COMPILER[target.compiler]
