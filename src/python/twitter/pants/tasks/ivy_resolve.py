@@ -191,7 +191,7 @@ class IvyResolve(NailgunTask):
         classpath_targets.update(filter(is_classpath, filter(is_concrete, target.resolve())))
 
       if len(classpath_targets) == 0:
-        return  # Nothing to do.
+        continue  # Nothing to do.
 
       target_workdir = os.path.join(self._work_dir, dirname_for_requested_targets(group_targets))
       target_classpath_file = os.path.join(target_workdir, 'classpath')
