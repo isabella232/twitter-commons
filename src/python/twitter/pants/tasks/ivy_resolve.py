@@ -283,7 +283,8 @@ class IvyResolve(NailgunTask):
       # This is sort-of an abuse of the build-products. But build products
       # are already so abused, and this really does make sense.
       ivyinfo = self._ivy_utils.parse_xml_report(conf)
-      genmap.add("ivy", conf, [ivyinfo])
+      if ivyinfo:
+        genmap.add("ivy", conf, [ivyinfo])
 
   def _generate_ivy_report(self):
     def make_empty_report(report, organisation, module, conf):
