@@ -40,7 +40,9 @@ class Checkstyle(NailgunTask):
                             help="[%default] Skip checkstyle.")
 
   def __init__(self, context):
-    self._bootstrap_tools = context.config.getlist('checkstyle', 'bootstrap-tools')
+    self._bootstrap_tools = context.config.getlist('checkstyle',
+                                                   'bootstrap-tools',
+                                                   default=[':twitter-checkstyle'])
     workdir = context.config.get('checkstyle', 'nailgun_dir')
     NailgunTask.__init__(self, context, workdir=workdir)
 

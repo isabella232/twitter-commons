@@ -16,7 +16,7 @@
 
 import os
 import shutil
-from twitter.pants.binary_util import bootstrap_classpath, runjava_indivisible
+from twitter.pants.binary_util import runjava_indivisible
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.jvm_task import JvmTask
 
@@ -40,12 +40,12 @@ class BenchmarkRun(JvmTask):
     Task.__init__(self, context)
     config = context.config
     self._benchmark_bootstrap_tools = config.getlist('benchmark-run', 'bootstrap-tools',
-                                                     default=['3rdparty:benchmark-caliper-0.5'])
+                                                     default=[':benchmark-caliper-0.5'])
     self.confs = config.getlist('benchmark-run', 'confs')
     self.java_args = config.getlist('benchmark-run', 'args',
                                     default=['-Xmx1g', '-XX:MaxPermSize=256m'])
     self._agent_bootstrap_tools = config.getlist('benchmark-run', 'agent_profile',
-                                                 default=['3rdparty:benchmark-java-allocation-instrumenter-2.1'])
+                                                 default=[':benchmark-java-allocation-instrumenter-2.1'])
     # TODO(Steve Gury):
     # Find all the target classes from the Benchmark target itself
     # https://jira.twitter.biz/browse/AWESOME-1938
@@ -70,7 +70,7 @@ class BenchmarkRun(JvmTask):
   def execute(self, targets):
     exit_code = runjava_indivisible(
       jvmargs=self.java_args,
-      classpath=self.classpath(bootstrap_classpath(self._benchmark_bootstrap_tools), context=self.context),
+      classpath=self.classpath(self.bootstrap_classpath(self._benchmark_bootstrap_tools)),
       main='com.google.caliper.Runner',
       opts=self.caliper_args,
       workunit_name='caliper'

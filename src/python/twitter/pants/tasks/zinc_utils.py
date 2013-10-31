@@ -29,7 +29,7 @@ from twitter.common.dirutil import  safe_open
 
 from twitter.pants import get_buildroot
 from twitter.pants.tasks import TaskError
-from twitter.pants.binary_util import bootstrap_classpath, find_java_home
+from twitter.pants.binary_util import find_java_home
 
 
 # Well known metadata file required to register scalac plugins with nsc.
@@ -48,9 +48,11 @@ class ZincUtils(object):
     self._pants_home = get_buildroot()
 
     # The target scala version.
-    self._compile_bootstrap_tools = context.config.getlist('scala-compile', 'compile-bootstrap-tools')
+    self._compile_bootstrap_tools = context.config.getlist('scala-compile',
+                                                           'compile-bootstrap-tools')
     self._zinc_bootstrap_tools = context.config.getlist('scala-compile', 'zinc-bootstrap-tools')
-    self._plugins_bootstrap_tools = context.config.getlist('scala-compile', 'scalac-plugins-bootstrap-tools')
+    self._plugins_bootstrap_tools = context.config.getlist('scala-compile',
+                                                           'scalac-plugins-bootstrap-tools')
 
     self._main = context.config.get('scala-compile', 'main')
     self._scalac_args = context.config.getlist('scala-compile', 'args')
@@ -205,6 +207,7 @@ class ZincUtils(object):
           shutil.copy(tmp_relations_file, dst_relations_file)
       return exit_code
 
+  @staticmethod
   def write_plugin_info(self, resources_dir, target):
     basedir = os.path.join(resources_dir, target.id)
     with safe_open(os.path.join(basedir, _PLUGIN_INFO_FILE), 'w') as f:

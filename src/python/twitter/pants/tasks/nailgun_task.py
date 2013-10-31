@@ -25,7 +25,6 @@ from twitter.common import log
 from twitter.common.dirutil import safe_open
 from twitter.common.python.platforms import Platform
 
-from twitter.pants.binary_util import bootstrap_classpath
 from twitter.pants import binary_util, get_buildroot
 from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.java import NailgunClient, NailgunError
@@ -77,7 +76,9 @@ class NailgunTask(Task):
     Task.__init__(self, context)
 
     self._classpath = classpath
-    self._nailgun_bootstrap_tools = context.config.getlist('nailgun', 'bootstrap-tools')
+    self._nailgun_bootstrap_tools = context.config.getlist('nailgun',
+                                                           'bootstrap-tools',
+                                                           default=[':nailgun-server'])
     self._ng_server_args = context.config.getlist('nailgun', 'args')
     self._daemon = context.options.nailgun_daemon
 
@@ -187,17 +188,7 @@ class NailgunTask(Task):
 
     profile: The name of the tool profile classpath to ensure.
     """
-    # binary_util.bootstrap_classpath wants to pass the workunit_factory into the runner,
-    # so we give it a wrapper method that accepts that argument.
-    def java_runner(main, classpath=None, opts=None, args=None, jvmargs=None,
-                    workunit_factory=None, workunit_name=None):
-      assert workunit_factory is None
-      return self.runjava_indivisible(main, classpath=classpath, opts=opts, args=args,
-                                      jvmargs=jvmargs, workunit_name=workunit_name)
-    return binary_util.bootstrap_classpath(external_tools=external_tools,
-                                           context=self.context,
-                                           java_runner=java_runner,
-                                           config=self.context.config)
+    return super(NailgunTask, self).bootstrap_classpath(external_tools, self.runjava_indivisible)
 
   @staticmethod
   def killall(log, everywhere=False):
@@ -290,9 +281,8 @@ class NailgunTask(Task):
       args.extend(self._ng_server_args)
     args.append(NailgunTask.PANTS_NG_ARG)
     args.append(self._identifier_arg)
-    ng_classpath = os.pathsep.join(bootstrap_classpath(self._nailgun_bootstrap_tools,
-                                                       self.context,
-                                                       workunit_factory=self.context.new_workunit))
+    ng_classpath = os.pathsep.join(super(NailgunTask, self)
+                                   .bootstrap_classpath(self._nailgun_bootstrap_tools))
 
     args.extend(['-cp', ng_classpath, 'com.martiansoftware.nailgun.NGServer', ':0'])
     log.debug('Executing: %s' % ' '.join(args))
