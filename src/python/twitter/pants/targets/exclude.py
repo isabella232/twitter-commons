@@ -22,10 +22,10 @@ class Exclude(object):
     self.name = name
 
   def __eq__(self, other):
-    return all(other,
-               type(other) == Exclude,
-               self.org == other.org,
-               self.name == other.name)
+    return all([other,
+                type(other) == Exclude,
+                self.org == other.org,
+                self.name == other.name])
 
   def __hash__(self):
     value = 17

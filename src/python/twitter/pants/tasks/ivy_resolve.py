@@ -29,7 +29,6 @@ from twitter.common.dirutil import safe_mkdir, safe_open
 
 from twitter.pants import binary_util, is_internal, is_jar, is_concrete
 from twitter.pants.tasks import TaskError
-from twitter.pants.tasks.cache_manager import VersionedTargetSet
 from twitter.pants.tasks.ivy_utils import IvyUtils
 from twitter.pants.tasks.nailgun_task import NailgunTask
 
@@ -83,19 +82,19 @@ class IvyResolve(NailgunTask):
 
     self._cachedir = context.options.ivy_resolve_cache or context.config.get('ivy', 'cache_dir')
     self._confs = confs or context.config.getlist('ivy-resolve', 'confs')
-
-    self._ivy_bootstrap_tools = context.config.getlist('ivy-resolve', 'bootstrap-tools')
-
     self._work_dir = context.config.get('ivy-resolve', 'workdir')
     self._classpath_dir = os.path.join(self._work_dir, 'mapped')
 
     self._outdir = context.options.ivy_resolve_outdir or os.path.join(self._work_dir, 'reports')
     self._open = context.options.ivy_resolve_open
     self._report = self._open or context.options.ivy_resolve_report
+
+    self._ivy_bootstrap_tools = context.config.getlist('ivy-resolve', 'bootstrap-tools')
+    self._bootstrap_utils.register_all([self._ivy_bootstrap_tools])
+
     self._ivy_utils = IvyUtils(config=context.config,
                                options=context.options,
-                               log=context.log,
-                               cachedir=self._cachedir)
+                               log=context.log)
     context.products.require_data('exclusives_groups')
 
     # Typically this should be a local cache only, since classpaths aren't portable.
@@ -195,7 +194,8 @@ class IvyResolve(NailgunTask):
       with open(report, 'w') as report_handle:
         print(no_deps_xml, file=report_handle)
 
-    classpath = binary_util.bootstrap_classpath(self._ivy_bootstrap_tools, self.context)
+    classpath = self._bootstrap_utils.get_jvm_build_tools_classpath(self._ivy_bootstrap_tools,
+                                                                    self.runjava_indivisible)
 
     reports = []
     org, name = self._ivy_utils.identify(self.context.target_roots)

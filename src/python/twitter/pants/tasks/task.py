@@ -20,6 +20,7 @@ import sys
 from contextlib import contextmanager
 import itertools
 
+from twitter.pants import is_internal, is_jar, is_concrete
 from twitter.common.collections.orderedset import OrderedSet
 from twitter.pants.base.worker_pool import Work
 from twitter.pants.cache import create_artifact_cache
@@ -28,7 +29,8 @@ from twitter.pants.base.hash_utils import hash_file
 from twitter.pants.base.build_invalidator import CacheKeyGenerator
 from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.reporting.reporting_utils import items_to_report_element
-from twitter.pants.tasks.cache_manager import CacheManager, InvalidationCheck
+from twitter.pants.tasks.cache_manager import CacheManager, InvalidationCheck, VersionedTargetSet
+from twitter.pants.tasks.bootstrap_utils import BootstrapUtils
 
 
 class TaskError(Exception):
@@ -53,6 +55,7 @@ class Task(object):
     self._artifact_cache = None
     self._build_invalidator_dir = os.path.join(context.config.get('tasks', 'build_invalidator'),
                                                self.product_type())
+    self._bootstrap_utils = BootstrapUtils(self.context.products)
 
   def setup_artifact_cache(self, spec):
     """Subclasses can call this in their __init__() to set up artifact caching for that task type.
@@ -78,7 +81,6 @@ class Task(object):
     if self._artifact_cache is None and self._artifact_cache_spec is not None:
       self._artifact_cache = self.create_artifact_cache(self._artifact_cache_spec)
     return self._artifact_cache
-
 
   def product_type(self):
     """Set the product type for this task.
@@ -301,28 +303,6 @@ class Task(object):
     """Subclasses can override to determine whether a given path represents a mappable artifact."""
     return path.endswith('.jar') or path.endswith('.war')
 
-  def resolve_tool_targets(self, tools):
-    for tool in tools:
-      try:
-        targets = list(self.context.resolve(tool))
-      except KeyError:
-        self.context.log.error("Failed to resolve target for bootstrap tool: %s."
-                               "  You probably need to add this dep to your"
-                               " tools build file(s), usually located in the root of the build." % 
-                               tool)
-        raise
-      for target in targets:
-        yield target
-
-  def bootstrap_classpath(self, tools, java_runner=None):
-    targets = list(self.resolve_tool_targets(tools))
-    ivy_args = [
-      '-sync',
-      '-symlink',
-      '-types', 'jar', 'bundle',
-    ]
-    return self.ivy_resolve(targets, java_runner=java_runner, ivy_args=ivy_args)
-
   def ivy_resolve(self, targets, java_runner=None, ivy_args=None):
     from twitter.pants.tasks.ivy_utils import IvyUtils
     from twitter.pants.binary_util import runjava_indivisible
@@ -330,32 +310,35 @@ class Task(object):
     java_runner = java_runner or runjava_indivisible
     ivy_args = ivy_args or []
 
-    def is_classpath(target):
-      return (is_jar(target) or 
-              (is_internal(target) and any(jar for jar in target.jar_dependencies if jar.rev)))
-
     targets = set(targets)
-    classpath_targets = OrderedSet()
-    for target in targets:
-      classpath_targets.update(t for t in target.resolve() if is_classpath(t) and is_concrete(t))
 
+    if not targets:
+      return []
+    
     work_dir = self.context.config.get('ivy-resolve', 'workdir')
     confs = self.context.config.getlist('ivy-resolve', 'confs')
 
-    with self.invalidated(classpath_targets,
+    with self.invalidated(targets,
                           only_buildfiles=True,
                           invalidate_dependents=True) as invalidation_check:
       global_vts = VersionedTargetSet.from_versioned_targets(invalidation_check.all_vts)
-      target_workdir = os.path.join(self._work_dir, global_vts.cache_key.hash)
+      target_workdir = os.path.join(work_dir, global_vts.cache_key.hash)
       target_classpath_file = os.path.join(target_workdir, 'classpath')
       # Note that it's possible for all targets to be valid but for no classpath file to exist at
       # target_classpath_file, e.g., if we previously built a superset of targets.
       if invalidation_check.invalid_vts or not os.path.exists(target_classpath_file):
-        self._ivy_utils.exec_ivy(
+        ivy_utils = IvyUtils(config=self.context.config,
+                             options=self.context.options,
+                             log=self.context.log)
+        args = (['-cachepath', target_classpath_file] +
+                ['-confs'] + confs +
+                ivy_args)
+
+        ivy_utils.exec_ivy(
           target_workdir=target_workdir,
           targets=targets,
-          args=['-cachepath', target_classpath_file, '-confs'] + self._confs,
-          runjava=self.runjava_indivisible,
+          args=args,
+          runjava=java_runner,
         )
 
         if not os.path.exists(target_classpath_file):
@@ -363,7 +346,6 @@ class Task(object):
         if self.get_artifact_cache() and self.context.options.write_to_artifact_cache:
           self.update_artifact_cache([(global_vts, [target_classpath_file])])
 
-    with IvyUtils.cachepath(classpath_file) as classpath:
+    with IvyUtils.cachepath(target_classpath_file) as classpath:
       stripped_classpath = [path.strip() for path in classpath]
       return [path for path in stripped_classpath if self._map_jar(path)]
-

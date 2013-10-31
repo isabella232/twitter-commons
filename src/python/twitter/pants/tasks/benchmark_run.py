@@ -16,7 +16,7 @@
 
 import os
 import shutil
-from twitter.pants.binary_util import bootstrap_classpath, runjava_indivisible
+from twitter.pants.binary_util import runjava_indivisible
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.jvm_task import JvmTask
 
@@ -39,13 +39,19 @@ class BenchmarkRun(JvmTask):
   def __init__(self, context):
     Task.__init__(self, context)
     config = context.config
-    self._benchmark_bootstrap_tools = config.getlist('benchmark-run', 'bootstrap-tools',
-                                                     default=['3rdparty:benchmark-caliper-0.5'])
     self.confs = config.getlist('benchmark-run', 'confs')
     self.java_args = config.getlist('benchmark-run', 'args',
                                     default=['-Xmx1g', '-XX:MaxPermSize=256m'])
-    self._agent_bootstrap_tools = config.getlist('benchmark-run', 'agent_profile',
-                                                 default=['3rdparty:benchmark-java-allocation-instrumenter-2.1'])
+
+    self._benchmark_bootstrap_tools = config.getlist('benchmark-run', 'bootstrap-tools',
+                                                     default=[':benchmark-caliper-0.5'])
+    self._agent_bootstrap_tools = config.getlist('benchmark-run',
+                                                 'agent_profile',
+                                                 default=[':benchmark-java-allocation-instrumenter-2.1'])
+
+    self._bootstrap_utils.register_all([self._benchmark_bootstrap_tools,
+                                        self._agent_bootstrap_tools])
+
     # TODO(Steve Gury):
     # Find all the target classes from the Benchmark target itself
     # https://jira.twitter.biz/browse/AWESOME-1938
@@ -53,24 +59,29 @@ class BenchmarkRun(JvmTask):
 
     if context.options.memory_profiling:
       self.caliper_args += ['--measureMemory']
-      # For rewriting JDK classes to work, the JAR file has to be listed specifically in
-      # the JAR manifest as something that goes in the bootclasspath.
-      # The MANIFEST list a jar 'allocation.jar' this is why we have to rename it
-      agent_jar = os.readlink(bootstrap_classpath(self._agent_bootstrap_tools, context=context)[0])
-      allocation_jar = os.path.join(os.path.dirname(agent_jar), "allocation.jar")
-      # TODO(Steve Gury): Find a solution to avoid copying the jar every run and being resilient
-      # to version upgrade
-      shutil.copyfile(agent_jar, allocation_jar)
-      os.environ['ALLOCATION_JAR'] = str(allocation_jar)
 
     if context.options.debug:
       self.java_args.extend(context.config.getlist('jvm', 'debug_args'))
       self.caliper_args += ['--debug']
 
   def execute(self, targets):
+    # For rewriting JDK classes to work, the JAR file has to be listed specifically in
+    # the JAR manifest as something that goes in the bootclasspath.
+    # The MANIFEST list a jar 'allocation.jar' this is why we have to rename it
+    agent_tools_classpath = self._bootstrap_utils.get_jvm_build_tools_classpath(self._agent_bootstrap_tools)
+    agent_jar = agent_tools_classpath[0]
+    allocation_jar = os.path.join(os.path.dirname(agent_jar), "allocation.jar")
+
+    # TODO(Steve Gury): Find a solution to avoid copying the jar every run and being resilient
+    # to version upgrade
+    shutil.copyfile(agent_jar, allocation_jar)
+    os.environ['ALLOCATION_JAR'] = str(allocation_jar)
+
+    benchmark_tools_classpath = self._bootstrap_utils.get_jvm_build_tools_classpath(self._benchmark_bootstrap_tools)
+
     exit_code = runjava_indivisible(
       jvmargs=self.java_args,
-      classpath=self.classpath(bootstrap_classpath(self._benchmark_bootstrap_tools), context=self.context),
+      classpath=self.classpath(benchmark_tools_classpath),
       main='com.google.caliper.Runner',
       opts=self.caliper_args,
       workunit_name='caliper'

@@ -16,13 +16,15 @@
 from __future__ import print_function
 
 from collections import namedtuple, defaultdict
+from contextlib import contextmanager
+import hashlib
 import os
 import xml
 import pkgutil
 import re
 
 from twitter.common.collections import OrderedSet
-from twitter.common.dirutil import safe_mkdir
+from twitter.common.dirutil import safe_mkdir, safe_open
 
 from twitter.pants import get_buildroot, is_internal, is_jar, is_jvm, is_concrete
 from twitter.pants.base.generator import Generator, TemplateData
@@ -35,7 +37,7 @@ IvyModuleRef = namedtuple('IvyModuleRef', ['org', 'name', 'rev', 'conf'])
 IvyArtifact = namedtuple('IvyArtifact', ['path'])
 IvyModule = namedtuple('IvyModule', ['ref', 'artifacts', 'callers'])
 
-
+ 
 class IvyInfo(object):
   def __init__(self):
     self.modules_by_ref = {}  # Map from ref to referenced module.
@@ -49,7 +51,7 @@ class IvyInfo(object):
 
 class IvyUtils(object):
   """Useful methods related to interaction with ivy."""
-  def __init__(self, config, options, log, cachedir=None):
+  def __init__(self, config, options, log):
     self._log = log
     self._config = config
     self._options = options
@@ -57,7 +59,11 @@ class IvyUtils(object):
     # TODO(pl): This is super awful, but options doesn't have a nice way to get out
     # attributes that might not be there, and even then the attribute value might be
     # None, which we still want to override
-    self._cachedir = cachedir or getattr(options, 'ivy_resolve_cache', None) or config.get('ivy', 'cache_dir')
+    # Benjy thinks we should probably hoist these options to the global set of options,
+    # rather than just keeping them within IvyResolve.setup_parser
+    self._cachedir = (getattr(options, 'ivy_resolve_cache', None) or
+                      config.get('ivy', 'cache_dir'))
+
     self._ivy_args = getattr(options, 'ivy_args', [])
     self._mutable_pattern = (getattr(options, 'ivy_mutable_pattern', None) or
                              config.get('ivy-resolve', 'mutable_pattern', default=None))
@@ -67,6 +73,9 @@ class IvyUtils(object):
     self._opts = config.getlist('ivy-resolve', 'args')
     self._work_dir = config.get('ivy-resolve', 'workdir')
     self._template_path = os.path.join('templates', 'ivy_resolve', 'ivy.mustache')
+    self._confs = config.getlist('ivy-resolve', 'confs')
+    self._classpath_file = os.path.join(self._work_dir, 'classpath')
+    self._classpath_dir = os.path.join(self._work_dir, 'mapped')
 
 
     if self._mutable_pattern:
@@ -127,7 +136,7 @@ class IvyUtils(object):
 
   def parse_xml_report(self, targets, conf):
     """Returns the IvyInfo representing the info in the xml report, or None of no report exists."""
-    path = self.xml_report_path(conf)
+    path = self.xml_report_path(targets, conf)
     if not os.path.exists(path):
       return None
 
@@ -321,12 +330,9 @@ class IvyUtils(object):
     """Subclasses can override to establish an isolated jar mapping directory."""
     return os.path.join(self._work_dir, 'mapped-jars')
 
-  def _map_jar(self, path):
-    """Subclasses can override to determine whether a given path represents a mappable artifact."""
-    return path.endswith('.jar') or path.endswith('.war')
-
   def exec_ivy(self, target_workdir, targets, args, runjava,
                workunit_name='ivy', workunit_factory=None, ivy_classpath=None):
+    ivy_classpath = ivy_classpath if ivy_classpath else self._config.getlist('ivy', 'classpath')
     ivyxml = os.path.join(target_workdir, 'ivy.xml')
     jars, excludes = self._calculate_classpath(targets)
     self._generate_ivy(targets, jars, excludes, ivyxml)
@@ -356,3 +362,4 @@ class IvyUtils(object):
 
     if result != 0:
       raise TaskError('org.apache.ivy.Main returned %d' % result)
+

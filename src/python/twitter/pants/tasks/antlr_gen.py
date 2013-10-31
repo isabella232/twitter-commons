@@ -39,6 +39,9 @@ class AntlrGen(CodeGen, NailgunTask):
     CodeGen.__init__(self, context)
     NailgunTask.__init__(self, context)
 
+    self._bootstrap_utils.register_all(list(self._all_possible_antlr_bootstrap_tools))
+
+
   def is_gentarget(self, target):
     return isinstance(target, JavaAntlrLibrary)
 
@@ -60,7 +63,8 @@ class AntlrGen(CodeGen, NailgunTask):
       safe_mkdir(java_out)
 
       antlr_bootstrap_tools = self._antlr_bootstrap_tools(target)
-      antlr_classpath = self.bootstrap_classpath(antlr_bootstrap_tools)
+      antlr_classpath = self._bootstrap_utils.get_jvm_build_tools_classpath(antlr_bootstrap_tools,
+                                                                            self.runjava_indivisible)
       antlr_opts = ["-o", java_out]
 
       java_main = None
@@ -128,6 +132,11 @@ class AntlrGen(CodeGen, NailgunTask):
     for dep in self.context.config.getlist(key, 'javadeps'):
         deps.update(self.context.resolve(dep))
     return deps
+
+  @property
+  def _all_possible_antlr_bootstrap_tools(self):
+    for key in self._CONFIG_SECTION_BY_COMPILER.values():
+      yield self.context.config.getlist(key, 'javadeps')
 
   def _antlr_bootstrap_tools(self, target):
     key = self._CONFIG_SECTION_BY_COMPILER[target.compiler]

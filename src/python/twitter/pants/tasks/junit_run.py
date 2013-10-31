@@ -21,7 +21,6 @@ import sys
 from twitter.common.dirutil import safe_mkdir, safe_open
 
 from twitter.pants import binary_util, is_codegen, is_java, is_scala, is_test, junit_tests
-from twitter.pants.binary_util import bootstrap_classpath
 from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.tasks.jvm_task import JvmTask
@@ -140,8 +139,14 @@ class JUnitRun(JvmTask):
     context.products.require_data('exclusives_groups')
 
     self.confs = context.config.getlist('junit-run', 'confs')
-    self._bootstrap_tools = context.config.getlist('junit-run', 'bootstrap-tools')
-    self._emma_bootstrap_tools = context.config.get('junit-run', 'emma-bootstrap-tools')
+
+    self._bootstrap_tools = context.config.getlist('junit-run',
+                                                   'bootstrap-tools',
+                                                   default=[':junit'])
+    self._emma_bootstrap_tools = context.config.getlist('junit-run',
+                                                        'emma-bootstrap-tools',
+                                                        default=[':emma'])
+    self._bootstrap_utils.register_all([self._bootstrap_tools, self._emma_bootstrap_tools])
 
     self.java_args = context.config.getlist('junit-run', 'args', default=[])
     if context.options.junit_run_jvmargs:
@@ -208,9 +213,7 @@ class JUnitRun(JvmTask):
       tests = list(self.normalize_test_classes() if self.test_classes
                                                  else self.calculate_tests(targets))
       if tests:
-        bootstrapped_cp = bootstrap_classpath(self._bootstrap_tools,
-                                              context=self.context,
-                                              workunit_factory=self.context.new_workunit)
+        bootstrapped_cp = self._bootstrap_utils.get_jvm_build_tools_classpath(self._bootstrap_tools)
         junit_classpath = self.classpath(bootstrapped_cp,
                                          confs=self.confs,
                                          exclusives_classpath=self.get_base_classpath_for_target(targets[0]))
@@ -240,7 +243,7 @@ class JUnitRun(JvmTask):
             raise TaskError()
 
         if self.coverage:
-          emma_classpath = bootstrap_classpath(self._emma_bootstrap_tools, context=self.context)
+          emma_classpath = self._bootstrap_utils.get_jvm_build_tools_classpath(self._emma_bootstrap_tools)
 
           def instrument_code():
             safe_mkdir(self.coverage_instrument_dir, clean=True)

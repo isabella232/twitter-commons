@@ -25,7 +25,6 @@ from twitter.common.dirutil import safe_open, safe_mkdir, safe_rmtree
 
 from twitter.pants import has_sources, is_apt, Task
 from twitter.pants.base.target import Target
-from twitter.pants.binary_util import bootstrap_classpath
 from twitter.pants.goal.workunit import WorkUnit
 from twitter.pants.reporting.reporting_utils import items_to_report_element
 from twitter.pants.tasks import TaskError
@@ -101,8 +100,13 @@ class JavaCompile(NailgunTask):
     safe_mkdir(self._classes_dir)
     safe_mkdir(self._depfile_dir)
 
-    self._external_tools = context.config.getlist('java-compile', 'external-tools')
-    self._compiler_bootstrap_tools = context.config.getlist('java-compile', 'compiler-bootstrap-tools')
+    self._external_tools = context.config.getlist('java-compile',
+                                                  'external-tools',
+                                                  default=[':jmake'])
+    self._compiler_bootstrap_tools = context.config.getlist('java-compile',
+                                                            'compiler-bootstrap-tools',
+                                                            default=[':java-compiler'])
+    self._bootstrap_utils.register_all([self._external_tools, self._compiler_bootstrap_tools])
 
     self._opts = context.config.getlist('java-compile', 'args')
     self._jvm_args = context.config.getlist('java-compile', 'jvm_args')
@@ -282,18 +286,14 @@ class JavaCompile(NailgunTask):
     return sources_by_target
 
   def compile(self, classpath, sources, fingerprint, depfile):
-    jmake_classpath = bootstrap_classpath(self._external_tools,
-                                          context=self.context,
-                                          java_runner=self.runjava_indivisible)
+    jmake_classpath = self._bootstrap_utils.get_jvm_build_tools_classpath(self._external_tools)
     opts = [
       '-classpath', ':'.join(classpath),
       '-d', self._classes_dir,
       '-pdb', os.path.join(self._classes_dir, '%s.dependencies.pdb' % fingerprint),
     ]
 
-    compiler_classpath = bootstrap_classpath(self._compiler_bootstrap_tools,
-                                             context=self.context,
-                                             java_runner=self.runjava_indivisible)
+    compiler_classpath = self._bootstrap_utils.get_jvm_build_tools_classpath(self._compiler_bootstrap_tools)
     opts.extend([
       '-jcpath', ':'.join(compiler_classpath),
       '-jcmainclass', 'com.twitter.common.tools.Compiler',

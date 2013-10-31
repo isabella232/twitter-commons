@@ -20,7 +20,8 @@ jar_library(name = 'java-compiler',
 jar_library(name = 'nailgun-server',
             dependencies = [jar(org = 'com.martiansoftware', name = 'nailgun-server', rev = '0.9.1')])
 
-jar_library(name = 'emma', dependencies = [jar(org = 'emma', name = 'emma', rev = '2.1.5320')])
+jar_library(name = 'emma',
+            dependencies = [jar(org = 'emma', name = 'emma', rev = '2.1.5320')])
 
 jar_library(name = 'benchmark-caliper-0.5',
             dependencies = [jar(org = 'com.google.caliper', name = 'caliper', rev = '0.5-rc1')])
