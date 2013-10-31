@@ -105,31 +105,13 @@ class IvyResolve(NailgunTask):
   def invalidate_for(self):
     return self.context.options.ivy_resolve_overrides
 
-  @contextmanager
-  def _cachepath(self, path):
-    if not os.path.exists(path):
-      yield ()
-    else:
-      with safe_open(path, 'r') as cp:
-        yield (path.strip() for path in cp.read().split(os.pathsep) if path.strip())
-
   def execute(self, targets):
     """Resolves the specified confs for the configured targets and returns an iterator over
     tuples of (conf, jar path).
     """
-    def dirname_for_requested_targets(targets):
-      """Where we put the classpath file for this set of targets."""
-      sha = hashlib.sha1()
-      for t in targets:
-        sha.update(t.id)
-      return sha.hexdigest()
-
-    def is_classpath(target):
-      return is_jar(target) or (
-        is_internal(target) and any(jar for jar in target.jar_dependencies if jar.rev)
-      )
 
     groups = self.context.products.get_data('exclusives_groups')
+
 
     # Below, need to take the code that actually execs ivy, and invoke it once for each
     # group. Then after running ivy, we need to take the resulting classpath, and load it into
@@ -143,52 +125,23 @@ class IvyResolve(NailgunTask):
     #   - the two groups that are in conflict (A and B).
     # In the latter case, we need to do the resolve twice: Once for A+X, and once for B+X,
     # because things in A and B can depend on things in X; and so they can indirectly depend
-    # on the dependencies of X. (I think this well be covered by the computed transitive dependencies of
+    # on the dependencies of X. 
+    # (I think this well be covered by the computed transitive dependencies of
     # A and B. But before pushing this change, review this comment, and make sure that this is
-    # working correctly.
+    # working correctly.)
     for group_key in groups.get_group_keys():
       # Narrow the groups target set to just the set of targets that we're supposed to build.
       # Normally, this shouldn't be different from the contents of the group.
       group_targets = groups.get_targets_for_group_key(group_key) & set(targets)
-
-      classpath_targets = OrderedSet()
-      for target in group_targets:
-        classpath_targets.update(filter(is_classpath, filter(is_concrete, target.resolve())))
-
-      if len(classpath_targets) == 0:
-        continue  # Nothing to do.
-
-      target_workdir = os.path.join(self._work_dir, dirname_for_requested_targets(group_targets))
-      target_classpath_file = os.path.join(target_workdir, 'classpath')
-      with self.invalidated(classpath_targets,
-                            only_buildfiles=True,
-                            invalidate_dependents=True) as invalidation_check:
-        # Note that it's possible for all targets to be valid but for no classpath file to exist at
-        # target_classpath_file, e.g., if we previously built a superset of targets.
-        if invalidation_check.invalid_vts or not os.path.exists(target_classpath_file):
-          self._ivy_utils.exec_ivy(
-            target_workdir=target_workdir,
-            targets=targets,
-            args=['-cachepath', target_classpath_file, '-confs'] + self._confs,
-            runjava=self.runjava_indivisible,
-          )
-
-          if not os.path.exists(target_classpath_file):
-            raise TaskError('Ivy failed to create classpath file at %s %s' % target_classpath_file)
-          if self.get_artifact_cache() and self.context.options.write_to_artifact_cache:
-            global_vts = VersionedTargetSet.from_versioned_targets(invalidation_check.all_vts)
-            self.update_artifact_cache([(global_vts, [target_classpath_file])])
-
-      with self._cachepath(target_classpath_file) as classpath:
+      classpath = self.ivy_resolve(group_targets, self.runjava_indivisible)
+      for conf in self._confs:
         for path in classpath:
-          if self._map_jar(path):
-            for conf in self._confs:
-              groups.update_compatible_classpaths(group_key, [(conf, path.strip())])
+          groups.update_compatible_classpaths(group_key, [(conf, path)])
 
     if self._report:
       self._generate_ivy_report()
 
-    if self.context.products.isrequired("ivy_jar_products"):
+    if self.context.products.isrequired('ivy_jar_products'):
       self._populate_ivy_jar_products(targets)
 
     create_jardeps_for = self.context.products.isrequired(self._ivy_utils._mapfor_typename())
@@ -202,39 +155,6 @@ class IvyResolve(NailgunTask):
     # by target. So we can only cache it keyed by the entire target set.
     global_vts = VersionedTargetSet.from_versioned_targets(invalidation_check.all_vts)
     return [global_vts]
-
-  def _extract_classpathdeps(self, targets):
-    """Subclasses can override to filter out a set of targets that should be resolved for classpath
-    dependencies.
-    """
-    def is_classpath(target):
-      return is_jar(target) or (
-        is_internal(target) and any(jar for jar in target.jar_dependencies if jar.rev)
-      )
-
-    classpath_deps = OrderedSet()
-    for target in targets:
-      classpath_deps.update(filter(is_classpath, filter(is_concrete, target.resolve())))
-    return classpath_deps
-
-  def _generate_ivy(self, jars, excludes, ivyxml):
-    org, name = self._ivy_utils.identify()
-    template_data = TemplateData(
-      org=org,
-      module=name,
-      version='latest.integration',
-      publications=None,
-      is_idl=False,
-      dependencies=[self._generate_jar_template(jar) for jar in jars],
-      excludes=[self._generate_exclude_template(exclude) for exclude in excludes]
-    )
-
-    safe_mkdir(os.path.dirname(ivyxml))
-    with open(ivyxml, 'w') as output:
-      generator = Generator(pkgutil.get_data(__name__, self._template_path),
-                            root_dir = get_buildroot(),
-                            lib = template_data)
-      generator.write(output)
 
   def _populate_ivy_jar_products(self, targets):
     """

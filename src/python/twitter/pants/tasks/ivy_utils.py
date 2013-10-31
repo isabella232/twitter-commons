@@ -104,6 +104,15 @@ class IvyUtils(object):
     if hasattr(options, 'ivy_resolve_overrides') and options.ivy_resolve_overrides:
       self._overrides.update(parse_override(o) for o in options.ivy_resolve_overrides)
 
+  @staticmethod
+  @contextmanager
+  def cachepath(path):
+    if not os.path.exists(path):
+      yield ()
+    else:
+      with safe_open(path, 'r') as cp:
+        yield (path.strip() for path in cp.read().split(os.pathsep) if path.strip())
+
   def identify(self, targets):
     targets = list(targets)
     if len(targets) == 1 and hasattr(targets[0], 'provides') and targets[0].provides:
