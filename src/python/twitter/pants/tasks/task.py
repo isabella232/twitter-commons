@@ -28,7 +28,7 @@ from twitter.pants.cache import create_artifact_cache
 from twitter.pants.base.hash_utils import hash_file
 from twitter.pants.base.build_invalidator import CacheKeyGenerator
 from twitter.pants.binary_util import runjava_indivisible
-from twitter.pants.goal.workunit import WorkUnit
+from twitter.pants.base.workunit import WorkUnit
 from twitter.pants.reporting.reporting_utils import items_to_report_element
 from twitter.pants.tasks.bootstrap_utils import BootstrapUtils
 from twitter.pants.tasks.cache_manager import CacheManager, InvalidationCheck, VersionedTargetSet

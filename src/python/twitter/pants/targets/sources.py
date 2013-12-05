@@ -20,7 +20,7 @@ import os
 from collections import defaultdict
 
 from twitter.common.collections import OrderedSet
-from twitter.pants import get_buildroot
+from twitter.pants.base.build_environment import get_buildroot
 from twitter.pants.base import ParseContext
 
 class SourceRoot(object):
@@ -99,6 +99,9 @@ class SourceRoot(object):
     """
     reldir = kwargs.pop('reldir', get_buildroot())
     basepath = os.path.abspath(os.path.join(reldir, basedir))
+    print "SOURCE ROOT:\n * buildroot: %s\n * reldir: %s\n * basepath: %s\n\n" % (get_buildroot(),
+                                                                                  reldir,
+                                                                                  basepath)
     if get_buildroot() != os.path.commonprefix((basepath, get_buildroot())):
       raise ValueError('The supplied basedir %s is not a sub-path of the project root %s' % (
         basepath,

@@ -16,7 +16,7 @@
 
 from functools import partial
 import threading
-from twitter.pants.goal.workunit import WorkUnit
+from twitter.pants.base.workunit import WorkUnit
 
 from twitter.pants.tasks import TaskError, Task
 
