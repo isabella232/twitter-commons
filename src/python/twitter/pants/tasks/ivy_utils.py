@@ -74,8 +74,6 @@ class IvyUtils(object):
     self._work_dir = config.get('ivy-resolve', 'workdir')
     self._template_path = os.path.join('templates', 'ivy_resolve', 'ivy.mustache')
     self._confs = config.getlist('ivy-resolve', 'confs')
-    self._classpath_file = os.path.join(self._work_dir, 'classpath')
-    self._classpath_dir = os.path.join(self._work_dir, 'mapped')
 
     if self._mutable_pattern:
       try:
@@ -123,6 +121,11 @@ class IvyUtils(object):
 
   @staticmethod
   def symlink_cachepath(inpath, symlink_dir, outpath):
+    """Symlinks all paths listed in inpath into symlink_dir.
+
+    Writes the resulting paths to outpath.
+    Returns a map of path -> symlink to that path.
+    """
     safe_mkdir(symlink_dir)
     with safe_open(inpath, 'r') as infile:
       paths = filter(None, infile.read().strip().split(os.pathsep))
@@ -134,6 +137,8 @@ class IvyUtils(object):
       symlinks.append(symlink)
     with safe_open(outpath, 'w') as outfile:
       outfile.write(':'.join(symlinks))
+    symlink_map = dict(zip(paths, symlinks))
+    return symlink_map
 
   def identify(self, targets):
     targets = list(targets)
