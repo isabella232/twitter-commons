@@ -711,10 +711,14 @@ def _has_sources(target, extension):
 # anyway (it acts on their synthetic counterparts) so it doesn't matter where they get chunked.
 # TODO: Make chunking only take into account the targets actually acted on? This would require
 # task types to declare formally the targets they act on.
+
+def _is_apt(target):
+  return target.is_apt
+
 def _is_java(target):
   return (target.is_java or 
           (isinstance(target, (JvmBinary, junit_tests, Benchmark))
-           and _has_sources(target, '.java')))
+           and _has_sources(target, '.java'))) and not target.is_apt
 
 def _is_scala(target):
   return (target.is_scala or 

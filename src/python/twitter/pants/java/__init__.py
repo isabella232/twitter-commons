@@ -15,6 +15,7 @@
 # ==================================================================================================
 
 import os
+import posixpath
 import stat
 import zipfile
 
@@ -39,12 +40,14 @@ def open_jar(path, *args, **kwargs):
     real_write = jar.write
     real_writestr = jar.writestr
 
-    made_dirs = set()
+    # All the dirs in the jar, stripped of the trailing slash.
+    made_dirs = set([x[:-1] for x in jar.namelist() if x.endswith('/')])
     def mkdirs(arcpath):
       if arcpath and arcpath not in made_dirs:
         made_dirs.add(arcpath)
 
-        parent_path = os.path.dirname(arcpath)
+        # Must use posixpath here, not os.path, as the path sep in jars is always '/'.
+        parent_path = posixpath.dirname(arcpath)
         mkdirs(parent_path)
 
         zipinfo = zipfile.ZipInfo(arcpath if arcpath.endswith('/') else arcpath + '/')
