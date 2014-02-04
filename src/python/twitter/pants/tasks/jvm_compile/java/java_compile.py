@@ -55,7 +55,7 @@ class JavaCompile(JvmCompile):
                             help="Pass these extra args to javac.")
 
   def __init__(self, context):
-    JvmCompile.__init__(self, context, workdir=context.config.get('java-compile', 'nailgun_dir'))
+    super(JavaCompile, self).__init__(context, jdk=True)
 
     self._depfile = os.path.join(self._analysis_dir, 'global_depfile')
 
@@ -88,8 +88,7 @@ class JavaCompile(JvmCompile):
     return ret
 
   def compile(self, args, classpath, sources, classes_output_dir, analysis_file):
-    jmake_classpath = self._jvm_tool_bootstrapper.get_jvm_tool_classpath(self._jmake_bootstrap_key,
-                                                                         self.runjava_indivisible)
+    jmake_classpath = self._jvm_tool_bootstrapper.get_jvm_tool_classpath(self._jmake_bootstrap_key)
     jmake_classpath = ['/Users/benjy/src/jmake/dist/jmake.jar']
 
     args = [
@@ -99,8 +98,8 @@ class JavaCompile(JvmCompile):
       '-pdb-text-format',
       ]
 
-    compiler_classpath = self._jvm_tool_bootstrapper.get_jvm_tool_classpath(self._compiler_bootstrap_key,
-                                                                            self.runjava_indivisible)
+    compiler_classpath = self._jvm_tool_bootstrapper.get_jvm_tool_classpath(
+        self._compiler_bootstrap_key)
     args.extend([
       '-jcpath', ':'.join(compiler_classpath),
       '-jcmainclass', 'com.twitter.common.tools.Compiler',
@@ -109,12 +108,12 @@ class JavaCompile(JvmCompile):
 
     args.extend(self._args)
     args.extend(sources)
-    result = self.runjava_indivisible(JavaCompile._JMAKE_MAIN,
-                                      classpath=jmake_classpath,
-                                      jvm_options=self._jvm_options,
-                                      args=args,
-                                      workunit_name='jmake',
-                                      workunit_labels=[WorkUnit.COMPILER])
+    result = self.runjava(classpath=jmake_classpath,
+                          main=JavaCompile._JMAKE_MAIN,
+                          jvm_options=self._jvm_options,
+                          args=args,
+                          workunit_name='jmake',
+                          workunit_labels=[WorkUnit.COMPILER])
     if result:
       default_message = 'Unexpected error - JMake returned %d' % result
       raise TaskError(_JMAKE_ERROR_CODES.get(result, default_message))
