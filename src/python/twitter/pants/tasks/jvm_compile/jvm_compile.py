@@ -7,7 +7,7 @@ from zipfile import ZIP_STORED, ZIP_DEFLATED
 from collections import defaultdict
 
 from twitter.common import contextutil
-from twitter.common.dirutil import safe_rmtree, safe_mkdir
+from twitter.common.dirutil import safe_rmtree, safe_mkdir, safe_delete
 from twitter.pants import get_buildroot, Task
 from twitter.pants.base.target import Target
 from twitter.pants.base.worker_pool import Work
@@ -158,6 +158,10 @@ class JvmCompile(NailgunTask):
     self._resources_dir = os.path.join(workdir, 'resources')
     self._analysis_dir = os.path.join(workdir, 'analysis')
 
+    # TODO(benjy): If building the classes jar up on the fly every time turns out to be expensive,
+    # we can consider keeping it around and manipulating it incrementally as needed. This won't
+    # be trivial, e.g., we'll need to track which targets it currently contains in some other file.
+    safe_delete(self._classes_jar)
     safe_mkdir(self._classes_dir)
     safe_mkdir(self._analysis_dir)
 

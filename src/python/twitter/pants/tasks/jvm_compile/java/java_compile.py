@@ -89,7 +89,6 @@ class JavaCompile(JvmCompile):
 
   def compile(self, args, classpath, sources, classes_output_dir, analysis_file):
     jmake_classpath = self._jvm_tool_bootstrapper.get_jvm_tool_classpath(self._jmake_bootstrap_key)
-    jmake_classpath = ['/Users/benjy/src/jmake/dist/jmake.jar']
 
     args = [
       '-classpath', ':'.join(classpath),
