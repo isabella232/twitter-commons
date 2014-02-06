@@ -40,6 +40,9 @@ def open_jar(path, *args, **kwargs):
     real_writestr = jar.writestr
 
     made_dirs = set()
+    for name in jar.namelist():
+      if name.endswith('/'):
+        made_dirs.add(name[:-1])
 
     def mkdirs(arcpath):
       if arcpath and arcpath not in made_dirs:
