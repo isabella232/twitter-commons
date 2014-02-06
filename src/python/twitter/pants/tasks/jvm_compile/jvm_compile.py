@@ -1,6 +1,5 @@
-
-import os
 import itertools
+import os
 import shutil
 import uuid
 from zipfile import ZIP_STORED, ZIP_DEFLATED
@@ -496,8 +495,8 @@ class JvmCompile(NailgunTask):
           products = self._analysis_parser.parse_products_from_path(self._analysis_file)
           buildroot = get_buildroot()
           old_sources = products.keys()  # Absolute paths.
-          self._lazy_deleted_sources = \
-            [os.path.relpath(src, buildroot) for src in old_sources if not os.path.exists(src)]
+          self._lazy_deleted_sources = [os.path.relpath(src, buildroot) for src in old_sources
+                                        if not os.path.exists(src)]
         else:
           self._lazy_deleted_sources = []
     return self._lazy_deleted_sources

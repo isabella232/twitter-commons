@@ -1,4 +1,5 @@
 import os
+
 from collections import defaultdict
 
 from twitter.common.collections import OrderedSet
@@ -58,6 +59,7 @@ class MultipleRootedProducts(object):
       ret = RootedProducts(root)
       self._rooted_products_by_root[root] = ret
     return ret
+
 
 class Products(object):
   """An out-of-band 'dropbox' where tasks can place build product information for later tasks to use.

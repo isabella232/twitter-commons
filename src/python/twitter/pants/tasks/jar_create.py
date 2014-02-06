@@ -183,9 +183,13 @@ class JarCreate(Task):
 
     for target in jvm_targets:
       target_classes = classes_by_target.get(target)
-      target_resources = resources_by_target.get(target)
-      if target_classes or target_resources or target.has_resources:
-        jar_name = '%s.jar' % jarname(target)
+
+      target_resources = []
+      if target.has_resources:
+        target_resources.extend(resources_by_target.get(r) for r in target.resources)
+
+      if target_classes or target_resources:
+        jar_name = jarname(target)
         add_genjar(target, jar_name)
         jar_path = os.path.join(self._output_dir, jar_name)
         with self.create_jar(target, jar_path) as jarfile:
@@ -195,7 +199,8 @@ class JarCreate(Task):
                 for prod in products:
                   jarfile.write(os.path.join(root, prod), prod)
           add_to_jar(target_classes)
-          add_to_jar(target_resources)
+          for resources_target in target_resources:
+            add_to_jar(resources_target)
 
   def idljar(self, idl_targets, add_genjar):
     for target in idl_targets:
