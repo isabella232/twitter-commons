@@ -12,7 +12,7 @@ from twitter.pants import get_buildroot, Task
 from twitter.pants.base.target import Target
 from twitter.pants.base.worker_pool import Work
 from twitter.pants.goal.products import MultipleRootedProducts
-from twitter.pants.java import open_jar
+from twitter.pants.java.jar import open_jar
 
 from twitter.pants.reporting.reporting_utils import items_to_report_element
 from twitter.pants.tasks.jvm_compile.jvm_dependency_analyzer import JvmDependencyAnalyzer
@@ -362,10 +362,6 @@ class JvmCompile(NailgunTask):
       else:
         # Nothing to build. Register products for all the targets in one go.
         self._register_products(relevant_targets, sources_by_target, self._analysis_file)
-
-    # Update the classpath for downstream tasks.
-    for conf in self._confs:
-      egroups.update_compatible_classpaths(group_id, [(conf, self._classes_jar)])
 
     self.post_process(relevant_targets)
 
