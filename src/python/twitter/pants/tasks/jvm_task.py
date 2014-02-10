@@ -29,7 +29,7 @@ class JvmTask(Task):
     return egroups.get_classpath_for_group(group_key)
 
   def classpath(self, classpath=None, exclusives_classpath=None):
-    classpath = list(classpath) or []
+    classpath = list(classpath) if classpath else []
     exclusives_classpath = exclusives_classpath or []
 
     classpath.extend(exclusives_classpath)
