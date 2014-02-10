@@ -141,7 +141,6 @@ class ExclusivesMapping(object):
     Return: the set of targets that share the exclusives settings. Returns
        an empty set if no targets have that key.
     """
-
     return self.key_to_targets[key]
 
   def get_group_key_for_target(self, target):

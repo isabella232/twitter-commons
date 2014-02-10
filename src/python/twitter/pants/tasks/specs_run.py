@@ -56,8 +56,6 @@ class SpecsRun(JvmTask):
                                              default=[':scala-specs-2.9.3'])
     self._jvm_tool_bootstrapper.register_jvm_tool(self._specs_bootstrap_key, bootstrap_tools)
 
-    self.confs = context.config.getlist('specs-run', 'confs')
-
     self._jvm_options = context.config.getlist('specs-run', 'jvm_args', default=[])
     if context.options.specs_run_jvm_options:
       self._jvm_options.extend(context.options.specs_run_jvm_options)
@@ -82,7 +80,6 @@ class SpecsRun(JvmTask):
             self._specs_bootstrap_key)
         classpath = self.classpath(
             bootstrapped_cp,
-            confs=self.confs,
             exclusives_classpath=self.get_base_classpath_for_target(targets[0]))
 
         result = execute_java(

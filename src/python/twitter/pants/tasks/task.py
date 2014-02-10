@@ -359,7 +359,6 @@ class Task(object):
       return []
 
     work_dir = self.context.config.get('ivy-resolve', 'workdir')
-    confs = self.context.config.getlist('ivy-resolve', 'confs')
 
     with self.invalidated(targets,
                           only_buildfiles=True,
@@ -382,8 +381,7 @@ class Task(object):
         ivy_utils = IvyUtils(config=self.context.config,
                              options=self.context.options,
                              log=self.context.log)
-        args = (['-cachepath', raw_target_classpath_file_tmp] +
-                ['-confs'] + confs)
+        args = (['-cachepath', raw_target_classpath_file_tmp, '-confs', 'default'])
 
         def exec_ivy():
           ivy_utils.exec_ivy(

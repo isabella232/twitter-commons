@@ -78,7 +78,7 @@ class IvyUtils(object):
     self._jvm_options.append('-Dsun.io.useCanonCaches=false')
     self._work_dir = config.get('ivy-resolve', 'workdir')
     self._template_path = os.path.join('templates', 'ivy_resolve', 'ivy.mustache')
-    self._confs = config.getlist('ivy-resolve', 'confs')
+    self._confs = ['default']
 
     if self._mutable_pattern:
       try:
@@ -171,7 +171,7 @@ class IvyUtils(object):
     cachedir = Bootstrapper.instance().ivy_cache_dir
     return os.path.join(cachedir, '%s-%s-%s.xml' % (org, name, conf))
 
-  def parse_xml_report(self, targets, conf):
+  def parse_xml_report(self, targets, conf='default'):
     """Returns the IvyInfo representing the info in the xml report, or None if no report exists."""
     path = self.xml_report_path(targets, conf)
     if not os.path.exists(path):

@@ -33,9 +33,6 @@ from .scaladoc_gen import scaladoc
 from . import Task, TaskError
 
 
-DEFAULT_CONFS = ['default']
-
-
 def is_binary(target):
   return isinstance(target, JvmBinary)
 
@@ -110,7 +107,6 @@ class JarCreate(Task):
     self._output_dir = (options.jar_create_outdir or
                         self.get_workdir(section='jar-create', workdir='jars'))
     self.transitive = options.jar_create_transitive
-    self.confs = context.config.getlist('jar-create', 'confs', default=DEFAULT_CONFS)
     self.compression = ZIP_DEFLATED if options.jar_create_compressed else ZIP_STORED
 
     self.jar_classes = options.jar_create_classes or products.isrequired('jars')

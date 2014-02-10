@@ -156,7 +156,7 @@ class IvyResolve(NailgunTask):
   def _populate_ivy_jar_products(self, targets):
     """Populate the build products with an IvyInfo object for each generated ivy report."""
     ivy_products = self.context.products.get_data('ivy_jar_products') or defaultdict(list)
-    ivyinfo = self._ivy_utils.parse_xml_report(targets, self._conf)
+    ivyinfo = self._ivy_utils.parse_xml_report(targets)
     if ivyinfo:
       ivy_products[self._conf].append(ivyinfo)  # Value is a list, to accommodate multiple exclusives groups.
     self.context.products.set_data('ivy_jar_products', ivy_products)

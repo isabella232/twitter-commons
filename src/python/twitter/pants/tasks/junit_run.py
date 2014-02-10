@@ -152,8 +152,6 @@ class JUnitRun(JvmTask):
 
     context.products.require_data('exclusives_groups')
 
-    self.confs = context.config.getlist('junit-run', 'confs')
-
     self._junit_bootstrap_key = 'junit'
     junit_bootstrap_tools = context.config.getlist('junit-run', 'junit-bootstrap-tools', default=[':junit'])
     self._jvm_tool_bootstrapper.register_jvm_tool(self._junit_bootstrap_key, junit_bootstrap_tools)
@@ -240,7 +238,6 @@ class JUnitRun(JvmTask):
             self._junit_bootstrap_key)
         junit_classpath = self.classpath(
             bootstrapped_cp,
-            confs=self.confs,
             exclusives_classpath=self.get_base_classpath_for_target(targets[0]))
 
         def run_tests(classpath, main, jvm_args=None):

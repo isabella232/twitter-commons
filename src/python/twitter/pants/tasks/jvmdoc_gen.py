@@ -23,7 +23,8 @@ import subprocess
 from twitter.common.dirutil import safe_mkdir
 
 from twitter.pants import binary_util
-from twitter.pants.tasks import Task, TaskError
+from twitter.pants.tasks import TaskError
+from twitter.pants.tasks.jvm_task import JvmTask
 
 Jvmdoc = collections.namedtuple('Jvmdoc', ['tool_name', 'product_type'])
 
@@ -33,7 +34,7 @@ ParserConfig = collections.namedtuple(
                  'ignore_failure_opt'])
 
 
-class JvmdocGen(Task):
+class JvmdocGen(JvmTask):
   @classmethod
   def setup_parser_config(cls):
     opts = ['%s_%s' % (cls.__name__, opt) for opt in ParserConfig._fields]
@@ -99,7 +100,7 @@ class JvmdocGen(Task):
       help='Specifies that %s errors should not cause build errors'
            % jvmdoc.tool_name)
 
-  def __init__(self, context, jvmdoc, output_dir, confs, active):
+  def __init__(self, context, jvmdoc, output_dir, active):
     def getattr_options(option):
       return getattr(context.options, option)
 
@@ -126,14 +127,13 @@ class JvmdocGen(Task):
                                                          default=False))
 
     self.transitive = getattr_options(parser_config.transitive_opt)
-    self.confs = confs or context.config.getlist(config_section, 'confs', default=['default'])
     self.active = active
     self.open = getattr_options(parser_config.open_opt)
     self.combined = self.open or getattr_options(parser_config.combined_opt)
     self.ignore_failure = getattr_options(parser_config.ignore_failure_opt)
 
   def invalidate_for(self):
-    return (self.combined, self.transitive, self._output_dir, self.confs, self._include_codegen)
+    return (self.combined, self.transitive, self._output_dir, self._include_codegen)
 
   def generate_execute(self, targets, language_predicate, create_jvmdoc_command):
     """
@@ -150,28 +150,28 @@ class JvmdocGen(Task):
           'Cannot provide %s target mappings for combined output' % self._jvmdoc.product_type)
     elif catalog or self.active:
       def docable(target):
-        return language_predicate(target) and (self._include_codegen or not is_codegen(target))
+        return language_predicate(target) and (self._include_codegen or not target.is_codegen)
 
       with self.invalidated(filter(docable, targets)) as invalidation_check:
         safe_mkdir(self._output_dir)
-        with self.context.state('classpath', []) as cp:
-          classpath = [jar for conf, jar in cp if conf in self.confs]
+        classpath = self.classpath(
+          exclusives_classpath=self.get_base_classpath_for_target(targets[0]))
 
-          def find_jvmdoc_targets():
-            invalid_targets = set()
-            for vt in invalidation_check.invalid_vts:
-              invalid_targets.update(vt.targets)
+        def find_jvmdoc_targets():
+          invalid_targets = set()
+          for vt in invalidation_check.invalid_vts:
+            invalid_targets.update(vt.targets)
 
-            if self.transitive:
-              return invalid_targets
-            else:
-              return set(invalid_targets).intersection(set(self.context.target_roots))
-
-          jvmdoc_targets = list(filter(docable, find_jvmdoc_targets()))
-          if self.combined:
-            self._generate_combined(classpath, jvmdoc_targets, create_jvmdoc_command)
+          if self.transitive:
+            return invalid_targets
           else:
-            self._generate_individual(classpath, jvmdoc_targets, create_jvmdoc_command)
+            return set(invalid_targets).intersection(set(self.context.target_roots))
+
+        jvmdoc_targets = list(filter(docable, find_jvmdoc_targets()))
+        if self.combined:
+          self._generate_combined(classpath, jvmdoc_targets, create_jvmdoc_command)
+        else:
+          self._generate_individual(classpath, jvmdoc_targets, create_jvmdoc_command)
 
       if catalog:
         for target in targets:

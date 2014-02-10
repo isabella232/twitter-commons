@@ -29,8 +29,8 @@ class ScaladocGen(JvmdocGen):
   def setup_parser(cls, option_group, args, mkflag):
     cls.generate_setup_parser(option_group, args, mkflag, scaladoc)
 
-  def __init__(self, context, output_dir=None, confs=None, active=True):
-    super(ScaladocGen, self).__init__(context, scaladoc, output_dir, confs, active)
+  def __init__(self, context, output_dir=None, active=True):
+    super(ScaladocGen, self).__init__(context, scaladoc, output_dir, active)
 
   def execute(self, targets):
     self.generate_execute(targets, lambda t: t.is_scala, create_scaladoc_command)

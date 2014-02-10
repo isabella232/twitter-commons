@@ -54,7 +54,6 @@ class Checkstyle(NailgunTask):
 
     self._work_dir = context.config.get('checkstyle', 'workdir')
     self._properties = context.config.getdict('checkstyle', 'properties')
-    self._confs = context.config.getlist('checkstyle', 'confs')
     self.context.products.require_data('exclusives_groups')
 
   def execute(self, targets):
@@ -81,7 +80,7 @@ class Checkstyle(NailgunTask):
     etag = egroups.get_group_key_for_target(targets[0])
     classpath = self._jvm_tool_bootstrapper.get_jvm_tool_classpath(self._checkstyle_bootstrap_key)
     cp = egroups.get_classpath_for_group(etag)
-    classpath.extend(jar for conf, jar in cp if conf in self._confs)
+    classpath.extend(cp)
 
     args = [
       '-c', self._configuration_file,

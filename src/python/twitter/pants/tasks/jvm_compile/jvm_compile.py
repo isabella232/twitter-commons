@@ -184,9 +184,6 @@ class JvmCompile(NailgunTask):
     # JVM options for running the compiler.
     self._jvm_options = context.config.getlist(config_section, 'jvm_args')
 
-    # The ivy confs for which we're building.
-    self._confs = context.config.getlist(config_section, 'confs')
-
     # Set up dep checking if needed.
     def munge_flag(flag):
       return None if flag == 'off' else flag
@@ -241,9 +238,8 @@ class JvmCompile(NailgunTask):
     classpath = egroups.get_classpath_for_group(group_id)
 
     # Add any extra classpath elements.
-    for conf in self._confs:
-      for jar in self.extra_classpath_elements():
-        classpath.insert(0, (conf, jar))
+    for jar in self.extra_classpath_elements():
+      classpath.insert(0, jar)
 
     # Target -> sources (relative to buildroot).
     sources_by_target = self._compute_sources_by_target(relevant_targets)
@@ -309,8 +305,7 @@ class JvmCompile(NailgunTask):
         # Now compile partitions one by one.
         for partition in partitions:
           (vts, sources, analysis_file) = partition
-          cp_entries = [entry for conf, entry in classpath if conf in self._confs]
-          self._process_target_partition(partition, cp_entries)
+          self._process_target_partition(partition, classpath)
           # No exception was thrown, therefore the compile succeded and analysis_file is now valid.
           if os.path.exists(analysis_file):  # The compilation created an analysis.
             # Merge the newly-valid analysis with our global valid analysis.
@@ -332,7 +327,7 @@ class JvmCompile(NailgunTask):
             if self._dep_analyzer:
               # Check for missing dependencies.
               actual_deps = self._analysis_parser.parse_deps_from_path(analysis_file,
-                  lambda: self._compute_classpath_elements_by_class(cp_entries))
+                  lambda: self._compute_classpath_elements_by_class(classpath))
               with self.context.new_workunit(name='find-missing-dependencies'):
                 self._dep_analyzer.check(sources, actual_deps)
 

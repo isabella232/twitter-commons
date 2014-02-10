@@ -38,7 +38,6 @@ class ScalaRepl(JvmTask):
     if context.options.run_jvmargs:
       for arg in context.options.run_jvmargs:
         self.jvm_args.extend(shlex.split(arg))
-    self.confs = context.config.getlist('scala-repl', 'confs')
     self._bootstrap_key = 'scala-repl'
     bootstrap_tools = context.config.getlist('scala-repl', 'bootstrap-tools')
     self._jvm_tool_bootstrapper.register_jvm_tool(self._bootstrap_key, bootstrap_tools)
@@ -57,7 +56,6 @@ class ScalaRepl(JvmTask):
     self.save_stty_options()
 
     classpath = self.classpath(tools_classpath,
-                               confs=self.confs,
                                exclusives_classpath=self.get_base_classpath_for_target(targets[0]))
 
     print('')  # Start REPL output on a new line.

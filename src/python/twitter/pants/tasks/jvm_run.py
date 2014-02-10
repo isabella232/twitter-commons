@@ -60,7 +60,6 @@ class JvmRun(JvmTask):
         self.args.extend(shlex.split(arg))
     if context.options.run_debug:
       self.jvm_args.extend(context.config.getlist('jvm', 'debug_args'))
-    self.confs = context.config.getlist('jvm-run', 'confs')
     self.only_write_cmd_line = context.options.only_write_cmd_line
     context.products.require_data('exclusives_groups')
 
@@ -87,7 +86,7 @@ class JvmRun(JvmTask):
 
       executor = CommandLineGrabber() if self.only_write_cmd_line else None
       result = execute_java(
-        classpath=(self.classpath(confs=self.confs, exclusives_classpath=group_classpath)),
+        classpath=(self.classpath(exclusives_classpath=group_classpath)),
         main=main,
         executor=executor,
         jvm_options=self.jvm_args,

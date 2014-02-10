@@ -43,7 +43,6 @@ class Provides(Task):
     self.ivy_utils = IvyUtils(config=context.config,
                               options=context.options,
                               log=context.log)
-    self.confs = context.config.getlist('ivy', 'confs')
     self.target_roots = context.target_roots
     self.transitive = context.options.provides_transitive
     self.workdir = context.config.get('provides', 'workdir')
@@ -54,51 +53,48 @@ class Provides(Task):
     context.add_new_target(self.workdir,
       JvmBinary,
       name='provides',
-      dependencies=self.target_roots,
-      configurations=self.confs)
+      dependencies=self.target_roots)
     context.products.require('jars')
 
   def execute(self, targets):
-    for conf in self.confs:
-      outpath = os.path.join(self.outdir, '%s.%s.provides' % 
-                             (self.ivy_utils.identify(targets)[1], conf))
-      if self.transitive:
-        outpath += '.transitive'
-      ivyinfo = self.ivy_utils.parse_xml_report(self.context, conf)
-      jar_paths = OrderedSet()
-      for root in self.target_roots:
-        jar_paths.update(self.get_jar_paths(ivyinfo, root, conf))
+    outpath = os.path.join(self.outdir, '%s.provides' % self.ivy_utils.identify(targets)[1])
+    if self.transitive:
+      outpath += '.transitive'
+    ivyinfo = self.ivy_utils.parse_xml_report(self.context)
+    jar_paths = OrderedSet()
+    for root in self.target_roots:
+      jar_paths.update(self.get_jar_paths(ivyinfo, root))
 
-      with open(outpath, 'w') as outfile:
-        def do_write(s):
-          outfile.write(s)
-          if self.also_write_to_stdout:
-            sys.stdout.write(s)
-        for jar in jar_paths:
-          do_write('# from jar %s\n' % jar)
-          for line in self.list_jar(jar):
-            if line.endswith('.class'):
-              class_name = line[:-6].replace('/', '.')
-              do_write(class_name)
-              do_write('\n')
-      print 'Wrote provides information to %s' % outpath
+    with open(outpath, 'w') as outfile:
+      def do_write(s):
+        outfile.write(s)
+        if self.also_write_to_stdout:
+          sys.stdout.write(s)
+      for jar in jar_paths:
+        do_write('# from jar %s\n' % jar)
+        for line in self.list_jar(jar):
+          if line.endswith('.class'):
+            class_name = line[:-6].replace('/', '.')
+            do_write(class_name)
+            do_write('\n')
+    print 'Wrote provides information to %s' % outpath
 
-  def get_jar_paths(self, ivyinfo, target, conf):
+  def get_jar_paths(self, ivyinfo, target):
     jar_paths = OrderedSet()
     if target.is_jar_library:
       # Jar library proxies jar dependencies or jvm targets, so the jars are just those of the
       # dependencies.
-      for paths in [ self.get_jar_paths(ivyinfo, dep, conf) for dep in target.dependencies ]:
+      for paths in [ self.get_jar_paths(ivyinfo, dep) for dep in target.dependencies ]:
         jar_paths.update(paths)
     elif target.is_jar_dependency:
-      ref = IvyModuleRef(target.org, target.name, target.rev, conf)
+      ref = IvyModuleRef(target.org, target.name, target.rev, 'default')
       jar_paths.update(self.get_jar_paths_for_ivy_module(ivyinfo, ref))
     elif target.is_jvm:
       for basedir, jars in self.context.products.get('jars').get(target).items():
         jar_paths.update([os.path.join(basedir, jar) for jar in jars])
       if self.transitive:
         for dep in target.dependencies:
-          jar_paths.update(self.get_jar_paths(ivyinfo, dep, conf))
+          jar_paths.update(self.get_jar_paths(ivyinfo, dep))
 
     return jar_paths
 
