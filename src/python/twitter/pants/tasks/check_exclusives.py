@@ -274,7 +274,7 @@ class ExclusivesMapping(object):
     for key in self._group_classpaths:
       if group_key is None or self._is_compatible(group_key, key):
         group_classpath = self._group_classpaths[key]
-        group_classpath.add(('default', classpath_element))
+        group_classpath.add(classpath_element)
 
   def _set_base_classpath_for_group(self, group_key, classpath):
     """set the initial classpath of a group.

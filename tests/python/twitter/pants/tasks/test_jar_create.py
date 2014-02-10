@@ -83,7 +83,6 @@ class JarCreateMiscTest(JarCreateTestBase):
 
     jar_create = JarCreate(create_context(config=ini, options=self.create_options()))
     self.assertEquals(jar_create._output_dir, '/tmp/pants.d/jars')
-    self.assertEquals(jar_create.confs, ['default'])
 
   def test_resources_with_scala_java_files(self):
     for ftype in ('java', 'scala'):
