@@ -74,7 +74,6 @@ class IvyResolve(NailgunTask):
 
     self._ivy_bootstrapper = Bootstrapper.instance()
     self._cachedir = self._ivy_bootstrapper.ivy_cache_dir
-    self._conf = 'default'  # TODO: Remove this arg from methods that need it, then drop it entirely.
     self._classpath_dir = os.path.join(work_dir, 'mapped')
 
     self._outdir = context.options.ivy_resolve_outdir or os.path.join(work_dir, 'reports')
@@ -97,8 +96,7 @@ class IvyResolve(NailgunTask):
     return self.context.options.ivy_resolve_overrides
 
   def execute(self, targets):
-    """Resolves the specified confs for the configured targets and returns an iterator over
-    tuples of (conf, jar path).
+    """Resolves jar dependencies for the configured targets.
     """
     groups = self.context.products.get_data('exclusives_groups')
     executor = self.create_java_executor()
@@ -155,14 +153,14 @@ class IvyResolve(NailgunTask):
 
   def _populate_ivy_jar_products(self, targets):
     """Populate the build products with an IvyInfo object for each generated ivy report."""
-    ivy_products = self.context.products.get_data('ivy_jar_products') or defaultdict(list)
+    ivy_products = self.context.products.get_data('ivy_jar_products') or []
     ivyinfo = self._ivy_utils.parse_xml_report(targets)
     if ivyinfo:
-      ivy_products[self._conf].append(ivyinfo)  # Value is a list, to accommodate multiple exclusives groups.
+      ivy_products.append(ivyinfo)  # Value is a list, to accommodate multiple exclusives groups.
     self.context.products.set_data('ivy_jar_products', ivy_products)
 
   def _generate_ivy_report(self, targets):
-    def make_empty_report(report, organisation, module, conf):
+    def make_empty_report(report, organisation, module):
       no_deps_xml_template = """
         <?xml version="1.0" encoding="UTF-8"?>
         <?xml-stylesheet type="text/xsl" href="ivy-report.xsl"?>
@@ -171,14 +169,13 @@ class IvyResolve(NailgunTask):
             organisation="%(organisation)s"
             module="%(module)s"
             revision="latest.integration"
-            conf="%(conf)s"
-            confs="%(conf)s"
+            conf="default"
+            confs="default"
             date="%(timestamp)s"/>
         </ivy-report>
       """
       no_deps_xml = no_deps_xml_template % dict(organisation=organisation,
                                                 module=module,
-                                                conf=conf,
                                                 timestamp=time.strftime('%Y%m%d%H%M%S'))
       with open(report, 'w') as report_handle:
         print(no_deps_xml, file=report_handle)
@@ -194,11 +191,11 @@ class IvyResolve(NailgunTask):
     # points.
     safe_mkdir(self._outdir, clean=False)
 
-    params = dict(org=org, name=name, conf=self._conf)
-    xml = self._ivy_utils.xml_report_path(targets, self._conf)
+    params = dict(org=org, name=name)
+    xml = self._ivy_utils.xml_report_path(targets)
     if not os.path.exists(xml):
-      make_empty_report(xml, org, name, self._conf)
-    out = os.path.join(self._outdir, '%(org)s-%(name)s-%(conf)s.html' % params)
+      make_empty_report(xml, org, name)
+    out = os.path.join(self._outdir, '%(org)s-%(name)s.html' % params)
     args = ['-IN', xml, '-XSL', xsl, '-OUT', out]
     if 0 != self.runjava(classpath=classpath, main='org.apache.xalan.xslt.Process',
                          args=args, workunit_name='report'):

@@ -78,7 +78,6 @@ class IvyUtils(object):
     self._jvm_options.append('-Dsun.io.useCanonCaches=false')
     self._work_dir = config.get('ivy-resolve', 'workdir')
     self._template_path = os.path.join('templates', 'ivy_resolve', 'ivy.mustache')
-    self._confs = ['default']
 
     if self._mutable_pattern:
       try:
@@ -165,26 +164,27 @@ class IvyUtils(object):
     else:
       return 'internal', Target.maybe_readable_identify(targets)
 
-  def xml_report_path(self, targets, conf):
+  def xml_report_path(self, targets):
     """The path to the xml report ivy creates after a retrieve."""
     org, name = self.identify(targets)
     cachedir = Bootstrapper.instance().ivy_cache_dir
-    return os.path.join(cachedir, '%s-%s-%s.xml' % (org, name, conf))
+    return os.path.join(cachedir, '%s-%s.xml' % (org, name))
 
-  def parse_xml_report(self, targets, conf='default'):
+  def parse_xml_report(self, targets):
     """Returns the IvyInfo representing the info in the xml report, or None if no report exists."""
-    path = self.xml_report_path(targets, conf)
+    path = self.xml_report_path(targets)
     if not os.path.exists(path):
       return None
 
     ret = IvyInfo()
-    etree = xml.etree.ElementTree.parse(self.xml_report_path(targets, conf))
+    etree = xml.etree.ElementTree.parse(path)
     doc = etree.getroot()
     for module in doc.findall('dependencies/module'):
       org = module.get('organisation')
       name = module.get('name')
       for revision in module.findall('revision'):
         rev = revision.get('name')
+        # TODO: Can these confs (or caller_conf below) be anything other than 'default'?
         confs = self._split_conf(revision.get('conf'))
         artifacts = []
         for artifact in revision.findall('artifacts/artifact'):
@@ -339,8 +339,8 @@ class IvyUtils(object):
                    '[organisation]-[artifact]-[revision](-[classifier]).[ext]' % mapdir,
       '-symlink',
       '-confs',
+      'default'
     ]
-    ivyargs.extend(target.configurations or self._confs)
     self.exec_ivy(mapdir, [target], ivyargs, ivy=Bootstrapper.default_ivy(executor),
                   workunit_factory=workunit_factory, workunit_name='map-jars')
 

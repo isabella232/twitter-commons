@@ -85,10 +85,9 @@ class JvmDependencyAnalyzer(object):
 
     ivy_products = self._context.products.get_data('ivy_jar_products')
     if ivy_products:
-      for ivyinfos in ivy_products.values():
-        for ivyinfo in ivyinfos:
-          for ref in ivyinfo.modules_by_ref:
-            register_transitive_jars_for_ref(ivyinfo, ref)
+      for ivyinfo in ivy_products:
+        for ref in ivyinfo.modules_by_ref:
+          register_transitive_jars_for_ref(ivyinfo, ref)
 
     return targets_by_file
 
