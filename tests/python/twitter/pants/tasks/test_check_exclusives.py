@@ -8,6 +8,7 @@ from twitter.pants.testutils.base_mock_target_test import BaseMockTargetTest
 
 class CheckExclusivesTest(BaseMockTargetTest):
   """Test of the CheckExclusives task."""
+  config = None
 
   @classmethod
   def setUpClass(cls):
@@ -82,14 +83,14 @@ class CheckExclusivesTest(BaseMockTargetTest):
     check_exclusives_task.execute([a, b, c, d])
     egroups = context.products.get_data('exclusives_groups')
 
-    egroups.set_base_classpath_for_group("a=1,b=1", [ "a1","b1"])
-    egroups.set_base_classpath_for_group("a=1,b=<none>", [ "a1" ])
-    egroups.set_base_classpath_for_group("a=2,b=2", [ "a2","b2"])
-    egroups.set_base_classpath_for_group("a=<none>,b=<none>", ["none"])
-    egroups.update_compatible_classpaths(None, ["update_without_group"])
-    egroups.update_compatible_classpaths("a=<none>,b=<none>", ["update_all"])
-    egroups.update_compatible_classpaths("a=1,b=<none>", [ "update_a1bn"])
-    egroups.update_compatible_classpaths("a=2,b=2", [ "update_only_a2b2"])
+    egroups._set_base_classpath_for_group("a=1,b=1", [ "a1","b1"])
+    egroups._set_base_classpath_for_group("a=1,b=<none>", [ "a1" ])
+    egroups._set_base_classpath_for_group("a=2,b=2", [ "a2","b2"])
+    egroups._set_base_classpath_for_group("a=<none>,b=<none>", ["none"])
+    egroups.add_to_compatible_classpaths(None, "update_without_group")
+    egroups.add_to_compatible_classpaths("a=<none>,b=<none>", "update_all")
+    egroups.add_to_compatible_classpaths("a=1,b=<none>", "update_a1bn")
+    egroups.add_to_compatible_classpaths("a=2,b=2", "update_only_a2b2")
     self.assertEquals(egroups.get_classpath_for_group("a=2,b=2"),
              [ "a2", "b2", "update_without_group", "update_all", "update_only_a2b2"])
     self.assertEquals(egroups.get_classpath_for_group("a=1,b=1"),
@@ -100,7 +101,9 @@ class CheckExclusivesTest(BaseMockTargetTest):
               [ "none", "update_without_group", "update_all" ])
 
     # make sure repeated additions of the same thing are idempotent.
-    egroups.update_compatible_classpaths("a=1,b=1", ["a1", "b1", "xxx"])
+    egroups.add_to_compatible_classpaths("a=1,b=1", "a1")
+    egroups.add_to_compatible_classpaths("a=1,b=1", "b1")
+    egroups.add_to_compatible_classpaths("a=1,b=1", "xxx")
     self.assertEquals(egroups.get_classpath_for_group("a=1,b=1"),
               [ "a1", "b1", "update_without_group", "update_all", "update_a1bn", "xxx" ])
 

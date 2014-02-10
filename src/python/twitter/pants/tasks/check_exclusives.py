@@ -270,16 +270,17 @@ class ExclusivesMapping(object):
         return False
     return True
 
-  def update_compatible_classpaths(self, group_key, path_additions):
-    """Update the classpath of all groups compatible with group_key, adding path_additions to their
-    classpath.
-    """
+  def add_to_compatible_classpaths(self, group_key, classpath_element):
+    """Add an element to the classpath of all groups compatible with group_key."""
     for key in self._group_classpaths:
       if group_key is None or self._is_compatible(group_key, key):
         group_classpath = self._group_classpaths[key]
-        group_classpath.update(path_additions)
+        group_classpath.add(('default', classpath_element))
 
-  def set_base_classpath_for_group(self, group_key, classpath):
-    # set the initial classpath of the elements of group_key to classpath.
+  def _set_base_classpath_for_group(self, group_key, classpath):
+    """set the initial classpath of a group.
+
+    Used only for testing.
+    """
     self._group_classpaths[group_key] = OrderedSet(classpath)
 

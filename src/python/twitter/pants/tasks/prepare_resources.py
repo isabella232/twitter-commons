@@ -29,7 +29,6 @@ class PrepareResources(Task):
     Task.__init__(self, context)
 
     self.workdir = context.config.get('prepare-resources', 'workdir')
-    self.confs = context.config.getlist('prepare-resources', 'confs')
     self.context.products.require_data('exclusives_groups')
 
   def execute(self, targets):
@@ -69,5 +68,4 @@ class PrepareResources(Task):
       resources_dir = target_dir(resources_tgt)
       target_resources = resources_by_target[resources_tgt]
       target_resources.add_rel_paths(resources_dir, resources_tgt.sources)
-      for conf in self.confs:
-        egroups.update_compatible_classpaths(group_key, [(conf, resources_dir)])
+      egroups.add_to_compatible_classpaths(group_key, resources_dir)

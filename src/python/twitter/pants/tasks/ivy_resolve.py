@@ -68,13 +68,13 @@ class IvyResolve(NailgunTask):
                                  "be treated as mutable unless a matching artifact explicitly "
                                  "marks mutable as False.")
 
-  def __init__(self, context, confs=None):
+  def __init__(self, context):
     super(IvyResolve, self).__init__(context)
     work_dir = context.config.get('ivy-resolve', 'workdir')
 
     self._ivy_bootstrapper = Bootstrapper.instance()
     self._cachedir = self._ivy_bootstrapper.ivy_cache_dir
-    self._confs = confs or context.config.getlist('ivy-resolve', 'confs', default=['default'])
+    self._conf = 'default'  # TODO: Remove this arg from methods that need it, then drop it entirely.
     self._classpath_dir = os.path.join(work_dir, 'mapped')
 
     self._outdir = context.options.ivy_resolve_outdir or os.path.join(work_dir, 'reports')
@@ -134,9 +134,8 @@ class IvyResolve(NailgunTask):
                                    workunit_name='ivy-resolve')
       if self.context.products.is_required_data('ivy_jar_products'):
         self._populate_ivy_jar_products(group_targets)
-      for conf in self._confs:
-        for path in classpath:
-          groups.update_compatible_classpaths(group_key, [(conf, path)])
+      for path in classpath:
+        groups.add_to_compatible_classpaths(group_key, path)
 
       if self._report:
         self._generate_ivy_report(group_targets)
@@ -157,10 +156,9 @@ class IvyResolve(NailgunTask):
   def _populate_ivy_jar_products(self, targets):
     """Populate the build products with an IvyInfo object for each generated ivy report."""
     ivy_products = self.context.products.get_data('ivy_jar_products') or defaultdict(list)
-    for conf in self._confs:
-      ivyinfo = self._ivy_utils.parse_xml_report(targets, conf)
-      if ivyinfo:
-        ivy_products[conf].append(ivyinfo)  # Value is a list, to accommodate multiple exclusives groups.
+    ivyinfo = self._ivy_utils.parse_xml_report(targets, self._conf)
+    if ivyinfo:
+      ivy_products[self._conf].append(ivyinfo)  # Value is a list, to accommodate multiple exclusives groups.
     self.context.products.set_data('ivy_jar_products', ivy_products)
 
   def _generate_ivy_report(self, targets):
@@ -196,17 +194,16 @@ class IvyResolve(NailgunTask):
     # points.
     safe_mkdir(self._outdir, clean=False)
 
-    for conf in self._confs:
-      params = dict(org=org, name=name, conf=conf)
-      xml = self._ivy_utils.xml_report_path(targets, conf)
-      if not os.path.exists(xml):
-        make_empty_report(xml, org, name, conf)
-      out = os.path.join(self._outdir, '%(org)s-%(name)s-%(conf)s.html' % params)
-      args = ['-IN', xml, '-XSL', xsl, '-OUT', out]
-      if 0 != self.runjava(classpath=classpath, main='org.apache.xalan.xslt.Process',
-                           args=args, workunit_name='report'):
-        raise TaskError
-      reports.append(out)
+    params = dict(org=org, name=name, conf=self._conf)
+    xml = self._ivy_utils.xml_report_path(targets, self._conf)
+    if not os.path.exists(xml):
+      make_empty_report(xml, org, name, self._conf)
+    out = os.path.join(self._outdir, '%(org)s-%(name)s-%(conf)s.html' % params)
+    args = ['-IN', xml, '-XSL', xsl, '-OUT', out]
+    if 0 != self.runjava(classpath=classpath, main='org.apache.xalan.xslt.Process',
+                         args=args, workunit_name='report'):
+      raise TaskError
+    reports.append(out)
 
     css = os.path.join(self._outdir, 'ivy-report.css')
     if os.path.exists(css):
