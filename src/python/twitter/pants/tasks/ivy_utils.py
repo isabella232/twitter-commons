@@ -165,10 +165,14 @@ class IvyUtils(object):
       return 'internal', Target.maybe_readable_identify(targets)
 
   def xml_report_path(self, targets):
-    """The path to the xml report ivy creates after a retrieve."""
+    """The path to the xml report ivy creates after a retrieve.
+
+    Note: Don't change this unless you know what you're doing. Ivy decides what path
+    to write to, this function just computes what that will be.
+    """
     org, name = self.identify(targets)
     cachedir = Bootstrapper.instance().ivy_cache_dir
-    return os.path.join(cachedir, '%s-%s.xml' % (org, name))
+    return os.path.join(cachedir, '%s-%s-default.xml' % (org, name))
 
   def parse_xml_report(self, targets):
     """Returns the IvyInfo representing the info in the xml report, or None if no report exists."""
