@@ -40,19 +40,12 @@ class JavaCompile(JvmCompile):
   _language = 'java'
   _file_suffix = '.java'
   _config_section = 'java-compile'
+  _compiler_arg_prefix = '-C'
 
     # Well known metadata file to auto-register annotation processors with a java 1.6+ compiler
   _PROCESSOR_INFO_FILE = 'META-INF/services/javax.annotation.processing.Processor'
 
-
   _JMAKE_MAIN = 'com.sun.tools.jmake.Main'
-
-  @classmethod
-  def setup_parser(cls, option_group, args, mkflag):
-    JvmCompile.setup_parser(JavaCompile, option_group, args, mkflag)
-
-    option_group.add_option(mkflag("args"), dest="java_compile_args", action="append",
-                            help="Pass these extra args to javac.")
 
   def __init__(self, context):
     super(JavaCompile, self).__init__(context, jdk=True)
@@ -68,13 +61,6 @@ class JavaCompile(JvmCompile):
                                                       default=[':java-compiler'])
     self.register_jvm_tool(self._compiler_bootstrap_key, compiler_bootstrap_tools)
 
-    self._javac_opts = []
-    if context.options.java_compile_args:
-      for arg in context.options.java_compile_args:
-        self._javac_opts.extend(shlex.split(arg))
-    else:
-      self._javac_opts.extend(context.config.getlist('java-compile', 'javac_args', default=[]))
-
   def create_analysis_tools(self):
     return AnalysisTools(self.context, JMakeAnalysisParser(self._classes_dir), JMakeAnalysis)
 
@@ -87,22 +73,27 @@ class JavaCompile(JvmCompile):
       ret.append((root, [processor_info_file]))
     return ret
 
-  def compile(self, args, classpath, sources, classes_output_dir, analysis_file):
-    jmake_classpath = self._jvm_tool_bootstrapper.get_jvm_tool_classpath(self._jmake_bootstrap_key)
+  def compile(self, classpath, sources, classes_output_dir, analysis_file):
+    jmake_classpath = \
+      self._jvm_tool_bootstrapper.get_jvm_tool_classpath(self._jmake_bootstrap_key)
+
+    classpath_strs = classpath.get_unfiltered_classpath_element_strings()
     args = [
-      '-classpath', ':'.join(classpath + [self._classes_dir]),
+      '-classpath', os.path.pathsep.join(classpath_strs),
+      ]
+    args.extend(classpath.get_filtered_classpath_args())
+    args.extend([
       '-d', self._classes_dir,
       '-pdb', analysis_file,
       '-pdb-text-format',
-      ]
+      ])
 
-    compiler_classpath = self._jvm_tool_bootstrapper.get_jvm_tool_classpath(
-        self._compiler_bootstrap_key)
+    compiler_classpath = \
+      self._jvm_tool_bootstrapper.get_jvm_tool_classpath(self._compiler_bootstrap_key)
     args.extend([
       '-jcpath', ':'.join(compiler_classpath),
       '-jcmainclass', 'com.twitter.common.tools.Compiler',
       ])
-    args.extend(map(lambda arg: '-C%s' % arg, self._javac_opts))
 
     args.extend(self._args)
     args.extend(sources)

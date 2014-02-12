@@ -85,15 +85,12 @@ class BenchmarkRun(JvmTask):
     allocation_jar = os.path.join(os.path.dirname(agent_jar), "allocation.jar")
 
     # TODO(Steve Gury): Find a solution to avoid copying the jar every run and being resilient
-    # to version upgrade
+    # to version upgrade.
     shutil.copyfile(agent_jar, allocation_jar)
     os.environ['ALLOCATION_JAR'] = str(allocation_jar)
 
-    benchmark_tools_classpath = self._jvm_tool_bootstrapper.get_jvm_tool_classpath(
-        self._benchmark_bootstrap_key)
-
     caliper_main = 'com.google.caliper.Runner'
-    exit_code = execute_java(classpath=self.classpath(benchmark_tools_classpath),
+    exit_code = execute_java(classpath=self.make_classpath([], self._benchmark_bootstrap_key),
                              main=caliper_main,
                              jvm_options=self.jvm_args,
                              args=self.caliper_args,

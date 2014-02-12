@@ -127,9 +127,10 @@ class ZincUtils(object):
                                       workunit_name=workunit_name,
                                       workunit_labels=workunit_labels)
 
-  def compile(self, opts, classpath, sources, output_dir, analysis_file, upstream_analysis_files):
-    args = list(opts)  # Make a copy
-
+  def compile(self, args, classpath, sources, output_dir, analysis_file, upstream_analysis_files):
+    classpath_strs = classpath.get_unfiltered_classpath_element_strings()
+    args = list(args)
+    args.extend(classpath.get_filtered_classpath_args())
     args.extend(self._plugin_args())
 
     if upstream_analysis_files:
@@ -139,9 +140,8 @@ class ZincUtils(object):
     args.extend([
       '-analysis-cache', analysis_file,
       # We add compiler_classpath to ensure the scala-library jar is on the classpath.
-      # TODO: This also adds the compiler jar to the classpath, which compiled code shouldn't
-      # usually need. Be more selective?
-      '-classpath', ':'.join(self._compiler_classpath + classpath),
+      # TODO: We should simply inject that jar as a dep of all ScalaLibrary targets.
+      '-classpath', ':'.join(self._compiler_classpath + classpath_strs),
       '-d', output_dir
     ])
     args.extend(sources)

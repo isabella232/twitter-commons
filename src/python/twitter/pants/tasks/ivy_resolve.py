@@ -28,6 +28,7 @@ from .cache_manager import VersionedTargetSet
 from .ivy_utils import IvyUtils
 from .nailgun_task import NailgunTask
 from . import TaskError
+from twitter.pants.tasks.jvm_compile.classpath import JarFile
 
 
 class IvyResolve(NailgunTask):
@@ -133,7 +134,7 @@ class IvyResolve(NailgunTask):
       if self.context.products.is_required_data('ivy_jar_products'):
         self._populate_ivy_jar_products(group_targets)
       for path in classpath:
-        groups.add_to_compatible_classpaths(group_key, path)
+        groups.add_to_compatible_classpaths(group_key, JarFile(path))
 
       if self._report:
         self._generate_ivy_report(group_targets)

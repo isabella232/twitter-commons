@@ -1,5 +1,6 @@
 from twitter.pants.base import Config
 from twitter.pants.goal import Context
+from twitter.pants.tasks.jvm_compile.classpath import Directory, ClassPath
 from twitter.pants.testutils import MockTarget
 from twitter.pants.tasks import TaskError
 from twitter.pants.tasks.check_exclusives import CheckExclusives
@@ -83,29 +84,32 @@ class CheckExclusivesTest(BaseMockTargetTest):
     check_exclusives_task.execute([a, b, c, d])
     egroups = context.products.get_data('exclusives_groups')
 
-    egroups._set_base_classpath_for_group("a=1,b=1", [ "a1","b1"])
-    egroups._set_base_classpath_for_group("a=1,b=<none>", [ "a1" ])
-    egroups._set_base_classpath_for_group("a=2,b=2", [ "a2","b2"])
-    egroups._set_base_classpath_for_group("a=<none>,b=<none>", ["none"])
-    egroups.add_to_compatible_classpaths(None, "update_without_group")
-    egroups.add_to_compatible_classpaths("a=<none>,b=<none>", "update_all")
-    egroups.add_to_compatible_classpaths("a=1,b=<none>", "update_a1bn")
-    egroups.add_to_compatible_classpaths("a=2,b=2", "update_only_a2b2")
+    def make_cp(raw_elements):
+      return ClassPath([Directory(x) for x in raw_elements])
+
+    egroups._set_base_classpath_for_group("a=1,b=1", make_cp(["a1", "b1"]))
+    egroups._set_base_classpath_for_group("a=1,b=<none>", make_cp([ "a1" ]))
+    egroups._set_base_classpath_for_group("a=2,b=2", make_cp([ "a2", "b2"]))
+    egroups._set_base_classpath_for_group("a=<none>,b=<none>", make_cp(["none"]))
+    egroups.add_to_compatible_classpaths(None, Directory("update_without_group"))
+    egroups.add_to_compatible_classpaths("a=<none>,b=<none>", Directory("update_all"))
+    egroups.add_to_compatible_classpaths("a=1,b=<none>", Directory("update_a1bn"))
+    egroups.add_to_compatible_classpaths("a=2,b=2", Directory("update_only_a2b2"))
     self.assertEquals(egroups.get_classpath_for_group("a=2,b=2"),
-             [ "a2", "b2", "update_without_group", "update_all", "update_only_a2b2"])
+        make_cp([ "a2", "b2", "update_without_group", "update_all", "update_only_a2b2"]))
     self.assertEquals(egroups.get_classpath_for_group("a=1,b=1"),
-              [ "a1", "b1", "update_without_group", "update_all", "update_a1bn" ])
+        make_cp([ "a1", "b1", "update_without_group", "update_all", "update_a1bn" ]))
     self.assertEquals(egroups.get_classpath_for_group("a=1,b=<none>"),
-              [ "a1", "update_without_group", "update_all", "update_a1bn" ])
+        make_cp([ "a1", "update_without_group", "update_all", "update_a1bn" ]))
     self.assertEquals(egroups.get_classpath_for_group("a=<none>,b=<none>"),
-              [ "none", "update_without_group", "update_all" ])
+        make_cp([ "none", "update_without_group", "update_all" ]))
 
     # make sure repeated additions of the same thing are idempotent.
-    egroups.add_to_compatible_classpaths("a=1,b=1", "a1")
-    egroups.add_to_compatible_classpaths("a=1,b=1", "b1")
-    egroups.add_to_compatible_classpaths("a=1,b=1", "xxx")
+    egroups.add_to_compatible_classpaths("a=1,b=1", Directory("a1"))
+    egroups.add_to_compatible_classpaths("a=1,b=1", Directory("b1"))
+    egroups.add_to_compatible_classpaths("a=1,b=1", Directory("xxx"))
     self.assertEquals(egroups.get_classpath_for_group("a=1,b=1"),
-              [ "a1", "b1", "update_without_group", "update_all", "update_a1bn", "xxx" ])
+        make_cp([ "a1", "b1", "update_without_group", "update_all", "update_a1bn", "xxx" ]))
 
 
 

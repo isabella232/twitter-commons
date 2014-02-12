@@ -79,7 +79,7 @@ class Checkstyle(NailgunTask):
     egroups = self.context.products.get_data('exclusives_groups')
     etag = egroups.get_group_key_for_target(targets[0])
     classpath = self._jvm_tool_bootstrapper.get_jvm_tool_classpath(self._checkstyle_bootstrap_key)
-    cp = egroups.get_classpath_for_group(etag)
+    cp = egroups.get_classpath_for_group(etag).get_all_classpath_element_strings()
     classpath.extend(cp)
 
     args = [

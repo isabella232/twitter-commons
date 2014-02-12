@@ -80,13 +80,10 @@ class JvmRun(JvmTask):
     binaries = filter(is_binary, targets)
     if len(binaries) > 0:  # We only run the first one.
       main = binaries[0].main
-      egroups = self.context.products.get_data('exclusives_groups')
-      group_key = egroups.get_group_key_for_target(binaries[0])
-      group_classpath = egroups.get_classpath_for_group(group_key)
 
       executor = CommandLineGrabber() if self.only_write_cmd_line else None
       result = execute_java(
-        classpath=(self.classpath(exclusives_classpath=group_classpath)),
+        classpath=(self.make_classpath(binaries)),
         main=main,
         executor=executor,
         jvm_options=self.jvm_args,

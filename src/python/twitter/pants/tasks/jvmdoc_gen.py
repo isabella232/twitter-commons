@@ -133,7 +133,7 @@ class JvmdocGen(JvmTask):
     self.ignore_failure = getattr_options(parser_config.ignore_failure_opt)
 
   def invalidate_for(self):
-    return (self.combined, self.transitive, self._output_dir, self._include_codegen)
+    return self.combined, self.transitive, self._output_dir, self._include_codegen
 
   def generate_execute(self, targets, language_predicate, create_jvmdoc_command):
     """
@@ -154,8 +154,7 @@ class JvmdocGen(JvmTask):
 
       with self.invalidated(filter(docable, targets)) as invalidation_check:
         safe_mkdir(self._output_dir)
-        classpath = self.classpath(
-          exclusives_classpath=self.get_base_classpath_for_target(targets[0]))
+        classpath = self.make_classpath(targets)
 
         def find_jvmdoc_targets():
           invalid_targets = set()

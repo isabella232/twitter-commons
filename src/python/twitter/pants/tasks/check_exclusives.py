@@ -1,13 +1,9 @@
-from twitter.common.collections import OrderedSet
-
-__author__ = 'Mark Chu-Carroll (markcc@foursquare.com)'
-
-
 from collections import defaultdict
 from copy import copy
 from twitter.pants.base.target import Target
 from twitter.pants.tasks import Task, TaskError
 from twitter.pants.targets import InternalTarget
+from twitter.pants.tasks.jvm_compile.classpath import ClassPath
 
 
 class CheckExclusives(Task):
@@ -123,7 +119,7 @@ class ExclusivesMapping(object):
     self.key_to_targets = defaultdict(set)
     self.target_to_key = {}
     self.ordering = None
-    self._group_classpaths = {}  # key -> OrderedSet.
+    self._group_classpaths = {}  # key -> ClassPath.
 
   def add_conflict(self, key, values):
     """Register a conflict on an exclusives key.
@@ -169,14 +165,14 @@ class ExclusivesMapping(object):
     """
     def number_of_emptys(key):
       if key == "<none>":
-        return len(self.conflicting_keys)
+        return len(self.conflicting_exclusives)
       return key.count("<none>")
 
     if self.ordering is not None:
       return self.ordering
     # The correct order is from least exclusives to most exclusives - a target can only depend on
     # other targets with fewer exclusives than itself.
-    keys_by_empties = [ [] for l in range(len(self.key_to_targets)) ]
+    keys_by_empties = [ [] for _ in range(len(self.key_to_targets)) ]
     # Flag to indicate whether there are any groups without any exclusives.
     no_exclusives = False
     for k in self.key_to_targets:
@@ -205,7 +201,7 @@ class ExclusivesMapping(object):
       else:
         target_key.append("%s=<none>" % k)
 
-    if target_key == []:
+    if not target_key:
       return "<none>"
     else:
       return ','.join(target_key)
@@ -226,12 +222,12 @@ class ExclusivesMapping(object):
       if key == '':
         raise TaskError('Invalid empty group key')
       if key not in self._group_classpaths:
-        self._group_classpaths[key] = OrderedSet()
+        self._group_classpaths[key] = ClassPath()
       self.key_to_targets[key].add(t)
       self.target_to_key[t] = key
 
   def get_classpath_for_group(self, group_key):
-    """Get the classpath to use for jvm compilations of a group.
+    """Get the ClassPath instance to use for jvm compilations of a group.
 
     Each exclusives group requires a distinct classpath. We maintain
     them here as a map from the exclusives key to a classpath. The
@@ -239,9 +235,9 @@ class ExclusivesMapping(object):
     compiling a group to the classpaths of other groups that could depend on it.
     """
     if group_key not in self._group_classpaths:
-      self._group_classpaths[group_key] = OrderedSet()
+      self._group_classpaths[group_key] = ClassPath()
     # get the classpath to use for compiling targets within the group specified by group_key.
-    return list(self._group_classpaths[group_key])
+    return self._group_classpaths[group_key]
 
   def _key_to_map(self, key):
     result = {}
@@ -274,12 +270,12 @@ class ExclusivesMapping(object):
     for key in self._group_classpaths:
       if group_key is None or self._is_compatible(group_key, key):
         group_classpath = self._group_classpaths[key]
-        group_classpath.add(classpath_element)
+        group_classpath.add_element(classpath_element)
 
-  def _set_base_classpath_for_group(self, group_key, classpath):
+  def _set_base_classpath_for_group(self, group_key, cp):
     """set the initial classpath of a group.
 
     Used only for testing.
     """
-    self._group_classpaths[group_key] = OrderedSet(classpath)
+    self._group_classpaths[group_key] = cp
 

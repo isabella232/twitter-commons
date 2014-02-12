@@ -234,11 +234,7 @@ class JUnitRun(JvmTask):
       tests = list(self.get_tests_to_run() if self.tests_to_run
                    else self.calculate_tests_from_targets(targets))
       if tests:
-        bootstrapped_cp = self._jvm_tool_bootstrapper.get_jvm_tool_classpath(
-            self._junit_bootstrap_key)
-        junit_classpath = self.classpath(
-            bootstrapped_cp,
-            exclusives_classpath=self.get_base_classpath_for_target(targets[0]))
+        junit_classpath = self.make_classpath(targets, self._junit_bootstrap_key)
 
         def run_tests(classpath, main, jvm_args=None):
           # TODO(John Sirois): Integrated batching with the test runner.  As things stand we get

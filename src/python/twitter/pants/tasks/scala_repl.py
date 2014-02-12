@@ -48,19 +48,13 @@ class ScalaRepl(JvmTask):
         self.args.extend(shlex.split(arg))
 
   def execute(self, targets):
-    # The repl session may last a while, allow concurrent pants activity during this pants idle
-    # period.
-    tools_classpath = self._jvm_tool_bootstrapper.get_jvm_tool_classpath(self._bootstrap_key)
-
+    # The repl session may last a while, allow concurrent pants activity during this idle period.
     self.context.lock.release()
     self.save_stty_options()
 
-    classpath = self.classpath(tools_classpath,
-                               exclusives_classpath=self.get_base_classpath_for_target(targets[0]))
-
     print('')  # Start REPL output on a new line.
     try:
-      execute_java(classpath=classpath,
+      execute_java(classpath=self.make_classpath(targets, self._bootstrap_key),
                    main=self.main,
                    jvm_options=self.jvm_args,
                    args=self.args,

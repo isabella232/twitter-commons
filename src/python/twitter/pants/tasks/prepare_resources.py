@@ -21,6 +21,7 @@ from twitter.common.dirutil import safe_mkdir
 from twitter.pants.goal.products import MultipleRootedProducts
 
 from twitter.pants.tasks import Task
+from twitter.pants.tasks.jvm_compile.classpath import Directory
 
 
 class PrepareResources(Task):
@@ -68,4 +69,4 @@ class PrepareResources(Task):
       resources_dir = target_dir(resources_tgt)
       target_resources = resources_by_target[resources_tgt]
       target_resources.add_rel_paths(resources_dir, resources_tgt.sources)
-      egroups.add_to_compatible_classpaths(group_key, resources_dir)
+      egroups.add_to_compatible_classpaths(group_key, Directory(resources_dir))

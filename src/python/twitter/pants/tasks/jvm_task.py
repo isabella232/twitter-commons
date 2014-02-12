@@ -21,19 +21,22 @@ from twitter.pants.tasks import Task
 
 
 class JvmTask(Task):
-  def get_base_classpath_for_target(self, target):
+  def _get_base_classpath_for_target(self, target):
     """Note: to use this method, the exclusives_groups data product must be available. This should
     have been set by the prerequisite java/scala compile."""
     egroups = self.context.products.get_data('exclusives_groups')
     group_key = egroups.get_group_key_for_target(target)
-    return egroups.get_classpath_for_group(group_key)
+    return egroups.get_classpath_for_group(group_key).get_all_classpath_element_strings()
 
-  def classpath(self, classpath=None, exclusives_classpath=None):
-    classpath = list(classpath) if classpath else []
-    exclusives_classpath = exclusives_classpath or []
+  def make_classpath(self, targets=None, bootstrap_key=None):
+    classpath = []
+    if bootstrap_key:
+      classpath.extend(self._jvm_tool_bootstrapper.get_jvm_tool_classpath(bootstrap_key))
+    # We assume that all targets are exclusives-compatible, so we arbitrarily pick targets[0].
+    if targets:
+      classpath.extend(self._get_base_classpath_for_target(targets[0]))
 
-    classpath.extend(exclusives_classpath)
-
+    # TODO: Are we still using sibling resources dirs?
     def add_resource_paths(predicate):
       bases = set()
       for target in self.context.targets():
@@ -45,8 +48,5 @@ class JvmTask(Task):
 
     if self.context.config.getbool('jvm', 'parallel_src_paths', default=False):
       add_resource_paths(lambda t: t.is_jvm and not t.is_test)
-
     if self.context.config.getbool('jvm', 'parallel_test_paths', default=False):
       add_resource_paths(lambda t: t.is_jvm and not t.is_test)
-
-    return classpath
