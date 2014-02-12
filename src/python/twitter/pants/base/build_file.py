@@ -141,13 +141,18 @@ class BuildFile(object):
     if (os.path.exists(self._bytecode_path) and
         os.path.getmtime(self.full_path) <= os.path.getmtime(self._bytecode_path)):
       with open(self._bytecode_path, 'rb') as bytecode:
-        return marshal.load(bytecode)
-    else:
-      with open(self.full_path, 'rb') as source:
-        code = compile(source.read(), self.full_path, 'exec')
-        with open(self._bytecode_path, 'wb') as bytecode:
-          marshal.dump(code, bytecode)
-        return code
+        try:
+          return marshal.load(bytecode)
+        except Exception as e:
+          logger.warn("Failed to marshall BUILD file bytecode at %s.  Exception was: %s" % 
+                      (self._bytecode_path, e))
+          pass
+
+    with open(self.full_path, 'rb') as source:
+      code = compile(source.read(), self.full_path, 'exec')
+      with open(self._bytecode_path, 'wb') as bytecode:
+        marshal.dump(code, bytecode)
+      return code
 
   def __eq__(self, other):
     result = other and (
