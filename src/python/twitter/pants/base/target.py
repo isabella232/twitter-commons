@@ -146,9 +146,6 @@ class Target(AbstractTarget):
   parse context.
   """
 
-  _targets_by_address = None
-  _addresses_by_buildfile = None
-
   @classmethod
   def identify(cls, targets):
     """Generates an id for a set of targets."""
@@ -191,11 +188,6 @@ class Target(AbstractTarget):
       return lookup()
 
   @classmethod
-  def _clear_all_addresses(cls):
-    cls._targets_by_address = {}
-    cls._addresses_by_buildfile = collections.defaultdict(OrderedSet)
-
-  @classmethod
   def get(cls, address):
     """Returns the specified module target if already parsed; otherwise, parses the buildfile in the
     context of its parent directory and returns the parsed target.
@@ -223,42 +215,33 @@ class Target(AbstractTarget):
             raise TypeError('%s requires types: %s and found %s' % (cls, expected_types, resolved))
           yield resolved
 
-  def __init__(self, name, exclusives=None):
+  def __init__(self, name, build_file, exclusives=None):
     """
     :param string name: The target name.
     """
-    # See "get_all_exclusives" below for an explanation of the exclusives parameter.
-    # This check prevents double-initialization in multiple-inheritance situations.
-    # TODO(John Sirois): fix target inheritance - use super() to linearize or use alternatives to
-    # multiple inheritance.
-    if not hasattr(self, '_initialized'):
-      if not isinstance(name, Compatibility.string):
-        self.address = '%s:%s' % (ParseContext.locate().current_buildfile, str(name))
-        raise TargetDefinitionException(self, "Invalid target name: %s" % name)
-      self.name = name
-      self.description = None
+    self.name = name
+    self.description = None
+    self.address = Address(build_file, name)
 
-      self.address = self._locate()
+    # TODO(John Sirois): Transition all references to self.identifier to eliminate id builtin
+    # ambiguity
+    self.id = self._create_id()
 
-      # TODO(John Sirois): Transition all references to self.identifier to eliminate id builtin
-      # ambiguity
-      self.id = self._create_id()
+    self._register()
 
-      self._register()
+    self.labels = set()
 
-      self.labels = set()
+    self._initialized = True
 
-      self._initialized = True
+    self.declared_exclusives = collections.defaultdict(set)
+    if exclusives is not None:
+      for k in exclusives:
+        self.declared_exclusives[k].add(exclusives[k])
+    self.exclusives = None
 
-      self.declared_exclusives = collections.defaultdict(set)
-      if exclusives is not None:
-        for k in exclusives:
-          self.declared_exclusives[k].add(exclusives[k])
-      self.exclusives = None
-
-      # For synthetic codegen targets this will be the original target from which
-      # the target was synthesized.
-      self._derived_from = self
+    # For synthetic codegen targets this will be the original target from which
+    # the target was synthesized.
+    self._derived_from = self
 
   @property
   def derived_from(self):
@@ -332,22 +315,6 @@ class Target(AbstractTarget):
       return self.name
     else:
       return "%s.%s" % (buildfile_relpath.replace(os.sep, '.'), self.name)
-
-  def _locate(self):
-    parse_context = ParseContext.locate()
-    return Address(parse_context.current_buildfile, self.name)
-
-  def _register(self):
-    existing = self._targets_by_address.get(self.address)
-    if existing and existing is not self:
-      if existing.address.buildfile != self.address.buildfile:
-        raise TargetDefinitionException(self, "already defined in a sibling BUILD "
-                                              "file: %s" % existing.address.buildfile.relpath)
-      else:
-        raise TargetDefinitionException(self, "duplicate to %s" % existing)
-
-    self._targets_by_address[self.address] = self
-    self._addresses_by_buildfile[self.address.buildfile].add(self.address)
 
   @property
   def identifier(self):
@@ -449,5 +416,3 @@ class Target(AbstractTarget):
              (hasattr(self, 'sources') and
               any(source.endswith(extension) for source in self.sources))))
 
-
-Target._clear_all_addresses()
