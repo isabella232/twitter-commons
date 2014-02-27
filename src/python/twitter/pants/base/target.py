@@ -23,8 +23,6 @@ import sys
 from twitter.common.collections import OrderedSet, maybe_list
 from twitter.common.lang import Compatibility
 
-from twitter.pants.base.parse_context import ParseContext
-
 from .address import Address
 from .build_manual import manual
 from .hash_utils import hash_all
@@ -34,14 +32,7 @@ class TargetDefinitionException(Exception):
   """Thrown on errors in target definitions."""
 
   def __init__(self, target, msg):
-    address = getattr(target, 'address', None)
-    if address is None:
-      try:
-        location = ParseContext.locate().current_buildfile
-      except ParseContext.ContextError:
-        location = 'unknown location'
-      address = 'unknown target of type %s in %s' % (target.__class__.__name__, location)
-    super(Exception, self).__init__('Error with %s: %s' % (address, msg))
+    super(Exception, self).__init__('Error with %s: %s' % (target.address, msg))
 
 
 class AbstractTarget(object):
@@ -175,39 +166,6 @@ class Target(AbstractTarget):
     return ids[0] if len(ids) == 1 else cls.combine_ids(ids)
 
   @classmethod
-  def get_all_addresses(cls, buildfile):
-    """Returns all of the target addresses in the specified buildfile if already parsed; otherwise,
-    parses the buildfile to find all the addresses it contains and then returns them.
-    """
-    def lookup():
-      if buildfile in cls._addresses_by_buildfile:
-        return cls._addresses_by_buildfile[buildfile]
-      else:
-        return OrderedSet()
-
-    addresses = lookup()
-    if addresses:
-      return addresses
-    else:
-      ParseContext(buildfile).parse()
-      return lookup()
-
-  @classmethod
-  def get(cls, address):
-    """Returns the specified module target if already parsed; otherwise, parses the buildfile in the
-    context of its parent directory and returns the parsed target.
-    """
-    def lookup():
-      return cls._targets_by_address.get(address, None)
-
-    target = lookup()
-    if target:
-      return target
-    else:
-      ParseContext(address.buildfile).parse()
-      return lookup()
-
-  @classmethod
   def resolve_all(cls, targets, *expected_types):
     """Yield the resolved concrete targets checking each is a subclass of one of the expected types
     if specified.
@@ -305,10 +263,6 @@ class Target(AbstractTarget):
     if hasattr(target, "declared_exclusives"):
       self.add_to_exclusives(target.declared_exclusives)
     return None
-
-  def _post_construct(self, func, *args, **kwargs):
-    """Registers a command to invoke after this target's BUILD file is parsed."""
-    ParseContext.locate().on_context_exit(func, *args, **kwargs)
 
   def _create_id(self):
     """Generates a unique identifier for the BUILD target.

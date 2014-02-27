@@ -41,7 +41,6 @@ from twitter.pants.base import (
     Address,
     BuildFile,
     Config,
-    ParseContext,
     Target,
     TargetDefinitionException)
 from twitter.pants.base.rcfile import RcFile
@@ -387,14 +386,22 @@ class Goal(Command):
       goals, specs = Goal.parse_args(args)
       self.requested_goals = goals
 
+      # Load source-roots.ini
+      # Add plugin directories to sys.path
+      # Initialize structures that will go to BuildGraph and BuildFileParser
+      # for each plugin entry point:
+      #   import and run entry point with appropriate structures provided for modification
+      # Construct the BuildGraph object
+
       with self.run_tracker.new_workunit(name='setup', labels=[WorkUnit.SETUP]):
         # Bootstrap goals by loading any configured bootstrap BUILD files
         with self.check_errors('The following bootstrap_buildfiles cannot be loaded:') as error:
           with self.run_tracker.new_workunit(name='bootstrap', labels=[WorkUnit.SETUP]):
+            # construct base parameters to be filled in for BuildGraph
             for path in self.config.getlist('goals', 'bootstrap_buildfiles', default = []):
               try:
-                buildfile = BuildFile(get_buildroot(), os.path.relpath(path, get_buildroot()))
-                ParseContext(buildfile).parse()
+                # use BuildGraphParser to parse each path, with restricted context variables
+                # like Goal, Phase, and get_buildroot
               except (TypeError, ImportError, TaskError, GoalError):
                 error(path, include_traceback=True)
               except (IOError, SyntaxError):
