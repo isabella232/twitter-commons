@@ -54,11 +54,18 @@ class BuildFile(object):
     raises IOError if the specified path does not house a BUILD file and must_exist is True
     """
 
-    path = os.path.abspath(os.path.join(root_dir, relpath))
+    assert os.path.isabs(root_dir), (
+      "root_dir {root_dir} must be an absolute path."
+      .format(root_dir=root_dir)
+    )
+
+    path = os.path.join(root_dir, relpath)
     buildfile = os.path.join(path, BuildFile._CANONICAL_NAME) if os.path.isdir(path) else path
 
-    if os.path.isdir(buildfile):
-      raise IOError("%s is a directory" % buildfile)
+    assert not os.path.isdir(buildfile), (
+      "Path to buildfile ({buildfile}) is a directory, but it must be a file."
+      .format(buildfile=buildfile)
+    )
 
     if must_exist:
       if not os.path.exists(buildfile):

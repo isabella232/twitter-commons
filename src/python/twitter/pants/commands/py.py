@@ -77,8 +77,7 @@ class Py(Command):
     self.interpreter = interpreters[0]
 
     for req in self.options.extra_requirements:
-      with ParseContext.temp():
-        self.extra_targets.append(PythonRequirement(req, use_2to3=True))
+      self.extra_targets.append(PythonRequirement(req, use_2to3=True))
 
     # We parse each arg in the context of the cli usage:
     #   ./pants command (options) [spec] (build args)
@@ -164,9 +163,8 @@ class Py(Command):
 
       requirements = self.config.getlist('python-ipython', 'requirements', default=[])
 
-      with ParseContext.temp():
-        for requirement in requirements:
-          self.extra_targets.append(PythonRequirement(requirement))
+      for requirement in requirements:
+        self.extra_targets.append(PythonRequirement(requirement))
 
     executor = PythonChroot(
         self.target,
