@@ -23,7 +23,10 @@ from contextlib import contextmanager
 from twitter.common.contextutil import pushd, temporary_dir
 from twitter.common.dirutil import touch
 
+from twitter.pants.base.address import BuildFileAddress, SyntheticAddress
+from twitter.pants.base.build_file import BuildFile
 from twitter.pants.base.build_file_parser import BuildFileParser
+from twitter.pants.base.build_environment import set_buildroot
 
 
 class BuildFileParserTest(unittest.TestCase):
@@ -36,9 +39,29 @@ class BuildFileParserTest(unittest.TestCase):
           touch(os.path.join(root_dir, buildfile))
         yield os.path.realpath(root_dir)
 
-  def test_synthetic_forms(self):
-    self.assertAddress('a/b', 'target', SyntheticAddress('a/b:target'))
-    self.assertAddress('a/b', 'b', SyntheticAddress('a/b'))
-    self.assertAddress('a/b', 'target', SyntheticAddress(':target', 'a/b'))
-    self.assertAddress('', 'target', SyntheticAddress(':target'))
+  def test_noop_parse(self):
+    with self.workspace('BUILD') as root_dir:
+      parser = BuildFileParser({}, {}, {})
+      build_file = BuildFile(root_dir, '')
+      registered_proxies = parser.parse_build_file(build_file)
+      self.assertEqual(len(registered_proxies), 0)
 
+  def test_trivial_target(self):
+    with self.workspace('BUILD') as root_dir:
+      def fake_target(*args, **kwargs):
+        assert False, "This fake target should never be called in this test!"
+
+      parser = BuildFileParser(exposed_objects={},
+                               path_relative_utils={},
+                               target_alias_map={'fake': fake_target})
+
+      with open(os.path.join(root_dir, 'BUILD'), 'w') as build:
+        build.write('''fake(name='foozle')''')
+
+      build_file = BuildFile(root_dir, 'BUILD')
+      registered_proxies = parser.parse_build_file(build_file)
+      self.assertEqual(len(registered_proxies), 1)
+      proxy = registered_proxies.pop()
+      self.assertEqual(proxy.name, 'foozle')
+      self.assertEqual(proxy.address, BuildFileAddress(build_file, 'foozle'))
+      self.assertEqual(proxy._target_type, fake_target)

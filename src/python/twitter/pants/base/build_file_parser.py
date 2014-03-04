@@ -1,8 +1,12 @@
 from __future__ import (nested_scopes, generators, division, absolute_import, with_statement,
                         print_function, unicode_literals)
 
-
 from copy import deepcopy
+
+from twitter.common.python import compatibility
+
+from twitter.pants.base.address import BuildFileAddress
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -41,7 +45,7 @@ class TargetProxy(object):
     self._build_file = build_file
     self._kwargs = kwargs
     self.name = kwargs['name']
-    self.address = Address(build_file, self.name)
+    self.address = BuildFileAddress(build_file, self.name)
 
   def __str__(self):
     format_str = ('<TargetProxy(target_type={target_type}, build_file={build_file})'
@@ -55,7 +59,7 @@ class TargetProxy(object):
     format_str = 'TargetProxy(target_type={target_type}, build_file={build_file}, kwargs={kwargs})'
     return format_str.format(target_type=self._target_type,
                              build_file=self._build_file,
-                             kwargs=self.kwargs)
+                             kwargs=self._kwargs)
 
 
 class TargetCallProxy(object):
@@ -82,24 +86,24 @@ class BuildFileParser(object):
     self.path_relative_utils = path_relative_utils
     self.target_alias_map = target_alias_map
 
-  def parse_build_file(build_file):
+  def parse_build_file(self, build_file):
     logger.debug("Parsing BUILD file %s." % build_file)
     with open(build_file.full_path, 'r') as build_file_fp:
       build_file_bytes = build_file_fp.read()
 
     parse_context = {}
-    parse_context.update(exposed_objects)
-    parse_context.update({
-      key: partial(util, rel_path=build_file.rel_path) for 
+    parse_context.update(self.exposed_objects)
+    parse_context.update(dict((
+      (key, partial(util, rel_path=os.path.dirname(build_file.rel_path))) for 
       key, util in self.path_relative_utils.items()
-    })
+    )))
     registered_target_proxies = set()
-    parse_context.update({
-      alias: TargetCallProxy(target_type=target_type,
-                             build_file=build_file,
-                             registered_target_proxies=registered_target_proxies) for
+    parse_context.update(dict((
+      (alias, TargetCallProxy(target_type=target_type,
+                              build_file=build_file,
+                              registered_target_proxies=registered_target_proxies)) for
       alias, target_type in self.target_alias_map.items()
-    })
+    )))
 
     try:
       build_file_code = compile(build_file_bytes, '<string>', 'exec', flags=0, dont_inherit=True)
@@ -109,7 +113,7 @@ class BuildFileParser(object):
       raise e
 
     try:
-      compatibility.exec_function(build_file_code, globals=parse_context)
+      compatibility.exec_function(build_file_code, parse_context)
     except Exception as e:
       logger.error("Error running {build_file}.  Exception was:\n {exception}"
                    .format(build_file=build_file, exception=e))
