@@ -81,6 +81,11 @@ class Address(object):
   def spec(self):
     return '{spec_path}:{target_name}'.format(spec_path=self.spec_path,
                                               target_name=self.target_name)
+  @property
+  def path_safe_spec(self):
+    return ('{safe_spec_path}:{target_name}'
+            .format(safe_spec_path=self.spec_path.replace(os.sep, '.'),
+                    target_name=self.target_name))
 
   @property
   def relative_spec(self):

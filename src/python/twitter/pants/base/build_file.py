@@ -156,7 +156,7 @@ class BuildFile(object):
           pass
 
     with open(self.full_path, 'rb') as source:
-      code = compile(source.read(), self.full_path, 'exec')
+      code = compile(source.read(), '<string>', 'exec', flags=0, dont_inherit=True)
       with open(self._bytecode_path, 'wb') as bytecode:
         marshal.dump(code, bytecode)
       return code

@@ -36,13 +36,6 @@ class TargetDefinitionException(Exception):
 
 
 class AbstractTarget(object):
-
-  @property
-  def is_concrete(self):
-    """Returns true if a target resolves to itself."""
-    targets = list(self.resolve())
-    return len(targets) == 1 and targets[0] == self
-
   @property
   def has_resources(self):
     """Returns True if the target has an associated set of Resources."""
@@ -165,75 +158,35 @@ class Target(AbstractTarget):
     ids = list(ids)  # We can't len a generator.
     return ids[0] if len(ids) == 1 else cls.combine_ids(ids)
 
-  @classmethod
-  def resolve_all(cls, targets, *expected_types):
-    """Yield the resolved concrete targets checking each is a subclass of one of the expected types
-    if specified.
-    """
-    if targets:
-      for target in maybe_list(targets, expected_type=Target):
-        concrete_targets = [t for t in target.resolve() if t.is_concrete]
-        for resolved in concrete_targets:
-          if expected_types and not isinstance(resolved, expected_types):
-            raise TypeError('%s requires types: %s and found %s' % (cls, expected_types, resolved))
-          yield resolved
-
-  def __init__(self, name, build_file, exclusives=None):
+  def __init__(self, name, address, payload, build_graph, exclusives=None):
     """
     :param string name: The target name.
+    :param Address address: The Address that maps to this Target in the BuildGraph
+    :param BuildGraph build_graph: The BuildGraph that this Target lives within
     """
     self.name = name
+    self.address = address
+    self.payload = payload
+    self._build_graph = build_graph
     self.description = None
-    self.address = Address(build_file, name)
-
-    # TODO(John Sirois): Transition all references to self.identifier to eliminate id builtin
-    # ambiguity
-    self.id = self._create_id()
-
-    self._register()
-
     self.labels = set()
-
-    self._initialized = True
-
     self.declared_exclusives = collections.defaultdict(set)
     if exclusives is not None:
       for k in exclusives:
         self.declared_exclusives[k].add(exclusives[k])
     self.exclusives = None
 
-    # For synthetic codegen targets this will be the original target from which
-    # the target was synthesized.
-    self._derived_from = self
-
   @property
-  def derived_from(self):
+  def cloned_from(self):
     """Returns the target this target was derived from.
 
     If this target was not derived from another, returns itself.
     """
-    return self._derived_from
+    return self._build_graph.get_clonal_ancestor(self.address)
 
-  @derived_from.setter
-  def derived_from(self, value):
-    """Sets the target this target was derived from.
-
-    Various tasks may create targets not written down in any BUILD file.  Often these targets are
-    derived from targets written down in BUILD files though in which case the derivation chain
-    should be maintained.
-    """
-    if value and not isinstance(value, AbstractTarget):
-      raise ValueError('Expected derived_from to be a Target, given %s of type %s'
-                       % (value, type(value)))
-    self._derived_from = value
-
-  def get_declared_exclusives(self):
-    return self.declared_exclusives
-
-  def add_to_exclusives(self, exclusives):
-    if exclusives is not None:
-      for key in exclusives:
-        self.exclusives[key] |= exclusives[key]
+  @property
+  def is_synthetic(self):
+    return self.address.is_synthetic
 
   def get_all_exclusives(self):
     """ Get a map of all exclusives declarations in the transitive dependency graph.
@@ -264,20 +217,17 @@ class Target(AbstractTarget):
       self.add_to_exclusives(target.declared_exclusives)
     return None
 
-  def _create_id(self):
-    """Generates a unique identifier for the BUILD target.
+  @property
+  def id(self):
+    """A unique identifier for the Target.
 
     The generated id is safe for use as a path name on unix systems.
     """
-    buildfile_relpath = os.path.dirname(self.address.buildfile.relpath)
-    if buildfile_relpath in ('.', ''):
-      return self.name
-    else:
-      return "%s.%s" % (buildfile_relpath.replace(os.sep, '.'), self.name)
+    return self.address.path_safe_spec
 
   @property
   def identifier(self):
-    """A unique identifier for the BUILD target.
+    """A unique identifier for the Target.
 
     The generated id is safe for use as a path name on unix systems.
     """
@@ -299,7 +249,7 @@ class Target(AbstractTarget):
       raise ValueError('work must be callable but was %s' % work)
     if predicate and not callable(predicate):
       raise ValueError('predicate must be callable but was %s' % predicate)
-    self._walk(set(), work, predicate)
+    self._build_graph.walk_transitive_dependency_graph(work, predicate)
 
   def _walk(self, walked, work, predicate=None):
     for target in self.resolve():
@@ -340,38 +290,3 @@ class Target(AbstractTarget):
 
   def __repr__(self):
     return "%s(%s)" % (type(self).__name__, self.address)
-
-  @staticmethod
-  def has_jvm_targets(targets):
-    """Returns true if the given sequence of targets contains at least one jvm target as determined
-    by is_jvm(...)
-    """
-
-    return len(list(Target.extract_jvm_targets(targets))) > 0
-
-  @staticmethod
-  def extract_jvm_targets(targets):
-    """Returns an iterator over the jvm targets the given sequence of targets resolve to.  The
-    given targets can be a mix of types and only valid jvm targets (as determined by is_jvm(...)
-    will be returned by the iterator.
-    """
-
-    for target in targets:
-      if target is None:
-        print('Warning! Null target!', file=sys.stderr)
-        continue
-      for real_target in target.resolve():
-        if real_target.is_jvm:
-          yield real_target
-
-  def has_sources(self, extension=None):
-    """Returns True if the target has sources.
-
-    If an extension is supplied the target is further checked for at least 1 source with the given
-    extension.
-    """
-    return (self.has_label('sources') and
-            (not extension or
-             (hasattr(self, 'sources') and
-              any(source.endswith(extension) for source in self.sources))))
-

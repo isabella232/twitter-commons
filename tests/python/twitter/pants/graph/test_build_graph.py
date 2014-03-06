@@ -31,10 +31,6 @@ from twitter.pants.base.build_environment import set_buildroot
 
 class BuildGraphTest(unittest.TestCase):
 
-  def assertAddress(self, spec_path, target_name, address):
-    self.assertEqual(spec_path, address.spec_path)
-    self.assertEqual(target_name, address.target_name)
-
   def test_synthetic_forms(self):
     self.assertAddress('a/b', 'target', SyntheticAddress('a/b:target'))
     self.assertAddress('a/b', 'b', SyntheticAddress('a/b'))
