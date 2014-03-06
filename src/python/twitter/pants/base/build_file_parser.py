@@ -24,16 +24,16 @@ class TargetProxy(object):
       'name is a required parameter to all Target objects specified within a BUILD file.'
       '  Target type was: {target_type}.'
       '  Current BUILD file is: {build_file}.'
-      .format(target_type=self._target_type,
-              build_file=self._build_file))
+      .format(target_type=target_type,
+              build_file=build_file))
 
     assert not args, (
       'All arguments passed to Targets within BUILD files should use explicit keyword syntax.'
       '  Target type was: {target_type}.'
       '  Current BUILD file is: {build_file}.'
       '  Arguments passed were: {args}'
-      .format(target_type=self._target_type,
-              build_file=self._build_file,
+      .format(target_type=target_type,
+              build_file=build_file,
               args=args))
 
     assert 'build_file' not in kwargs, (
@@ -41,33 +41,33 @@ class TargetProxy(object):
       '  Target type was: {target_type}.'
       '  Current BUILD file is: {build_file}.'
       '  build_file argument passed was: {build_file_arg}'
-      .format(target_type=self._target_type,
-              build_file=self._build_file,
+      .format(target_type=target_type,
+              build_file=build_file,
               build_file_arg=kwargs.get('build_file')))
 
-    self._target_type = target_type
-    self._build_file = build_file
-    self._kwargs = kwargs
+    self.target_type = target_type
+    self.build_file = build_file
+    self.kwargs = kwargs
     self.name = kwargs['name']
     self.address = BuildFileAddress(build_file, self.name)
 
   @property
   def dependencies(self):
-    return self._kwargs.get('dependencies', [])
+    return self.kwargs.get('dependencies', [])
 
   def __str__(self):
     format_str = ('<TargetProxy(target_type={target_type}, build_file={build_file})'
                   ' [name={name}, address={address}]>')
-    return format_str.format(target_type=self._target_type,
-                             build_file=self._build_file,
+    return format_str.format(target_type=self.target_type,
+                             build_file=self.build_file,
                              name=self.name,
                              address=self.address)
 
   def __repr__(self):
     format_str = 'TargetProxy(target_type={target_type}, build_file={build_file}, kwargs={kwargs})'
-    return format_str.format(target_type=self._target_type,
-                             build_file=self._build_file,
-                             kwargs=self._kwargs)
+    return format_str.format(target_type=self.target_type,
+                             build_file=self.build_file,
+                             kwargs=self.kwargs)
 
 
 class TargetCallProxy(object):
@@ -96,14 +96,13 @@ class BuildFileParser(object):
     self._target_alias_map = target_alias_map
 
     self._target_proxy_by_address = {}
-    self._target_proxy_by_build_file = {}
+    self._target_proxies_by_build_file = defaultdict(set)
     self._addresses_by_build_file = defaultdict(set)
     self._added_build_files = set()
 
   def parse_build_file(self, build_file):
     if build_file in self._added_build_files:
       logger.debug('BuildFile %s has already been parsed.' % build_file)
-      return
 
     logger.debug("Parsing BUILD file %s." % build_file)
     with open(build_file.full_path, 'r') as build_file_fp:
@@ -137,28 +136,16 @@ class BuildFileParser(object):
                    .format(build_file=build_file, exception=e))
       raise e
 
-    logger.debug("{build_file} produced the following TargetProxies:"
-                 .format(build_file=build_file))
     for target_proxy in registered_target_proxies:
-      logger.debug("  * {target_proxy}".format(target_proxy=target_proxy))
-
-    return registered_target_proxies
-
-  def add_build_file_spec(self, spec):
-    build_file_relpath = SyntheticAddress(spec).spec_path
-    build_file = BuildFile(root_dir=self._root_dir, relpath=build_file_relpath)
-
-    target_proxies = self.parse_build_file(build_file)
-
-    for target_proxy in target_proxies:
       logger.debug('Adding {target_proxy} to the proxy build graph with {address}'
                    .format(target_proxy=target_proxy,
                            address=target_proxy.address))
 
       assert target_proxy.address not in self._target_proxy_by_address, (
         '{address} already in BuildGraph._targets_by_address even though this BUILD file has'
-        ' not yet been added to the BuildGraph.  The target type is: {target_type}' %
-        (target_proxy.address, target_proxy.target_type))
+        ' not yet been added to the BuildGraph.  The target type is: {target_type}'
+        .format(address=target_proxy.address,
+                target_type=target_proxy.target_type))
 
       assert target_proxy.address not in self._addresses_by_build_file[build_file], (
         '{address} has already been associated with {build_file} in the build graph.'
@@ -168,8 +155,21 @@ class BuildFileParser(object):
 
       self._target_proxy_by_address[target_proxy.address] = target_proxy
       self._addresses_by_build_file[build_file].add(target_proxy.address)
-
+      self._target_proxies_by_build_file[build_file].add(target_proxy)
     self._added_build_files.add(build_file)
+
+    logger.debug("{build_file} produced the following TargetProxies:"
+                 .format(build_file=build_file))
+    for target_proxy in registered_target_proxies:
+      logger.debug("  * {target_proxy}".format(target_proxy=target_proxy))
+
+  def add_build_file_spec(self, spec):
+    build_file_relpath = SyntheticAddress(spec).spec_path
+    build_file = BuildFile(root_dir=self._root_dir, relpath=build_file_relpath)
+
+    self.parse_build_file(build_file)
+    target_proxies = self._target_proxies_by_build_file[build_file]
+
     logger.debug('{build_file} successfully added to the proxy build graph.'
                  .format(build_file=build_file))
 
@@ -185,7 +185,11 @@ class BuildFileParser(object):
           logger.debug('Recursively parsing dependency spec {dependency_spec} for {target_proxy}'
                        .format(dependency_spec=dependency_spec,
                                target_proxy=target_proxy))
-          self.add_build_file_spec(dependency_spec)
+          dep_build_file_relpath = SyntheticAddress(dependency_spec).spec_path
+          dep_build_file = BuildFile(root_dir=self._root_dir, relpath=dep_build_file_relpath)
+          if not dep_build_file in self._added_build_files:
+            # Pretty sure this always means there's a cycle in the graph.
+            self.add_build_file_spec(dependency_spec)
       logger.debug('Finished recursively parsing dependency specs for {target_proxy}'
                    .format(target_proxy=target_proxy))
     logger.debug('Finished Recursively parsing transitively referenced BUILD files of all'

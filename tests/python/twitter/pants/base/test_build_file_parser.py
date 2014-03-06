@@ -71,7 +71,7 @@ class BuildFileParserTest(unittest.TestCase):
     proxy = registered_proxies.pop()
     self.assertEqual(proxy.name, 'foozle')
     self.assertEqual(proxy.address, BuildFileAddress(build_file, 'foozle'))
-    self.assertEqual(proxy._target_type, fake_target)
+    self.assertEqual(proxy.target_type, fake_target)
 
   def test_exposed_object(self):
     with self.workspace('BUILD') as root_dir:
@@ -126,7 +126,10 @@ class BuildFileParserTest(unittest.TestCase):
 
       with open(os.path.join(root_dir, 'a/b/c/BUILD'), 'w') as build:
         build.write(dedent('''
-          fake(name="bar")
+          fake(name="bar",
+               dependencies=[
+                 'a:baz',
+               ])
         '''))
 
       class FakeTarget(Target):
@@ -139,4 +142,4 @@ class BuildFileParserTest(unittest.TestCase):
 
       build_file = BuildFile(root_dir, 'a/b/c/BUILD')
       parser.add_build_file_spec('a')
-      print parser._target_proxy_by_address
+      assert len(parser._target_proxy_by_address)
