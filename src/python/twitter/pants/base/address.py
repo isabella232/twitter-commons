@@ -20,6 +20,23 @@ from twitter.common.lang import Compatibility
 from twitter.pants.base.build_file import BuildFile
 
 
+def parse_spec(spec, relative_to=''):
+  spec_parts = spec.rsplit(':', 1)
+  if len(spec_parts) == 1:
+    spec_path = spec_parts[0]
+    assert spec_path, (
+      'Attempted to parse a bad spec string {spec}: empty spec string'
+      .format(spec=spec)
+    )
+    target_name = os.path.basename(spec_path)
+    return spec_path, target_name
+
+  spec_path, target_name = spec_parts
+  if not spec_path:
+    spec_path = relative_to
+  return spec_path, target_name
+
+
 class Address(object):
   """A target address.
 
@@ -106,10 +123,7 @@ class Address(object):
             self.target_name == other.target_name)
 
   def __hash__(self):
-    value = 17
-    value *= 37 + hash(self.spec_path)
-    value *= 37 + hash(self.target_name)
-    return value
+    return hash((self.spec_path, self.target_name))
 
   def __ne__(self, other):
     return not self.__eq__(other)
@@ -134,15 +148,8 @@ class BuildFileAddress(Address):
 
 class SyntheticAddress(Address):
   def __init__(self, spec, relative_to=''):
-    assert spec, "Spec cannot be empty"
-    spec_parts = spec.rsplit(':', 1)
-    if len(spec_parts) == 1:
-      spec_path = spec_parts[0]
-      target_name = os.path.basename(spec_parts[0])
-    else:
-      spec_path, target_name = spec_parts
-    super(SyntheticAddress, self).__init__(spec_path=spec_path or relative_to,
-                                           target_name=target_name)
+    spec_path, target_name = parse_spec(spec, relative_to=relative_to)
+    super(SyntheticAddress, self).__init__(spec_path=spec_path, target_name=target_name)
 
   def __repr__(self):
     return "SyntheticAddress({spec})".format(spec=self.spec)

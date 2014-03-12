@@ -87,6 +87,7 @@ class BuildFile(object):
       self.name, PythonIdentity.get()))
 
     self.relpath = os.path.relpath(self.full_path, self.root_dir)
+    self.spec_path = os.path.dirname(self.relpath)
     self.canonical_relpath = os.path.join(os.path.dirname(self.relpath), BuildFile._CANONICAL_NAME)
 
   def exists(self):

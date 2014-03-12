@@ -29,6 +29,7 @@ from twitter.pants.base.build_file import BuildFile
 from twitter.pants.base.build_file_parser import BuildFileParser
 from twitter.pants.base.build_environment import set_buildroot
 from twitter.pants.base.target import Target
+from twitter.pants.graph.build_graph import BuildGraph
 
 
 class BuildFileParserTest(unittest.TestCase):
@@ -48,7 +49,8 @@ class BuildFileParserTest(unittest.TestCase):
                                path_relative_utils={},
                                target_alias_map={})
       build_file = BuildFile(root_dir, '')
-      registered_proxies = parser.parse_build_file(build_file)
+      parser.parse_build_file(build_file)
+      registered_proxies = set(parser._target_proxy_by_address.values())
       self.assertEqual(len(registered_proxies), 0)
 
   def test_trivial_target(self):
@@ -65,7 +67,8 @@ class BuildFileParserTest(unittest.TestCase):
         build.write('''fake(name='foozle')''')
 
       build_file = BuildFile(root_dir, 'BUILD')
-      registered_proxies = parser.parse_build_file(build_file)
+      parser.parse_build_file(build_file)
+      registered_proxies = set(parser._target_proxy_by_address.values())
 
     self.assertEqual(len(registered_proxies), 1)
     proxy = registered_proxies.pop()
@@ -84,7 +87,8 @@ class BuildFileParserTest(unittest.TestCase):
         build.write('''fake_object''')
 
       build_file = BuildFile(root_dir, 'BUILD')
-      registered_proxies = parser.parse_build_file(build_file)
+      parser.parse_build_file(build_file)
+      registered_proxies = set(parser._target_proxy_by_address.values())
 
     self.assertEqual(len(registered_proxies), 0)
 
@@ -102,15 +106,24 @@ class BuildFileParserTest(unittest.TestCase):
         build.write('''fake_util("baz")''')
 
       build_file = BuildFile(root_dir, 'a/b/c/BUILD')
-      registered_proxies = parser.parse_build_file(build_file)
+      parser.parse_build_file(build_file)
+      registered_proxies = set(parser._target_proxy_by_address.values())
 
     self.assertEqual(len(registered_proxies), 0)
 
-  def test_build_file_spec(self):
-    with self.workspace('a/BUILD', 'a/b/BUILD', 'a/b/c/BUILD') as root_dir:
+  def test_transitive_closure_spec(self):
+    with self.workspace('./BUILD', 'a/BUILD', 'a/b/BUILD', 'a/b/c/BUILD') as root_dir:
+      with open(os.path.join(root_dir, './BUILD'), 'w') as build:
+        build.write(dedent('''
+          fake(name="foo",
+               dependencies=[
+                 'a',
+               ])
+        '''))
+
       with open(os.path.join(root_dir, 'a/BUILD'), 'w') as build:
         build.write(dedent('''
-          fake(name="baz",
+          fake(name="a",
                dependencies=[
                  'a/b:bat',
                ])
@@ -128,12 +141,13 @@ class BuildFileParserTest(unittest.TestCase):
         build.write(dedent('''
           fake(name="bar",
                dependencies=[
-                 'a:baz',
+                 # 'a:a',
                ])
         '''))
 
       class FakeTarget(Target):
-        pass
+        def __init__(self, *args, **kwargs):
+          super(FakeTarget, self).__init__(*args, payload=None, **kwargs)
 
       parser = BuildFileParser(root_dir=root_dir,
                                exposed_objects={},
@@ -141,5 +155,11 @@ class BuildFileParserTest(unittest.TestCase):
                                target_alias_map={'fake': FakeTarget})
 
       build_file = BuildFile(root_dir, 'a/b/c/BUILD')
-      parser.add_build_file_spec('a')
-      assert len(parser._target_proxy_by_address)
+      parser.populate_target_proxy_transitive_closure_for_spec(':foo')
+      self.assertEqual(len(parser._target_proxy_by_address), 4)
+
+      build_graph = BuildGraph()
+      parser.inject_spec_closure_into_build_graph(':foo', build_graph)
+      foo_deps = build_graph.dependencies_of(SyntheticAddress(':foo'))
+      self.assertEqual(len(foo_deps), 1)
+
