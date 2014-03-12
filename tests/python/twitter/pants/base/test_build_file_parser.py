@@ -32,6 +32,11 @@ from twitter.pants.base.target import Target
 from twitter.pants.graph.build_graph import BuildGraph
 
 
+class FakeTarget(Target):
+  def __init__(self, *args, **kwargs):
+    super(FakeTarget, self).__init__(*args, payload=None, **kwargs)
+
+
 class BuildFileParserTest(unittest.TestCase):
   @contextmanager
   def workspace(self, *buildfiles):
@@ -112,7 +117,7 @@ class BuildFileParserTest(unittest.TestCase):
     self.assertEqual(len(registered_proxies), 0)
 
   def test_transitive_closure_spec(self):
-    with self.workspace('./BUILD', 'a/BUILD', 'a/b/BUILD', 'a/b/c/BUILD') as root_dir:
+    with self.workspace('./BUILD', 'a/BUILD', 'a/b/BUILD') as root_dir:
       with open(os.path.join(root_dir, './BUILD'), 'w') as build:
         build.write(dedent('''
           fake(name="foo",
@@ -131,35 +136,83 @@ class BuildFileParserTest(unittest.TestCase):
 
       with open(os.path.join(root_dir, 'a/b/BUILD'), 'w') as build:
         build.write(dedent('''
-          fake(name="bat",
-               dependencies=[
-                 'a/b/c:bar',
-               ])
+          fake(name="bat")
         '''))
-
-      with open(os.path.join(root_dir, 'a/b/c/BUILD'), 'w') as build:
-        build.write(dedent('''
-          fake(name="bar",
-               dependencies=[
-                 # 'a:a',
-               ])
-        '''))
-
-      class FakeTarget(Target):
-        def __init__(self, *args, **kwargs):
-          super(FakeTarget, self).__init__(*args, payload=None, **kwargs)
 
       parser = BuildFileParser(root_dir=root_dir,
                                exposed_objects={},
                                path_relative_utils={},
                                target_alias_map={'fake': FakeTarget})
 
-      build_file = BuildFile(root_dir, 'a/b/c/BUILD')
       parser.populate_target_proxy_transitive_closure_for_spec(':foo')
-      self.assertEqual(len(parser._target_proxy_by_address), 4)
+      self.assertEqual(len(parser._target_proxy_by_address), 3)
 
-      build_graph = BuildGraph()
-      parser.inject_spec_closure_into_build_graph(':foo', build_graph)
-      foo_deps = build_graph.dependencies_of(SyntheticAddress(':foo'))
-      self.assertEqual(len(foo_deps), 1)
+  def test_sibling_build_files(self):
+    with self.workspace('./BUILD', './BUILD.foo', './BUILD.bar') as root_dir:
+      with open(os.path.join(root_dir, './BUILD'), 'w') as build:
+        build.write(dedent('''
+          fake(name="base",
+               dependencies=[
+                 ':foo',
+               ])
+        '''))
+
+      with open(os.path.join(root_dir, './BUILD.foo'), 'w') as build:
+        build.write(dedent('''
+          fake(name="foo",
+               dependencies=[
+                 ':bat',
+               ])
+        '''))
+
+      with open(os.path.join(root_dir, './BUILD.bar'), 'w') as build:
+        build.write(dedent('''
+          fake(name="bat")
+        '''))
+
+      parser = BuildFileParser(root_dir=root_dir,
+                               exposed_objects={},
+                               path_relative_utils={},
+                               target_alias_map={'fake': FakeTarget})
+
+      bar_build_file = BuildFile(root_dir, 'BUILD.bar')
+      base_build_file = BuildFile(root_dir, 'BUILD')
+      foo_build_file = BuildFile(root_dir, 'BUILD.foo')
+      parser.parse_build_file_family(bar_build_file)
+      addresses = parser._target_proxy_by_address.keys()
+      self.assertEqual(set([bar_build_file, base_build_file, foo_build_file]),
+                       set([address.build_file for address in addresses]))
+      self.assertEqual(set([':base', ':foo', ':bat']),
+                       set([address.spec for address in addresses]))
+
+    # This workspace is malformed, you can't shadow a name in a sibling BUILD file
+    with self.workspace('./BUILD', './BUILD.foo', './BUILD.bar') as root_dir:
+      with open(os.path.join(root_dir, './BUILD'), 'w') as build:
+        build.write(dedent('''
+          fake(name="base",
+               dependencies=[
+                 ':foo',
+               ])
+        '''))
+
+      with open(os.path.join(root_dir, './BUILD.foo'), 'w') as build:
+        build.write(dedent('''
+          fake(name="foo",
+               dependencies=[
+                 ':bat',
+               ])
+        '''))
+
+      with open(os.path.join(root_dir, './BUILD.bar'), 'w') as build:
+        build.write(dedent('''
+          fake(name="base")
+        '''))
+
+      parser = BuildFileParser(root_dir=root_dir,
+                               exposed_objects={},
+                               path_relative_utils={},
+                               target_alias_map={'fake': FakeTarget})
+      self.assertRaises(AssertionError,
+                        parser.populate_target_proxy_transitive_closure_for_spec,
+                        ':base')
 

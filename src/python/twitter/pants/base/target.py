@@ -185,6 +185,14 @@ class Target(AbstractTarget):
     return self._build_graph.get_clonal_ancestor(self.address)
 
   @property
+  def dependencies(self):
+    return self._build_graph.dependencies_of(self.address)
+
+  @property
+  def dependents(self):
+    return self._build_graph.dependents_of(self.address)
+
+  @property
   def is_synthetic(self):
     return self.address.is_synthetic
 

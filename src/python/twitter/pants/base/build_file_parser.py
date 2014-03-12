@@ -142,7 +142,7 @@ class BuildFileParser(object):
     build_file = BuildFile(self._root_dir, spec_path)
     address = BuildFileAddress(build_file, target_name)
 
-    self.parse_build_file(build_file)
+    self.parse_build_file_family(build_file)
 
     addresses_already_closed.add(address)
 
@@ -161,6 +161,10 @@ class BuildFileParser(object):
       if dep_address not in addresses_already_closed:
         self.populate_target_proxy_transitive_closure_for_spec(dep_address.spec,
                                                                addresses_already_closed)
+
+  def parse_build_file_family(self, build_file):
+    for bf in build_file.family():
+      self.parse_build_file(bf)
 
   def parse_build_file(self, build_file): 
     '''
