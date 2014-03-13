@@ -14,20 +14,27 @@
 # limitations under the License.
 # ==================================================================================================
 
+python_requirement_library(
+  name = 'setuptools',
+  requirements = [
+    'setuptools>=1',
+  ],
+)
+
 python_library(
   name = 'python-source',
   sources = globs('*.py') + globs('http/*.py'),
   # Do not add dependencies as these are embedded in every pex.
   dependencies = [
     # Use any setuptools post-distribute merge.
-    python_requirement('setuptools>=1'),
+    ':setuptools',
   ],
 )
 
 python_library(
   name = 'python',
   dependencies = [
-    pants(':python-source'),
+    ':python-source',
   ],
   provides = setup_py(
     name = 'twitter.common.python',
@@ -48,14 +55,14 @@ virtualized environments.
       'Programming Language :: Python',
     ]
   ).with_binaries(
-    pex = pants('src/python/twitter/common/python/bin:pex'),
+    pex = 'src/python/twitter/common/python/bin:pex',
   )
 )
 
 page(name = 'pexreadme',
   source = 'README.md',
   dependencies = [
-    pants(':pexinstall'),
+    ':pexinstall',
   ]
 )
 

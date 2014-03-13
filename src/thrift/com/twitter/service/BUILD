@@ -51,12 +51,14 @@ class RemotePythonThrift(object):
     python_thrift_library(name=name, sources=Fileset(fetch), **kw)
 
 
-finagle = RemotePythonThrift(
-  "https://raw.github.com/twitter/finagle/master/finagle-thrift/src/main/thrift")
+# finagle = RemotePythonThrift(
+#   "https://raw.github.com/twitter/finagle/master/finagle-thrift/src/main/thrift")
 
 
-finagle.python_thrift_library(
+# finagle.python_thrift_library(
+python_thrift_library(
   name = 'finagle-py-thrift',
-  sources = [
-    ('tracing.thrift', 'gen.twitter.finagle.thrift'),
-  ])
+  # sources = [
+  #   ('tracing.thrift', 'gen.twitter.finagle.thrift'),
+  # ]
+)

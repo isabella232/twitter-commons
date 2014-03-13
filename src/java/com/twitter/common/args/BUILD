@@ -25,7 +25,8 @@ jvm_binary(
 
 jvm_app(
   name="app",
-  binary=":bin",
+  # binary=":bin",
+  dependencies=[":bin"],
   bundles=[]
 )
 
