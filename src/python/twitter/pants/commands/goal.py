@@ -39,6 +39,7 @@ from twitter.pants import binary_util
 from twitter.pants.base.address import Address
 from twitter.pants.base.build_environment import get_buildroot
 from twitter.pants.base.build_file import BuildFile
+from twitter.pants.base.build_file_parser import BuildFileParser
 from twitter.pants.base.config import Config
 from twitter.pants.base.parse_context import ParseContext
 from twitter.pants.base.rcfile import RcFile
@@ -47,6 +48,7 @@ from twitter.pants.base.target import Target, TargetDefinitionException
 from twitter.pants.base.workunit import WorkUnit
 from twitter.pants.commands import Command
 from twitter.pants.engine import Engine, GroupEngine
+from twitter.pants.graph.build_graph import BuildGraph
 from twitter.pants.goal import Context, GoalError, Phase
 from twitter.pants.goal import Goal as goal, Group as group
 from twitter.pants.goal.initialize_reporting import update_reporting
@@ -358,28 +360,49 @@ class Goal(Command):
       goals, specs = Goal.parse_args(args)
       self.requested_goals = goals
 
-      import pdb; pdb.set_trace()
+      # TODO(pl): Gross that we're doing a local import here, but this has dependendencies
+      # way down into specific Target subclasses, and I'd prefer to make it explicit that this
+      # import is in many ways similar to to third party plugin imports below.
+      from twitter.pants.base.build_file_aliases import (target_aliases, object_aliases,
+                                                         applicative_path_relative_util_aliases,
+                                                         partial_path_relative_util_aliases)
+      for alias, target_type in target_aliases.items():
+        BuildFileParser.register_target_alias(alias, target_type)
 
+      for alias, obj in object_aliases.items():
+        BuildFileParser.register_exposed_object(alias, obj)
+
+      for alias, util in applicative_path_relative_util_aliases.items():
+        BuildFileParser.register_applicative_path_relative_util(alias, util)
+
+      for alias, util in partial_path_relative_util_aliases.items():
+        BuildFileParser.register_partial_path_relative_util(alias, util)
+
+      # TODO(pl): This is awful but I need something quick and dirty to support
+      # injection of third party Targets and tools into BUILD file context
+      plugins = self.config.getlist('plugins', 'entry_points', default=[])
+      for entry_point_spec in plugins:
+        module, entry_point = entry_point_spec.split(':')
+        plugin_module = __import__(module, globals(), locals(), [entry_point], 0)
+        getattr(plugin_module, entry_point)(self.config)
+
+      build_file_parser = BuildFileParser(root_dir=self.root_dir)
+      build_graph = BuildGraph()
       # Load source-roots.ini
-      # Add plugin directories to sys.path
-      # Initialize structures that will go to BuildGraph and BuildFileParser
-      # for each plugin entry point:
-      #   import and run entry point with appropriate structures provided for modification
-      # Construct the BuildGraph object
 
       with self.run_tracker.new_workunit(name='setup', labels=[WorkUnit.SETUP]):
-        # Bootstrap goals by loading any configured bootstrap BUILD files
         with self.check_errors('The following bootstrap_buildfiles cannot be loaded:') as error:
           with self.run_tracker.new_workunit(name='bootstrap', labels=[WorkUnit.SETUP]):
             # construct base parameters to be filled in for BuildGraph
-            for path in self.config.getlist('goals', 'bootstrap_buildfiles', default = []):
+            for path in self.config.getlist('goals', 'bootstrap_buildfiles', default=[]):
               try:
-                # use BuildGraphParser to parse each path, with restricted context variables
-                # like Goal, Phase, and get_buildroot
+                build_file = BuildFile(root_dir=self.root_dir, relpath=path)
+                build_file_parser.parse_build_file_family(build_file)
               except (TypeError, ImportError, TaskError, GoalError):
                 error(path, include_traceback=True)
               except (IOError, SyntaxError):
                 error(path)
+        import pdb; pdb.set_trace()
         # Now that we've parsed the bootstrap BUILD files, and know about the SCM system.
         self.run_tracker.run_info.add_scm_info()
 

@@ -42,6 +42,16 @@ class SourceRoot(object):
   _TYPES_BY_ROOT = {}
   _SEARCHED = set()
 
+  def here(self, *allowed_target_types):
+    """Registers the cwd as a source root for the given target types."""
+    SourceRoot.register(self.rel_path, *allowed_target_types)
+
+  def __init__(self, rel_path):
+    self.rel_path = rel_path
+
+  def __call__(self, basedir, *allowed_target_types):
+    SourceRoot.register(os.path.join(self.rel_path, basedir), *allowed_target_types)
+
   @classmethod
   def reset(cls):
     """Reset all source roots to empty. Only intended for testing."""
