@@ -89,11 +89,43 @@ class TargetCallProxy(object):
 
 
 class BuildFileParser(object):
-  def __init__(self, root_dir, exposed_objects, path_relative_utils, target_alias_map):
+  _exposed_objects = {}
+  _partial_path_relative_utils = {}
+  _applicative_path_relative_utils = {}
+  _target_alias_map = {}
+
+  @classmethod
+  def register_exposed_object(cls, alias, obj):
+    if alias in cls._exposed_objects:
+      logger.warn('Object alias {alias} has already been registered.  Overwriting!'
+                  .format(alias=alias))
+    cls._exposed_objects[alias] = obj
+
+  @classmethod
+  def register_applicative_path_relative_util(cls, alias, obj):
+    if alias in cls._applicative_path_relative_utils:
+      logger.warn('Applicative path relative util alias {alias} has already been registered.'
+                  '  Overwriting!'
+                  .format(alias=alias))
+    cls._applicative_path_relative_utils[alias] = obj
+
+  @classmethod
+  def register_partial_path_relative_util(cls, alias, obj):
+    if alias in cls._partial_path_relative_utils:
+      logger.warn('Partial path relative util alias {alias} has already been registered.'
+                  '  Overwriting!'
+                  .format(alias=alias))
+    cls._partial_path_relative_utils[alias] = obj
+
+  @classmethod
+  def register_target_alias(cls, alias, obj):
+    if alias in cls._target_alias_map:
+      logger.warn('Target alias {alias} has already been registered.  Overwriting!'
+                  .format(alias=alias))
+    cls._target_alias_map[alias] = obj
+
+  def __init__(self, root_dir):
     self._root_dir = root_dir
-    self._exposed_objects = exposed_objects
-    self._path_relative_utils = path_relative_utils
-    self._target_alias_map = target_alias_map
 
     self._target_proxy_by_address = {}
     self._target_proxies_by_build_file = defaultdict(set)
@@ -183,8 +215,12 @@ class BuildFileParser(object):
     parse_context = {}
     parse_context.update(self._exposed_objects)
     parse_context.update(dict((
-      (key, partial(util, rel_path=os.path.dirname(build_file.relpath))) for 
-      key, util in self._path_relative_utils.items()
+      (key, partial(util, rel_path=build_file.spec_path)) for 
+      key, util in self._partial_path_relative_utils.items()
+    )))
+    parse_context.update(dict((
+      (key, util(rel_path=build_file.spec_path)) for 
+      key, util in self._applicative_path_relative_utils.items()
     )))
     registered_target_proxies = set()
     parse_context.update(dict((
