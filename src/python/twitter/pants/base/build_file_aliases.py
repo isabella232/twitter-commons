@@ -14,6 +14,8 @@
 # limitations under the License.
 # =================================================================================================
 
+import os
+
 from twitter.pants.targets.annotation_processor import AnnotationProcessor
 from twitter.pants.targets.artifact import Artifact
 from twitter.pants.targets.benchmark import Benchmark
@@ -28,7 +30,7 @@ from twitter.pants.targets.java_library import JavaLibrary
 from twitter.pants.targets.java_protobuf_library import JavaProtobufLibrary
 from twitter.pants.targets.java_tests import JavaTests
 from twitter.pants.targets.java_thrift_library import JavaThriftLibrary
-from twitter.pants.targets.jvm_binary import Bundle, JvmApp, JvmBinary
+from twitter.pants.targets.jvm_binary import JvmApp, JvmBinary
 from twitter.pants.targets.pants_target import Pants
 from twitter.pants.targets.python_antlr_library import PythonAntlrLibrary
 from twitter.pants.targets.python_artifact import PythonArtifact
@@ -47,37 +49,106 @@ from twitter.pants.targets.sources import SourceRoot
 
 
 # aliases
-annotation_processor = AnnotationProcessor
-artifact = Artifact
-benchmark = Benchmark
-bundle = Bundle
-credentials = Credentials
-dependencies = jar_library = JarLibrary
-egg = PythonEgg
-exclude = Exclude
-fancy_pants = Pants
-jar = JarDependency
-java_agent = JavaAgent
-java_library = JavaLibrary
-java_antlr_library = JavaAntlrLibrary
-java_protobuf_library = JavaProtobufLibrary
-junit_tests = java_tests = JavaTests
-java_thrift_library = JavaThriftLibrary
-jvm_binary = JvmBinary
-jvm_app = JvmApp
-page = Page
-python_artifact = setup_py = PythonArtifact
-python_binary = PythonBinary
-python_library = PythonLibrary
-python_antlr_library = PythonAntlrLibrary
-python_requirement = PythonRequirement
-python_thrift_library = PythonThriftLibrary
-python_tests = PythonTests
-python_test_suite = PythonTestSuite
-repo = Repository
-resources = Resources
-scala_library = ScalaLibrary
-scala_specs = scala_tests = ScalaTests
-scalac_plugin = ScalacPlugin
-source_root = SourceRoot
-wiki = Wiki
+target_aliases = {
+  'annotation_processor': AnnotationProcessor,
+  'artifact': Artifact,
+  'benchmark': Benchmark,
+  'credentials': Credentials,
+  'dependencies': JarLibrary,
+  'jar_library': JarLibrary,
+  'egg': PythonEgg,
+  'exclude': Exclude,
+  'fancy_pants': Pants,
+  'java_agent': JavaAgent,
+  'java_library': JavaLibrary,
+  'java_antlr_library': JavaAntlrLibrary,
+  'java_protobuf_library': JavaProtobufLibrary,
+  'junit_tests': JavaTests,
+  'java_tests': JavaTests,
+  'java_thrift_library': JavaThriftLibrary,
+  'jvm_binary': JvmBinary,
+  'jvm_app': JvmApp,
+  'page': Page,
+  'python_artifact': PythonArtifact,
+  'setup_py': PythonArtifact,
+  'python_binary': PythonBinary,
+  'python_library': PythonLibrary,
+  'python_antlr_library': PythonAntlrLibrary,
+  'python_requirement': PythonRequirement,
+  'python_thrift_library': PythonThriftLibrary,
+  'python_tests': PythonTests,
+  'python_test_suite': PythonTestSuite,
+  'repo': Repository,
+  'resources': Resources,
+  'scala_library': ScalaLibrary,
+  'scala_specs': ScalaTests,
+  'scala_tests': ScalaTests,
+  'scalac_plugin': ScalacPlugin,
+  'wiki': Wiki,
+}
+
+
+from twitter.pants.goal import Context, Goal, Group, Phase
+from twitter.pants.targets.pants_target import Pants
+from twitter.pants.tasks import Task, TaskError
+from .build_environment import get_buildroot, get_version, set_buildroot, get_scm, set_scm
+from .config import Config
+
+object_aliases = {
+  'goal': Goal,
+  'group': Group,
+  'phase': Phase,
+  'config': Config,
+  'get_version': get_version,
+  'get_buildroot': get_buildroot,
+  'set_buildroot': set_buildroot,
+  'get_scm': get_scm,
+  'set_scm': set_scm,
+  'jar': JarDependency,
+}
+
+
+from twitter.common.dirutil.fileset import Fileset
+from twitter.pants.targets.jvm_binary import Bundle
+from twitter.pants.targets.sources import SourceRoot
+
+def maven_layout(basedir='', rel_path=None):
+  """Sets up typical maven project source roots for all built-in pants target types.
+
+  Shortcut for ``source_root('src/main/java', *java targets*)``,
+  ``source_root('src/main/python', *python targets*)``, ...
+
+  :param string basedir: Instead of using this BUILD file's directory as
+    the base of the source tree, use a subdirectory. E.g., instead of
+    expecting to find java files in ``src/main/java``, expect them in
+    ``**basedir**/src/main/java``.
+  """
+
+  def root(path, *types):
+    SourceRoot.register(os.path.join(rel_path, basedir, path), *types)
+
+  root('src/main/antlr', JavaAntlrLibrary, Page, PythonAntlrLibrary)
+  root('src/main/java', AnnotationProcessor, JavaAgent, JavaLibrary, JvmBinary, Page)
+  root('src/main/protobuf', JavaProtobufLibrary, Page)
+  root('src/main/python', Page, PythonBinary, PythonLibrary)
+  root('src/main/resources', Page, Resources)
+  root('src/main/scala', JvmBinary, Page, ScalaLibrary)
+  root('src/main/thrift', JavaThriftLibrary, Page, PythonThriftLibrary)
+
+  root('src/test/java', JavaLibrary, JavaTests, Page)
+  root('src/test/python', Page, PythonLibrary, PythonTests, PythonTestSuite)
+  root('src/test/resources', Page, Resources)
+  root('src/test/scala', JavaTests, Page, ScalaLibrary, ScalaTests)
+
+
+applicative_path_relative_util_aliases = {
+  'source_root': SourceRoot,
+  'bundle': Bundle,
+}
+
+partial_path_relative_util_aliases = {
+  'globs': Fileset.globs,
+  'rglobs': Fileset.rglobs,
+  'zglobs': Fileset.zglobs,
+  'maven_layout': maven_layout,
+}

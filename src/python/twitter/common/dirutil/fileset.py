@@ -14,7 +14,7 @@
 # limitations under the License.
 # ==================================================================================================
 
-from functools import reduce
+from functools import reduce, wraps
 import fnmatch
 import glob
 import os
@@ -105,7 +105,7 @@ class Fileset(object):
        Walks the current working directory by default, can be overrided with
        the 'root' keyword argument.
     """
-    root = kw.pop('root', os.curdir)
+    root = kw.pop('rel_path', os.curdir)
     def relative_glob(globspec):
       for fn in glob.glob(os.path.join(root, globspec)):
         yield os.path.relpath(fn, root)
@@ -130,7 +130,7 @@ class Fileset(object):
        For example, ".*" matches ".bashrc" but "*" does not, mirroring the
        semantics of 'ls' without '-a'.
     """
-    root = kw.pop('root', os.curdir)
+    root = kw.pop('rel_path', os.curdir)
 
     def matcher(path):
       for globspec in globspecs:
@@ -151,7 +151,7 @@ class Fileset(object):
        returned unless explicitly globbed.  For example, ".*" matches ".bashrc" but
        "*" does not, mirroring the semantics of 'ls' without '-a'.
     """
-    root = kw.pop('root', os.curdir)
+    root = kw.pop('rel_path', os.curdir)
     patterns = [(os.path.basename(spec).startswith('*'),
                  re.compile(fnmatch_translate_extended(spec))) for spec in globspecs]
 
