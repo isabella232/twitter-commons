@@ -203,15 +203,7 @@ class InternalTarget(Target):
   def update_dependencies(self, dependencies):
     if dependencies:
       for dependency in dependencies:
-        if hasattr(dependency, 'address'):
-          self.dependency_addresses.add(dependency.address)
-        if not hasattr(dependency, "resolve"):
-          raise TargetDefinitionException(self, 'Cannot add %s as a dependency of %s'
-                                                % (dependency, self))
         for resolved_dependency in dependency.resolve():
-          if resolved_dependency.is_concrete and not self.valid_dependency(resolved_dependency):
-            raise TargetDefinitionException(self, 'Cannot add %s as a dependency of %s'
-                                                  % (resolved_dependency, self))
           self._dependencies.add(resolved_dependency)
           if isinstance(resolved_dependency, InternalTarget):
             self._internal_dependencies.add(resolved_dependency)
@@ -221,24 +213,6 @@ class InternalTarget(Target):
   def valid_dependency(self, dep):
     """Subclasses can over-ride to reject invalid dependencies."""
     return True
-
-  def replace_dependency(self, dependency, replacement):
-    self._dependencies.discard(dependency)
-    self._internal_dependencies.discard(dependency)
-    self._jar_dependencies.discard(dependency)
-    self.update_dependencies([replacement])
-
-  def _walk(self, walked, work, predicate=None):
-    Target._walk(self, walked, work, predicate)
-    for dep in self.dependencies:
-      if isinstance(dep, Target) and not dep in walked:
-        walked.add(dep)
-        if not predicate or predicate(dep):
-          additional_targets = work(dep)
-          dep._walk(walked, work, predicate)
-          if additional_targets:
-            for additional_target in additional_targets:
-              additional_target._walk(walked, work, predicate)
 
   def _propagate_exclusives(self):
     # Note: this overrides Target._propagate_exclusives without

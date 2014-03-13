@@ -14,26 +14,24 @@
 # limitations under the License.
 # ==================================================================================================
 
-import os
-
-from twitter.common.collections import maybe_list
+from twitter.pants.base.payload import JvmTargetPayload
+from twitter.pants.base.target import Target
+from twitter.pants.targets.jar_library import JarLibrary
 
 from .exclude import Exclude
-from .internal import InternalTarget
 from .jarable import Jarable
-from .with_sources import TargetWithSources
 
 
-class JvmTarget(InternalTarget, TargetWithSources, Jarable):
+class JvmTarget(Target, Jarable):
   """A base class for all java module targets that provides path and dependency translation."""
 
   def __init__(self,
-               name,
-               sources,
-               dependencies,
+               address=None,
+               sources=None,
+               provides=None,
                excludes=None,
                configurations=None,
-               exclusives=None):
+               *args, **kwargs):
     """
     :param string name: The name of this target, which combined with this
       build file defines the target :class:`twitter.pants.base.address.Address`.
@@ -49,15 +47,22 @@ class JvmTarget(InternalTarget, TargetWithSources, Jarable):
       This parameter is not intended for general use.
     :type configurations: tuple of strings
     """
-    InternalTarget.__init__(self, name, dependencies, exclusives=exclusives)
-    TargetWithSources.__init__(self, name, sources)
+
+    payload = JvmTargetPayload(sources=sources,
+                               sources_rel_path=address.spec_path,
+                               provides=provides,
+                               excludes=excludes,
+                               configurations=configurations)
+    super(JvmTarget, self).__init__(*args, address=address, payload=payload, **kwargs)
 
     self.add_labels('jvm')
-    for source in self.sources:
-      rel_path = os.path.join(self.target_base, source)
-      TargetWithSources.register_source(rel_path, self)
-    self.excludes = maybe_list(excludes or [], Exclude)
-    self.configurations = maybe_list(configurations or [])
 
-  def _provides(self):
-    return None
+  @property
+  def jar_dependencies(self):
+    jar_deps = set()
+    def collect_jar_deps(target):
+      for jar in target.payload.jars:
+        jar_deps.add(jar)
+
+    self.walk(work=collect_jar_deps, predicate=lambda t: isinstance(t, JarLibrary))
+    return jar_deps
