@@ -23,7 +23,6 @@ from twitter.common.dirutil import Fileset
 from twitter.common.lang import Compatibility
 
 from twitter.pants.base.build_manual import manual
-from twitter.pants.base.parse_context import ParseContext
 from twitter.pants.base.target import TargetDefinitionException
 
 from . import util

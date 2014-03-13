@@ -28,6 +28,7 @@ from twitter.common.dirutil import safe_mkdir, safe_rmtree
 from twitter.common.python.interpreter import PythonInterpreter
 from twitter.common.python.pex_builder import PEXBuilder
 from twitter.common.python.platforms import Platform
+
 from twitter.pants.base.build_invalidator import BuildInvalidator, CacheKeyGenerator
 from twitter.pants.base.config import Config
 from twitter.pants.base.parse_context import ParseContext
