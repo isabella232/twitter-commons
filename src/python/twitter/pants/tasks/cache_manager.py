@@ -19,11 +19,8 @@ try:
 except ImportError:
   import pickle
 
-from twitter.pants.base.build_invalidator import (
-    BuildInvalidator,
-    CacheKeyGenerator,
-    NO_SOURCES,
-    TARGET_SOURCES)
+from twitter.pants.graph.build_graph import sort_targets
+from twitter.pants.base.build_invalidator import BuildInvalidator, CacheKeyGenerator
 from twitter.pants.base.target import Target
 from twitter.pants.targets.external_dependency import ExternalDependency
 from twitter.pants.targets.internal import InternalTarget
@@ -64,8 +61,7 @@ class VersionedTargetSet(object):
     # The following line is a no-op if cache_key was set in the VersionedTarget __init__ method.
     self.cache_key = CacheKeyGenerator.combine_cache_keys([vt.cache_key
                                                            for vt in versioned_targets])
-    self.num_sources = self.cache_key.num_sources
-    self.sources = self.cache_key.sources
+    self.payloads = self.cache_key.payloads
     self.valid = not cache_manager.needs_update(self.cache_key)
 
   def update(self):
@@ -129,7 +125,6 @@ class InvalidationCheck(object):
 
     def add_to_current_group(vt):
       current_group.vts.append(vt)
-      current_group.total_sources += vt.num_sources
 
     def close_current_group():
       if len(current_group.vts) > 0:
@@ -172,13 +167,14 @@ class CacheManager(object):
   and invalidation statistics.
   Note that this is distinct from the ArtifactCache concept, and should probably be renamed.
   """
-  def __init__(self, cache_key_generator, build_invalidator_dir,
-               invalidate_dependents, extra_data, only_externaldeps):
+  def __init__(self,
+               cache_key_generator,
+               build_invalidator_dir,
+               invalidate_dependents,
+               extra_data):
     self._cache_key_generator = cache_key_generator
     self._invalidate_dependents = invalidate_dependents
     self._extra_data = pickle.dumps(extra_data)  # extra_data may be None.
-    self._sources = NO_SOURCES if only_externaldeps else TARGET_SOURCES
-
     self._invalidator = BuildInvalidator(build_invalidator_dir)
 
   def update(self, vts):
@@ -230,34 +226,31 @@ class CacheManager(object):
 
     for target in ordered_targets:
       dependency_keys = set()
-      if self._invalidate_dependents and hasattr(target, 'dependencies'):
+      if self._invalidate_dependents:
         # Note that we only need to do this for the immediate deps, because those will already
         # reflect changes in their own deps.
         for dep in target.dependencies:
+          # TODO(pl): Do I maintain this invariant?
           # We rely on the fact that any deps have already been processed, either in an earlier
           # round or because they came first in ordered_targets.
+          # NOTE(pl): JarDependency is no longer a Target.  It is the payload of JarLibrary.
           # Note that only external deps (e.g., JarDependency) or targets with sources can
           # affect invalidation. Other targets (JarLibrary, Pants) are just dependency scaffolding.
-          if isinstance(dep, ExternalDependency):
-            dependency_keys.add(dep.cache_key())
-          elif isinstance(dep, TargetWithSources):
-            fprint = id_to_hash.get(dep.id, None)
-            if fprint is None:
-              # It may have been processed in a prior round, and therefore the fprint should
-              # have been written out by the invalidator.
-              fprint = self._invalidator.existing_hash(dep.id)
-              # Note that fprint may still be None here. E.g., a codegen target is in the list
-              # of deps, but its fprint is not visible to our self._invalidator (that of the
-              # target synthesized from it is visible, so invalidation will still be correct.)
-              #
-              # Another case where this can happen is a dep of a codegen target on, say,
-              # a java target that hasn't been built yet (again, the synthesized target will
-              # depend on that same java target, so invalidation will still be correct.)
-              # TODO(benjy): Make this simpler and more obviously correct.
-            if fprint is not None:
-              dependency_keys.add(fprint)
-          elif isinstance(dep, JarLibrary) or isinstance(dep, Pants):
-            pass
+          fprint = id_to_hash.get(dep.id, None)
+          if fprint is None:
+            # It may have been processed in a prior round, and therefore the fprint should
+            # have been written out by the invalidator.
+            fprint = self._invalidator.existing_hash(dep.id)
+            # Note that fprint may still be None here. E.g., a codegen target is in the list
+            # of deps, but its fprint is not visible to our self._invalidator (that of the
+            # target synthesized from it is visible, so invalidation will still be correct.)
+            #
+            # Another case where this can happen is a dep of a codegen target on, say,
+            # a java target that hasn't been built yet (again, the synthesized target will
+            # depend on that same java target, so invalidation will still be correct.)
+            # TODO(benjy): Make this simpler and more obviously correct.
+          if fprint is not None:
+            dependency_keys.add(fprint)
           else:
             raise ValueError('Cannot calculate a cache_key for a dependency: %s' % dep)
       cache_key = self._key_for(target, dependency_keys)
@@ -314,8 +307,7 @@ class CacheManager(object):
 
   def _order_target_list(self, targets):
     """Orders the targets topologically, from least to most dependent."""
-    targets = set(t for t in targets if isinstance(t, Target))
-    return filter(targets.__contains__, reversed(InternalTarget.sort_targets(targets)))
+    return filter(targets.__contains__, reversed(sort_targets(targets)))
 
   def _key_for(self, target, dependency_keys):
     def fingerprint_extra(sha):
@@ -325,7 +317,6 @@ class CacheManager(object):
 
     return self._cache_key_generator.key_for_target(
       target,
-      sources=self._sources,
       fingerprint_extra=fingerprint_extra
     )
 

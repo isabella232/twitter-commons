@@ -204,8 +204,7 @@ class Task(object):
     cache_manager = CacheManager(self._cache_key_generator,
                                  self._build_invalidator_dir,
                                  invalidate_dependents,
-                                 extra_data,
-                                 only_externaldeps=only_buildfiles)
+                                 extra_data)
 
     invalidation_check = cache_manager.check(targets, partition_size_hint)
 
@@ -231,17 +230,17 @@ class Task(object):
 
     if not silent:
       targets = []
-      sources = []
+      payloads = []
       num_invalid_partitions = len(invalidation_check.invalid_vts_partitioned)
       for vt in invalidation_check.invalid_vts_partitioned:
         targets.extend(vt.targets)
-        sources.extend(vt.cache_key.sources)
+        payloads.extend(vt.cache_key.payloads)
       if len(targets):
         msg_elements = ['Invalidated ',
                         items_to_report_element([t.address.reference() for t in targets], 'target')]
-        if len(sources) > 0:
+        if len(payloads) > 0:
           msg_elements.append(' containing ')
-          msg_elements.append(items_to_report_element(sources, 'source file'))
+          msg_elements.append(items_to_report_element(payloads, 'payload file'))
         if num_invalid_partitions > 1:
           msg_elements.append(' in %d target partitions' % num_invalid_partitions)
         msg_elements.append('.')
@@ -364,7 +363,6 @@ class Task(object):
                          log=self.context.log)
 
     with self.invalidated(targets,
-                          only_buildfiles=True,
                           invalidate_dependents=True,
                           silent=silent) as invalidation_check:
       global_vts = VersionedTargetSet.from_versioned_targets(invalidation_check.all_vts)

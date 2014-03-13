@@ -42,6 +42,16 @@ class SourceRoot(object):
   _TYPES_BY_ROOT = {}
   _SEARCHED = set()
 
+  def here(self, *allowed_target_types):
+    """Registers the cwd as a source root for the given target types."""
+    SourceRoot.register(self.rel_path, *allowed_target_types)
+
+  def __init__(self, rel_path):
+    self.rel_path = rel_path
+
+  def __call__(self, basedir, *allowed_target_types):
+    SourceRoot.register(os.path.join(self.rel_path, basedir), *allowed_target_types)
+
   @classmethod
   def reset(cls):
     """Reset all source roots to empty. Only intended for testing."""
@@ -73,19 +83,6 @@ class SourceRoot(object):
     root = _find()
     if root:
       return root
-
-    # Fall back to searching the ancestor path for a root.
-    # TODO(John Sirois): We currently allow for organic growth of maven multi-module layout style
-    # projects (for example) and do not require a global up-front registration of all source roots
-    # and instead do lazy resolution here.  This allows for parse cycles that lead to surprising
-    # runtime errors.  Re-consider allowing lazy source roots at all.
-    for buildfile in reversed(target.address.buildfile.ancestors()):
-      if buildfile not in cls._SEARCHED:
-        ParseContext(buildfile).parse()
-        cls._SEARCHED.add(buildfile)
-        root = _find()
-        if root:
-          return root
 
     # Finally, resolve files relative to the BUILD file parent dir as the target base
     return target_path
