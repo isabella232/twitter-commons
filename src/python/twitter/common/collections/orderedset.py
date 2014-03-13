@@ -69,6 +69,9 @@ class OrderedSet(collections.MutableSet):
       yield curr[self.KEY]
       curr = curr[self.PREV]
 
+  def __hash__(self):
+    return hash(tuple(item for item in self))
+
   def pop(self, last=True):
     if not self:
       raise KeyError('set is empty')

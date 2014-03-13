@@ -23,7 +23,6 @@ from twitter.common.dirutil import Fileset
 from twitter.common.lang import Compatibility
 
 from twitter.pants.base.build_manual import manual
-from twitter.pants.base.parse_context import ParseContext
 from twitter.pants.base.target import TargetDefinitionException
 
 from . import util
@@ -138,9 +137,9 @@ class Bundle(object):
     ]
   """
 
-  def __init__(self, base=None, mapper=None, relative_to=None):
+  def __init__(self, rel_path=None, mapper=None, relative_to=None):
     """
-    :param base: Base path of the "source" file paths. By default, path of the
+    :param rel_path: Base path of the "source" file paths. By default, path of the
       BUILD file. Useful for assets that don't live in the source code repo.
     :param mapper: Function that takes a path string and returns a path string. Takes a path in
       the source tree, returns a path to use in the resulting bundle. By default, an identity
@@ -151,7 +150,7 @@ class Bundle(object):
     if mapper and relative_to:
       raise ValueError("Must specify exactly one of 'mapper' or 'relative_to'")
 
-    self._base = base or ParseContext.path()
+    self._base = rel_path
 
     if relative_to:
       base = os.path.join(self._base, relative_to)
