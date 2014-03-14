@@ -1,0 +1,3 @@
+
+class Payload(object):
+  pass

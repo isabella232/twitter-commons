@@ -34,11 +34,11 @@ class JavaLibrary(ExportableJvmLibrary, WithResources):
 
   def __init__(self,
                name,
+               build_graph,
                sources=None,
                provides=None,
                dependencies=None,
                excludes=None,
-               resources=None,
                exclusives=None):
     """
     :param string name: The name of this target, which combined with this
@@ -59,16 +59,10 @@ class JavaLibrary(ExportableJvmLibrary, WithResources):
       indicate text file resources to place in this module's jar.
     :param exclusives: An optional map of exclusives tags. See CheckExclusives for details.
     """
-    super(JavaLibrary, self).__init__(
-        name,
-        sources,
-        provides,
-        dependencies,
-        excludes,
-        exclusives=exclusives)
-
-    if (sources is None) and (resources is None):
-      raise TargetDefinitionException(self, 'Must specify sources and/or resources.')
-
-    self.resources = resources
+    super(JavaLibrary, self).__init__(name,
+                                      payload=sources,
+                                      provides,
+                                      dependencies,
+                                      excludes,
+                                      exclusives=exclusives)
     self.add_labels('java')
