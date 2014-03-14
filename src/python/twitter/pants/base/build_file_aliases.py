@@ -51,7 +51,6 @@ from twitter.pants.targets.sources import SourceRoot
 # aliases
 target_aliases = {
   'annotation_processor': AnnotationProcessor,
-  'artifact': Artifact,
   'benchmark': Benchmark,
   'credentials': Credentials,
   'dependencies': JarLibrary,
@@ -95,6 +94,7 @@ from .build_environment import get_buildroot, get_version, set_buildroot, get_sc
 from .config import Config
 
 object_aliases = {
+  'artifact': Artifact,
   'goal': Goal,
   'group': Group,
   'phase': Phase,
