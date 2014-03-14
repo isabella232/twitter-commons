@@ -53,7 +53,16 @@ class TargetProxy(object):
     self.address = BuildFileAddress(build_file, self.name)
 
   def to_target(self, build_graph):
-    return self.target_type(build_graph=build_graph, address=self.address, **self.kwargs)
+    try:
+      return self.target_type(build_graph=build_graph, address=self.address, **self.kwargs)
+    except Exception as e:
+      logger.exception('Failed to instantiate Target with type {target_type} with name "{name}"'
+                       ' from {build_file}'
+                       .format(target_type=self.target_type,
+                               name=self.name,
+                               build_file=self.build_file))
+      raise e
+
 
   def __str__(self):
     format_str = ('<TargetProxy(target_type={target_type}, build_file={build_file})'
@@ -129,7 +138,7 @@ class BuildFileParser(object):
 
     self._target_proxy_by_address = {}
     self._target_proxies_by_build_file = defaultdict(set)
-    self._addresses_by_build_file = defaultdict(set)
+    self.addresses_by_build_file = defaultdict(set)
     self._added_build_files = set()
 
   def inject_spec_closure_into_build_graph(self, spec, build_graph, addresses_already_closed=None):
@@ -233,15 +242,15 @@ class BuildFileParser(object):
     try:
       build_file_code = build_file.code()
     except Exception as e:
-      logger.error("Error parsing {build_file}.  Exception was:\n {exception}"
-                   .format(build_file=build_file, exception=e))
+      logger.exception("Error parsing {build_file}.  Exception was:\n {exception}"
+                       .format(build_file=build_file, exception=e))
       raise e
 
     try:
       compatibility.exec_function(build_file_code, parse_context)
     except Exception as e:
-      logger.error("Error running {build_file}.  Exception was:\n {exception}"
-                   .format(build_file=build_file, exception=e))
+      logger.exception("Error running {build_file}.  Exception was:\n {exception}"
+                       .format(build_file=build_file, exception=e))
       raise e
 
     for target_proxy in registered_target_proxies:
@@ -255,14 +264,14 @@ class BuildFileParser(object):
         .format(address=target_proxy.address,
                 target_type=target_proxy.target_type))
 
-      assert target_proxy.address not in self._addresses_by_build_file[build_file], (
+      assert target_proxy.address not in self.addresses_by_build_file[build_file], (
         '{address} has already been associated with {build_file} in the build graph.'
         .format(address=target_proxy.address,
-                build_file=self._addresses_by_build_file[build_file])
+                build_file=self.addresses_by_build_file[build_file])
       )
 
       self._target_proxy_by_address[target_proxy.address] = target_proxy
-      self._addresses_by_build_file[build_file].add(target_proxy.address)
+      self.addresses_by_build_file[build_file].add(target_proxy.address)
       self._target_proxies_by_build_file[build_file].add(target_proxy)
     self._added_build_files.add(build_file)
 
