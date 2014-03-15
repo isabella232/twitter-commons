@@ -1,6 +1,5 @@
-#!/bin/bash
 # ==================================================================================================
-# Copyright 2011 Twitter, Inc.
+# Copyright 2014 Twitter, Inc.
 # --------------------------------------------------------------------------------------------------
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this work except in compliance with the License.
@@ -15,21 +14,13 @@
 # limitations under the License.
 # ==================================================================================================
 
-MY_DIR=$(dirname $0)
-PANTS_BUILD_ROOT=$MY_DIR/../../..
-PANTS=$PANTS_BUILD_ROOT/pants
-
-ref=$(git symbolic-ref HEAD)
-branch=${ref#refs/heads/}
-sha=$(git rev-list HEAD| head -1)
-
-$PANTS doc --title="Twitter Commons API Docs" --ignore-failure && \
-  git checkout gh-pages && \
-  git pull && \
-  rm -r apidocs && \
-  mv target/pants.doc apidocs && \
-  git add apidocs && \
-  git commit -m "Update Twitter Commons API Docs @ $sha" && \
-  git push origin HEAD && \
-  git checkout $branch
-
+python_tests(
+  name = 'jar',
+  sources = globs('*.py'),
+  dependencies = [
+    pants('src/python/twitter/common/collections'),
+    pants('src/python/twitter/common/dirutil'),
+    pants('src/python/twitter/common/lang'),
+    pants('src/python/twitter/pants/java:jar'),
+  ]
+)
