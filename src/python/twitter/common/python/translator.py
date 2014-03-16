@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 from abc import abstractmethod
 import os
+import shutil
 from zipimport import zipimporter
 
 from .common import chmod_plus_w, safe_rmtree, safe_mkdir, safe_mkdtemp
@@ -111,7 +112,8 @@ class SourceTranslator(TranslatorBase):
         except Installer.InstallFailure:
           return None
         target_path = os.path.join(self._install_cache, os.path.basename(dist_path))
-        os.rename(dist_path, target_path)
+        # TODO: Make this move atomic.
+        shutil.move(dist_path, target_path)
         dist = dist_from_egg(target_path)
         if Platform.distribution_compatible(
             dist, python=self._interpreter.python, platform=self._platform):
