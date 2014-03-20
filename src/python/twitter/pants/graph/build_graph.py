@@ -85,6 +85,26 @@ class BuildGraph(object):
   def sorted_targets(self):
     return sort_targets(self._target_by_address.values())
 
+  def walk_transitive_dependency_graph(self, address, work, predicate=None):
+    walked = set()
+    def _walk_rec(address):
+      if address not in walked:
+        walked.add(address)
+        target = self._target_by_address[address]
+        if not predicate or predicate(target):
+          work_targets = work(target) or []
+          additional_addresses = [t.address for t in work_targets]
+          for dep_address in self._target_dependencies_by_address[address]:
+            _walk_rec(dep_address)
+          for additional_address in additional_addresses:
+            _walk_rec(additional_address)
+    _walk_rec(address)
+
+  def transitive_subgraph_of_address(self, address):
+    ret = set()
+    self.walk_transitive_dependency_graph(address, ret.add)
+    return ret
+
 
 class CycleException(Exception):
   """Thrown when a circular dependency is detected."""

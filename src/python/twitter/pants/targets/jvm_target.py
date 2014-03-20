@@ -18,22 +18,16 @@ import os
 
 from twitter.common.collections import maybe_list
 
+from twitter.pants.base.target import Target
+
 from .exclude import Exclude
-from .internal import InternalTarget
 from .jarable import Jarable
-from .with_sources import TargetWithSources
 
 
-class JvmTarget(InternalTarget, TargetWithSources, Jarable):
+class JvmTarget(Target, Jarable):
   """A base class for all java module targets that provides path and dependency translation."""
 
-  def __init__(self,
-               name,
-               sources,
-               dependencies,
-               excludes=None,
-               configurations=None,
-               exclusives=None):
+  def __init__(self, sources=None, excludes=None, configurations=None, *args, **kwargs):
     """
     :param string name: The name of this target, which combined with this
       build file defines the target :class:`twitter.pants.base.address.Address`.
@@ -49,13 +43,12 @@ class JvmTarget(InternalTarget, TargetWithSources, Jarable):
       This parameter is not intended for general use.
     :type configurations: tuple of strings
     """
-    InternalTarget.__init__(self, name, dependencies, exclusives=exclusives)
-    TargetWithSources.__init__(self, name, sources)
+    super(JvmTarget, self).__init__(*args, payload=sources, **kwargs)
 
     self.add_labels('jvm')
-    for source in self.sources:
-      rel_path = os.path.join(self.target_base, source)
-      TargetWithSources.register_source(rel_path, self)
+    # for source in self.sources:
+    #   rel_path = os.path.join(self.target_base, source)
+    #   TargetWithSources.register_source(rel_path, self)
     self.excludes = maybe_list(excludes or [], Exclude)
     self.configurations = maybe_list(configurations or [])
 
