@@ -11,6 +11,7 @@ from twitter.common.dirutil import Lock
 from twitter.common.process import ProcessProviderFactory
 from twitter.common.process.process_provider import ProcessProvider
 
+from twitter.pants.base.address import SyntheticAddress
 from twitter.pants.base.build_environment import get_buildroot
 from twitter.pants.base.target import Target
 from twitter.pants.base.workunit import WorkUnit
@@ -64,9 +65,11 @@ class Context(object):
       self._run_tracker.log(Report.FATAL, *msg_elements)
 
   def __init__(self, config, options, run_tracker, target_roots, requested_goals=None,
-               lock=None, log=None, target_base=None):
+               lock=None, log=None, target_base=None, build_graph=None, build_file_parser=None):
     self._config = config
     self._options = options
+    self.build_graph = build_graph
+    self.build_file_parser = build_file_parser
     self.run_tracker = run_tracker
     self._lock = lock or Lock.unlocked()
     self._log = log or Context.Log(run_tracker)
@@ -274,8 +277,8 @@ class Context(object):
 
   def resolve(self, spec):
     """Returns an iterator over the target(s) the given address points to."""
-    with ParseContext.temp():
-      return Pants(spec).resolve()
+    self.build_file_parser.inject_spec_closure_into_build_graph(spec, self.build_graph)
+    return self.build_graph.transitive_subgraph_of_address(SyntheticAddress(spec))
 
   @contextmanager
   def state(self, key, default=None):

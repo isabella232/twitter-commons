@@ -22,7 +22,7 @@ from .resources import WithResources
 
 
 @manual.builddict(tags=['java'])
-class JavaLibrary(ExportableJvmLibrary, WithResources):
+class JavaLibrary(ExportableJvmLibrary):
   """A collection of Java code.
 
   Normally has conceptually-related sources; invoking the ``compile`` goal
@@ -32,14 +32,7 @@ class JavaLibrary(ExportableJvmLibrary, WithResources):
   more sensible thing to bundle.
   """
 
-  def __init__(self,
-               name,
-               build_graph,
-               sources=None,
-               provides=None,
-               dependencies=None,
-               excludes=None,
-               exclusives=None):
+  def __init__(self, *args, **kwargs):
     """
     :param string name: The name of this target, which combined with this
       build file defines the target :class:`twitter.pants.base.address.Address`.
@@ -59,10 +52,5 @@ class JavaLibrary(ExportableJvmLibrary, WithResources):
       indicate text file resources to place in this module's jar.
     :param exclusives: An optional map of exclusives tags. See CheckExclusives for details.
     """
-    super(JavaLibrary, self).__init__(name,
-                                      payload=sources,
-                                      provides,
-                                      dependencies,
-                                      excludes,
-                                      exclusives=exclusives)
+    super(JavaLibrary, self).__init__(*args, **kwargs)
     self.add_labels('java')

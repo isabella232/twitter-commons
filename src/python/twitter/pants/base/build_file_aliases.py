@@ -73,7 +73,6 @@ target_aliases = {
   'python_binary': PythonBinary,
   'python_library': PythonLibrary,
   'python_antlr_library': PythonAntlrLibrary,
-  'python_requirement': PythonRequirement,
   'python_thrift_library': PythonThriftLibrary,
   'python_tests': PythonTests,
   'python_test_suite': PythonTestSuite,
@@ -105,6 +104,7 @@ object_aliases = {
   'get_scm': get_scm,
   'set_scm': set_scm,
   'jar': JarDependency,
+  'python_requirement': PythonRequirement,
 }
 
 

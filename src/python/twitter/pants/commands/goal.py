@@ -39,7 +39,6 @@ from twitter.pants import binary_util
 from twitter.pants.base.address import BuildFileAddress, parse_spec
 from twitter.pants.base.build_environment import get_buildroot
 from twitter.pants.base.build_file import BuildFile
-from twitter.pants.base.build_file_parser import BuildFileParser
 from twitter.pants.base.config import Config
 from twitter.pants.base.parse_context import ParseContext
 from twitter.pants.base.rcfile import RcFile
@@ -48,7 +47,6 @@ from twitter.pants.base.target import Target, TargetDefinitionException
 from twitter.pants.base.workunit import WorkUnit
 from twitter.pants.commands import Command
 from twitter.pants.engine import Engine, GroupEngine
-from twitter.pants.graph.build_graph import BuildGraph
 from twitter.pants.goal import Context, GoalError, Phase
 from twitter.pants.goal import Goal as goal, Group as group
 from twitter.pants.goal.initialize_reporting import update_reporting
@@ -123,6 +121,17 @@ class SpecParser(object):
   def __init__(self, root_dir, build_file_parser):
     self._root_dir = root_dir
     self._build_file_parser = build_file_parser
+
+  # DEPRECATED!  Specs with BUILD files in them shouldn't be allowed.
+  def _get_dir(self, spec):
+    path = spec.split(':', 1)[0]
+    if os.path.isdir(path):
+      return path
+    else:
+      if os.path.isfile(path):
+        return os.path.dirname(path)
+      else:
+        return spec
 
   def parse_addresses(self, spec):
     if spec.endswith('::'):
@@ -275,6 +284,7 @@ class Goal(Command):
 
   def __init__(self, run_tracker, root_dir, parser, args):
     self.targets = []
+    print("GOAL INIT")
     Command.__init__(self, run_tracker, root_dir, parser, args)
 
   @contextmanager
@@ -357,35 +367,6 @@ class Goal(Command):
     else:
       goals, specs = Goal.parse_args(args)
       self.requested_goals = goals
-
-      # TODO(pl): Gross that we're doing a local import here, but this has dependendencies
-      # way down into specific Target subclasses, and I'd prefer to make it explicit that this
-      # import is in many ways similar to to third party plugin imports below.
-      from twitter.pants.base.build_file_aliases import (target_aliases, object_aliases,
-                                                         applicative_path_relative_util_aliases,
-                                                         partial_path_relative_util_aliases)
-      for alias, target_type in target_aliases.items():
-        BuildFileParser.register_target_alias(alias, target_type)
-
-      for alias, obj in object_aliases.items():
-        BuildFileParser.register_exposed_object(alias, obj)
-
-      for alias, util in applicative_path_relative_util_aliases.items():
-        BuildFileParser.register_applicative_path_relative_util(alias, util)
-
-      for alias, util in partial_path_relative_util_aliases.items():
-        BuildFileParser.register_partial_path_relative_util(alias, util)
-
-      # TODO(pl): This is awful but I need something quick and dirty to support
-      # injection of third party Targets and tools into BUILD file context
-      plugins = self.config.getlist('plugins', 'entry_points', default=[])
-      for entry_point_spec in plugins:
-        module, entry_point = entry_point_spec.split(':')
-        plugin_module = __import__(module, globals(), locals(), [entry_point], 0)
-        getattr(plugin_module, entry_point)(self.config)
-
-      build_file_parser = BuildFileParser(root_dir=self.root_dir)
-      build_graph = BuildGraph()
       # Load source-roots.ini
 
       with self.run_tracker.new_workunit(name='setup', labels=[WorkUnit.SETUP]):
@@ -395,7 +376,7 @@ class Goal(Command):
             for path in self.config.getlist('goals', 'bootstrap_buildfiles', default=[]):
               try:
                 build_file = BuildFile(root_dir=self.root_dir, relpath=path)
-                build_file_parser.parse_build_file_family(build_file)
+                self.build_file_parser.parse_build_file_family(build_file)
               except (TypeError, ImportError, TaskError, GoalError):
                 error(path, include_traceback=True)
               except (IOError, SyntaxError):
@@ -404,15 +385,15 @@ class Goal(Command):
         self.run_tracker.run_info.add_scm_info()
 
         # Bootstrap user goals by loading any BUILD files implied by targets.
-        spec_parser = SpecParser(self.root_dir, build_file_parser)
+        spec_parser = SpecParser(self.root_dir, self.build_file_parser)
         with self.run_tracker.new_workunit(name='parse', labels=[WorkUnit.SETUP]):
           for spec in specs:
             for address in spec_parser.parse_addresses(spec):
-              build_file_parser.inject_spec_closure_into_build_graph(address.spec, build_graph)
+              self.build_file_parser.inject_spec_closure_into_build_graph(address.spec,
+                                                                          self.build_graph)
 
-      self.targets = build_graph._target_by_address.values()
+      self.targets = self.build_graph._target_by_address.values()
       self.phases = [Phase(goal) for goal in goals]
-      import pdb; pdb.set_trace()
 
       rcfiles = self.config.getdefault('rcfiles', type=list,
                                        default=['/etc/pantsrc', '~/.pants.rc'])
@@ -476,6 +457,8 @@ class Goal(Command):
       self.run_tracker,
       self.targets,
       requested_goals=self.requested_goals,
+      build_graph=self.build_graph,
+      build_file_parser=self.build_file_parser,
       lock=lock)
 
     if self.options.recursive_directory:

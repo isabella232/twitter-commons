@@ -19,14 +19,8 @@ from functools import partial
 from twitter.common.collections import maybe_list, OrderedSet
 
 from twitter.pants.base.build_manual import manual
-from twitter.pants.base.target import Target, TargetDefinitionException
+from twitter.pants.base.target import Target
 
-from . import util
-from .anonymous import AnonymousDeps
-from .exclude import Exclude
-from .external_dependency import ExternalDependency
-from .exportable_jvm_library import ExportableJvmLibrary
-from .pants_target import Pants
 from .jar_dependency import JarDependency
 
 
