@@ -19,6 +19,7 @@ from functools import partial
 from twitter.common.collections import maybe_list, OrderedSet
 
 from twitter.pants.base.build_manual import manual
+from twitter.pants.base.payload import JarLibraryPayload
 from twitter.pants.base.target import Target
 
 from .jar_dependency import JarDependency
@@ -30,7 +31,7 @@ class JarLibrary(Target):
   as if depending upon the set of dependencies directly.
   """
 
-  def __init__(self, name, address, jars, build_graph, overrides=None, exclusives=None):
+  def __init__(self, jars=None, overrides=None, *args, **kwargs):
     """
     :param string name: The name of this target, which combined with this
       build file defines the target :class:`twitter.pants.base.address.Address`.
@@ -41,11 +42,8 @@ class JarLibrary(Target):
       direct/transitive dependencies in the dependencies list.
     :param exclusives: An optional map of exclusives tags. See CheckExclusives for details.
     """
-    super(JarLibrary, self).__init__(name,
-                                     address,
-                                     payload=(jars, overrides),
-                                     build_graph=build_graph,
-                                     exclusives=exclusives)
+    payload = JarLibraryPayload(jars, overrides)
+    super(JarLibrary, self).__init__(payload=payload, *args, **kwargs)
     self.add_labels('jars')
 
   @property

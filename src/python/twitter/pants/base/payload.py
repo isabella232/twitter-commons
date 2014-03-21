@@ -8,18 +8,17 @@ from twitter.common.lang import AbstractClass
 from twitter.pants.base.build_environment import get_buildroot
 
 
-def hash_sources(root_path, rel_path, sources):
-  hasher = sha1()
+def hash_sources(hasher, root_path, rel_path, sources):
   hasher.update(rel_path)
   for source in sources:
     with open(os.path.join(root_path, rel_path, source), 'r') as f:
       hasher.update(source)
       hasher.update(f.read())
-  return hasher.hexdigest()
 
 
 class Payload(AbstractClass):
-  pass
+  def invalidation_hash(hasher):
+    raise NotImplemented
 
 
 class JvmTargetPayload(Payload):
@@ -38,13 +37,19 @@ class JvmTargetPayload(Payload):
   def __hash__(self):
     return hash((self.sources, self.provides, self.excludes, self.configurations))
 
-  def invalidation_hash(self):
-    sources_hash = hash_sources(get_buildroot(), self.sources_rel_path, self.sources)
-    hasher = sha1()
-    hasher.update(sources_hash)
+  def invalidation_hash(self, hasher):
+    sources_hash = hash_sources(hasher, get_buildroot(), self.sources_rel_path, self.sources)
     hasher.update(str(hash(self.provides)))
     for exclude in self.excludes:
       hasher.update(str(hash(exclude)))
     for config in self.configurations:
       hasher.update(config)
-    return hasher.hexdigest()
+
+class JarLibraryPayload(Payload):
+  def __init__(self, jars, overrides):
+    self.jars = OrderedSet(jars)
+    self.overrides = OrderedSet(overrides)
+
+  def invalidation_hash(self, hasher):
+    hasher.update(str(hash(self.jars)))
+    hasher.update(str(hash(self.overrides)))
