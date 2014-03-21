@@ -108,6 +108,10 @@ class Address(object):
   def relative_spec(self):
     return ':{target_name}'.format(target_name=self.target_name)
 
+  @property
+  def is_synthetic(self):
+    return False
+
   def reference(self, referencing_path=None):
     """How to reference this address in a BUILD file."""
     if referencing_path and self.spec_path == referencing_path:
@@ -153,4 +157,9 @@ class SyntheticAddress(Address):
 
   def __repr__(self):
     return "SyntheticAddress({spec})".format(spec=self.spec)
+
+  @property
+  def is_synthetic(self):
+    return True
+
 

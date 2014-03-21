@@ -284,7 +284,6 @@ class Goal(Command):
 
   def __init__(self, run_tracker, root_dir, parser, args):
     self.targets = []
-    print("GOAL INIT")
     Command.__init__(self, run_tracker, root_dir, parser, args)
 
   @contextmanager

@@ -212,8 +212,6 @@ class CacheManager(object):
     # We must check the targets in this order, to ensure correctness if invalidate_dependents=True,
     # since we use earlier cache keys to compute later cache keys in this case.
     ordered_targets = self._order_target_list(targets)
-    for target in ordered_targets:
-      print target
 
     # This will be a list of VersionedTargets that correspond to @targets.
     versioned_targets = []
@@ -227,13 +225,11 @@ class CacheManager(object):
     id_to_hash = {}
 
     for target in ordered_targets:
-      print "target in ordered_targets: %s" % target
       dependency_keys = set()
       if self._invalidate_dependents:
         # Note that we only need to do this for the immediate deps, because those will already
         # reflect changes in their own deps.
         for dep in target.dependencies:
-          print "dep: %s" % dep
           # TODO(pl): Do I maintain this invariant?
           # We rely on the fact that any deps have already been processed, either in an earlier
           # round or because they came first in ordered_targets.

@@ -16,6 +16,7 @@
 
 from twitter.pants.base.payload import JvmTargetPayload
 from twitter.pants.base.target import Target
+from twitter.pants.targets.jar_library import JarLibrary
 
 from .exclude import Exclude
 from .jarable import Jarable
@@ -55,3 +56,13 @@ class JvmTarget(Target, Jarable):
     super(JvmTarget, self).__init__(*args, address=address, payload=payload, **kwargs)
 
     self.add_labels('jvm')
+
+  @property
+  def jar_dependencies(self):
+    jar_deps = set()
+    def collect_jar_deps(target):
+      for jar in target.payload.jars:
+        jar_deps.add(jar)
+
+    self.walk(work=collect_jar_deps, predicate=lambda t: isinstance(t, JarLibrary))
+    return jar_deps
