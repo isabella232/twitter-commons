@@ -79,7 +79,6 @@ class DefaultSourceScope(SourceScope):
     return hasattr(target, 'expand_files')
 
 TARGET_SOURCES = DefaultSourceScope(recursive=False, include_buildfile=False)
-TRANSITIVE_SOURCES = DefaultSourceScope(recursive=True, include_buildfile=False)
 
 # Bump this to invalidate all existing keys in artifact caches across all pants deployments in the world.
 # Do this if you've made a change that invalidates existing artifacts, e.g.,  fixed a bug that

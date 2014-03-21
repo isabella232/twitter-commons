@@ -230,12 +230,14 @@ class CacheManager(object):
 
     for target in ordered_targets:
       dependency_keys = set()
-      if self._invalidate_dependents and hasattr(target, 'dependencies'):
+      if self._invalidate_dependents:
         # Note that we only need to do this for the immediate deps, because those will already
         # reflect changes in their own deps.
         for dep in target.dependencies:
+          # TODO(pl): Do I maintain this invariant?
           # We rely on the fact that any deps have already been processed, either in an earlier
           # round or because they came first in ordered_targets.
+          # NOTE(pl): JarDependency is no longer a Target.  It is the payload of JarLibrary.
           # Note that only external deps (e.g., JarDependency) or targets with sources can
           # affect invalidation. Other targets (JarLibrary, Pants) are just dependency scaffolding.
           if isinstance(dep, ExternalDependency):
@@ -259,6 +261,7 @@ class CacheManager(object):
           elif isinstance(dep, JarLibrary) or isinstance(dep, Pants):
             pass
           else:
+            import pdb; pdb.set_trace()
             raise ValueError('Cannot calculate a cache_key for a dependency: %s' % dep)
       cache_key = self._key_for(target, dependency_keys)
       id_to_hash[target.id] = cache_key.hash

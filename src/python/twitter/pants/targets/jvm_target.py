@@ -14,10 +14,7 @@
 # limitations under the License.
 # ==================================================================================================
 
-import os
-
-from twitter.common.collections import maybe_list
-
+from twitter.pants.base.payload import JvmTargetPayload
 from twitter.pants.base.target import Target
 
 from .exclude import Exclude
@@ -27,7 +24,13 @@ from .jarable import Jarable
 class JvmTarget(Target, Jarable):
   """A base class for all java module targets that provides path and dependency translation."""
 
-  def __init__(self, sources=None, excludes=None, configurations=None, *args, **kwargs):
+  def __init__(self,
+               address=None,
+               sources=None,
+               provides=None,
+               excludes=None,
+               configurations=None,
+               *args, **kwargs):
     """
     :param string name: The name of this target, which combined with this
       build file defines the target :class:`twitter.pants.base.address.Address`.
@@ -43,14 +46,12 @@ class JvmTarget(Target, Jarable):
       This parameter is not intended for general use.
     :type configurations: tuple of strings
     """
-    super(JvmTarget, self).__init__(*args, payload=sources, **kwargs)
+
+    payload = JvmTargetPayload(sources=sources,
+                               sources_rel_path=address.spec_path,
+                               provides=provides,
+                               excludes=excludes,
+                               configurations=configurations)
+    super(JvmTarget, self).__init__(*args, address=address, payload=payload, **kwargs)
 
     self.add_labels('jvm')
-    # for source in self.sources:
-    #   rel_path = os.path.join(self.target_base, source)
-    #   TargetWithSources.register_source(rel_path, self)
-    self.excludes = maybe_list(excludes or [], Exclude)
-    self.configurations = maybe_list(configurations or [])
-
-  def _provides(self):
-    return None

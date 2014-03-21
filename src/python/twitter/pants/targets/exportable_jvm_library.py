@@ -20,7 +20,7 @@ from .jvm_target import JvmTarget
 class ExportableJvmLibrary(JvmTarget):
   """A baseclass for java targets that support being exported to an artifact repository."""
 
-  def __init__(self, provides=None, *args, **kwargs):
+  def __init__(self, *args, **kwargs):
     """
     :param string name: The name of this target, which combined with this
       build file defines the target :class:`twitter.pants.base.address.Address`.
@@ -36,15 +36,7 @@ class ExportableJvmLibrary(JvmTarget):
       to filter this target's transitive dependencies against.
     :param buildflags: Unused, and will be removed in a future release.
     """
-
-    # It's critical that provides is set 1st since _provides() is called elsewhere in the
-    # constructor flow.
-    # self._provides = provides
-
+    
     super(ExportableJvmLibrary, self).__init__(*args, **kwargs)
 
     self.add_labels('exportable')
-
-  @property
-  def provides(self):
-    return self._provides

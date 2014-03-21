@@ -228,6 +228,11 @@ class Target(AbstractTarget):
       self.add_to_exclusives(target.declared_exclusives)
     return None
 
+  def add_to_exclusives(self, exclusives):
+    if exclusives is not None:
+      for key in exclusives:
+        self.exclusives[key] |= exclusives[key]
+
   @property
   def id(self):
     """A unique identifier for the Target.
@@ -261,19 +266,6 @@ class Target(AbstractTarget):
     if predicate and not callable(predicate):
       raise ValueError('predicate must be callable but was %s' % predicate)
     self._build_graph.walk_transitive_dependency_graph(self.address, work, predicate)
-
-  def _walk(self, walked, work, predicate=None):
-    for target in self.resolve():
-      if target not in walked:
-        walked.add(target)
-        if not predicate or predicate(target):
-          additional_targets = work(target)
-          if hasattr(target, '_walk'):
-            target._walk(walked, work, predicate)
-          if additional_targets:
-            for additional_target in additional_targets:
-              if hasattr(additional_target, '_walk'):
-                additional_target._walk(walked, work, predicate)
 
   @manual.builddict()
   def with_description(self, description):

@@ -72,7 +72,7 @@ class ScalaLibrary(ExportableJvmLibrary):
 
   @property
   def java_sources(self):
-    return [source for source in self.payload if source.endswith('.java')]
+    return [source for source in self.payload.sources if source.endswith('.java')]
     # if self._raw_java_sources is not None:
     #   self._java_sources = list(Target.resolve_all(maybe_list(self._raw_java_sources, Target),
     #                                                JavaLibrary))

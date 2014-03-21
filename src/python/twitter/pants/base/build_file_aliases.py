@@ -38,6 +38,7 @@ from twitter.pants.targets.python_binary import PythonBinary
 from twitter.pants.targets.python_egg import PythonEgg
 from twitter.pants.targets.python_library import PythonLibrary
 from twitter.pants.targets.python_requirement import PythonRequirement
+from twitter.pants.targets.python_requirement_library import PythonRequirementLibrary
 from twitter.pants.targets.python_tests import PythonTests, PythonTestSuite
 from twitter.pants.targets.python_thrift_library import PythonThriftLibrary
 from twitter.pants.targets.repository import Repository
@@ -72,6 +73,7 @@ target_aliases = {
   'setup_py': PythonArtifact,
   'python_binary': PythonBinary,
   'python_library': PythonLibrary,
+  'python_requirement_library': PythonRequirementLibrary,
   'python_antlr_library': PythonAntlrLibrary,
   'python_thrift_library': PythonThriftLibrary,
   'python_tests': PythonTests,
