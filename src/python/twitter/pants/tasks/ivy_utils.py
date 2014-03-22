@@ -230,7 +230,7 @@ class IvyUtils(object):
   def _calculate_classpath(self, targets):
 
     def is_jardependant(target):
-      return target.is_jar or target.is_jvm
+      return target.is_jar_library or target.is_jvm
 
     jars = {}
     excludes = set()
@@ -246,12 +246,9 @@ class IvyUtils(object):
       )
 
     def collect_jars(target):
-      if target.is_jar:
-        add_jar(target)
-      elif target.jar_dependencies:
-        for jar in target.jar_dependencies:
-          if jar.rev:
-            add_jar(jar)
+      for jar in target.jar_dependencies:
+        if jar.rev:
+          add_jar(jar)
 
       # Lift jvm target-level excludes up to the global excludes set
       if target.is_jvm and target.payload.excludes:
