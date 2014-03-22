@@ -46,6 +46,10 @@ class JarLibrary(Target):
     super(JarLibrary, self).__init__(payload=payload, *args, **kwargs)
     self.add_labels('jars')
 
+  @property
+  def jar_dependencies(self):
+    return self.payload.jars
+
   def _resolve_overrides(self):
     """
     Resolves override jars, and then excludes and re-includes each of them

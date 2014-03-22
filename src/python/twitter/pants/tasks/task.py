@@ -345,7 +345,6 @@ class Task(object):
 
   def ivy_resolve(self, targets, executor=None, symlink_ivyxml=False, silent=False,
                   workunit_name=None, workunit_labels=None):
-
     if executor and not isinstance(executor, Executor):
       raise ValueError('The executor must be an Executor instance, given %s of type %s'
                        % (executor, type(executor)))
