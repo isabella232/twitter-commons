@@ -34,7 +34,7 @@ from .resources import WithResources
 
 
 @manual.builddict(tags=["jvm"])
-class JvmBinary(JvmTarget, WithResources):
+class JvmBinary(JvmTarget):
   """Produces a JVM binary optionally identifying a launcher main class.
 
   Below are a summary of how key goals affect targets of this type:
@@ -45,16 +45,13 @@ class JvmBinary(JvmTarget, WithResources):
     this means the jar has a manifest specifying the main class.
   * ``run`` - Executes the main class of this binary locally.
   """
-  def __init__(self, name,
+  def __init__(self,
+               name=None,
                main=None,
                basename=None,
                source=None,
                resources=None,
-               dependencies=None,
-               excludes=None,
-               deploy_excludes=None,
-               configurations=None,
-               exclusives=None):
+               deploy_excludes=None, *args, **kwargs):
     """
     :param string name: The name of this target, which combined with this
       build file defines the target :class:`twitter.pants.base.address.Address`.
@@ -79,12 +76,8 @@ class JvmBinary(JvmTarget, WithResources):
       This parameter is not intended for general use.
     :type configurations: tuple of strings
     """
-    super(JvmBinary, self).__init__(name=name,
-                                    sources=[source] if source else None,
-                                    dependencies=dependencies,
-                                    excludes=excludes,
-                                    configurations=configurations,
-                                    exclusives=exclusives)
+    sources = [source] if source else None
+    super(JvmBinary, self).__init__(*args, name=name, sources=sources, **kwargs)
 
     if main and not isinstance(main, Compatibility.string):
       raise TargetDefinitionException(self, 'main must be a fully qualified classname')
