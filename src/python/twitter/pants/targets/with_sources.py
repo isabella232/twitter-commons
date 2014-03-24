@@ -21,7 +21,7 @@ from collections import defaultdict
 from twitter.common.lang import Compatibility
 from twitter.pants.base.build_environment import get_buildroot
 from twitter.pants.base.target import Target
-from twitter.pants.targets.sources import SourceRoot
+from twitter.pants.base.source_root import SourceRoot
 
 
 class TargetWithSources(Target):

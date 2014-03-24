@@ -94,7 +94,7 @@ class TargetCallProxy(object):
             ' registered_target_proxies=<dict with id: {registered_target_proxies_id}>)>'
             .format(target_type=self._target_type,
                     build_file=self._build_file,
-                    registered_target_proxies=id(self._registered_target_proxies)))
+                    registered_target_proxies_id=id(self._registered_target_proxies)))
 
 
 class BuildFileParser(object):

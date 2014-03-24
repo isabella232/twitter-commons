@@ -22,18 +22,7 @@ except ImportError:
 from twitter.pants.graph.build_graph import sort_targets
 from twitter.pants.base.build_invalidator import BuildInvalidator, CacheKeyGenerator
 from twitter.pants.base.target import Target
-from twitter.pants.targets.external_dependency import ExternalDependency
-from twitter.pants.targets.internal import InternalTarget
 from twitter.pants.targets.jar_library import JarLibrary
-from twitter.pants.targets.pants_target import Pants
-from twitter.pants.targets.with_sources import TargetWithSources
-
-
-# class VersionedTarget(object):
-#   def __init__(self, cache_manager, target):
-#     self._cache_manager = cache_manager
-#     self.target = target
-#     self.cache_key = cache_manager.key_for_target(target.cache_key
 
 
 class VersionedTargetSet(object):

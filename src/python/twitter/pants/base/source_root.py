@@ -20,8 +20,6 @@ from twitter.common.collections import OrderedSet
 
 from twitter.pants.base.build_environment import get_buildroot
 from twitter.pants.base.build_manual import manual
-from twitter.pants.base.parse_context import ParseContext
-from twitter.pants.base.target import TargetDefinitionException
 
 
 @manual.builddict()
@@ -50,6 +48,7 @@ class SourceRoot(object):
     self.rel_path = rel_path
 
   def __call__(self, basedir, *allowed_target_types):
+    allowed_target_types = [proxy._target_type for proxy in allowed_target_types]
     SourceRoot.register(os.path.join(self.rel_path, basedir), *allowed_target_types)
 
   @classmethod
@@ -65,7 +64,7 @@ class SourceRoot(object):
 
     If none is registered, returns the parent directory of the target's BUILD file.
     """
-    target_path = os.path.relpath(target.address.buildfile.parent_path, get_buildroot())
+    target_path = os.path.relpath(target.address.spec_path, get_buildroot())
 
     def _find():
       for root_dir, types in cls._TYPES_BY_ROOT.items():
