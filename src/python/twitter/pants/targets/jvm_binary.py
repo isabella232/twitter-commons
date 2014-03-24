@@ -30,7 +30,6 @@ from .internal import InternalTarget
 from .jar_library import JarLibrary
 from .jvm_target import JvmTarget
 from .pants_target import Pants
-from .resources import WithResources
 
 
 @manual.builddict(tags=["jvm"])

@@ -21,6 +21,8 @@ from twitter.pants.base.build_file import BuildFile
 
 
 def parse_spec(spec, relative_to=''):
+  if not isinstance(spec, basestring):
+    print "Spec %s is not a string!" % spec
   spec_parts = spec.rsplit(':', 1)
   if len(spec_parts) == 1:
     spec_path = spec_parts[0]

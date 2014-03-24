@@ -1,12 +1,12 @@
 java_tests(name = 'http',
   dependencies = [
-    pants('3rdparty:easymock'),
-    pants('3rdparty:jetty'),
-    pants('3rdparty:junit'),
-    pants('src/java/com/twitter/common/quantity'),
-    pants('src/java/com/twitter/common/net/http'),
-    pants('src/java/com/twitter/common/testing'),
-    pants('src/java/com/twitter/common/util:testing'),
+    '3rdparty:easymock',
+    '3rdparty:jetty',
+    '3rdparty:junit',
+    'src/java/com/twitter/common/quantity',
+    'src/java/com/twitter/common/net/http',
+    'src/java/com/twitter/common/testing',
+    'src/java/com/twitter/common/util:testing',
   ],
   sources = globs('*.java')
 )

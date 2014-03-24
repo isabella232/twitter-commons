@@ -21,7 +21,6 @@ from twitter.pants.targets.artifact import Artifact
 from twitter.pants.targets.benchmark import Benchmark
 from twitter.pants.targets.credentials import Credentials
 from twitter.pants.targets.doc import Page, Wiki
-from twitter.pants.targets.exclude import Exclude
 from twitter.pants.targets.jar_dependency import JarDependency
 from twitter.pants.targets.jar_library import JarLibrary
 from twitter.pants.targets.java_agent import JavaAgent
@@ -56,7 +55,6 @@ target_aliases = {
   'dependencies': JarLibrary,
   'jar_library': JarLibrary,
   'egg': PythonEgg,
-  'exclude': Exclude,
   'fancy_pants': Pants,
   'java_agent': JavaAgent,
   'java_library': JavaLibrary,
@@ -88,7 +86,7 @@ target_aliases = {
 
 
 from twitter.pants.goal import Context, Goal, Group, Phase
-from twitter.pants.targets.pants_target import Pants
+from twitter.pants.targets.exclude import Exclude
 from twitter.pants.tasks import Task, TaskError
 from .build_environment import get_buildroot, get_version, set_buildroot, get_scm, set_scm
 from .config import Config
@@ -106,6 +104,7 @@ object_aliases = {
   'set_scm': set_scm,
   'jar': JarDependency,
   'python_requirement': PythonRequirement,
+  'exclude': Exclude,
 }
 
 

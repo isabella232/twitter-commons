@@ -14,6 +14,12 @@
 # limitations under the License.
 # ==================================================================================================
 
+jar_library(name = 'fusesource',
+            jars = [
+              jar(org = 'org.fusesource.jansi', name='jansi', rev='1.8').with_sources()
+            ]
+)
+
 java_library(name = 'compiler',
   provides = artifact(
     org = 'com.twitter.common.tools',
@@ -22,7 +28,7 @@ java_library(name = 'compiler',
   ),
   sources = globs('*.java'),
   dependencies = [
-    jar(org = 'org.fusesource.jansi', name='jansi', rev='1.8').with_sources()
+    ':fusesource',
   ]
 )
 

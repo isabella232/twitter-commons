@@ -60,6 +60,12 @@ class JvmTargetPayload(Payload):
     for config in self.configurations:
       hasher.update(config)
 
+
+class ResourcesPayload(Payload):
+  def __init__(self, resources):
+    self.resources = resources
+    
+
 class JarLibraryPayload(Payload):
   def __init__(self, jars, overrides):
     self.jars = OrderedSet(jars)

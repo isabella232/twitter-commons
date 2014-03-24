@@ -16,11 +16,11 @@
 
 java_tests(name='runtime',
   dependencies=[
-    pants('3rdparty:guava'),
-    pants('3rdparty:junit'),
-    pants('src/java/com/twitter/common/io'),
-    pants('src/java/com/twitter/common/runtime:native')
+    '3rdparty:guava',
+    '3rdparty:junit',
+    'src/java/com/twitter/common/io',
+    'src/java/com/twitter/common/runtime:native',
+    'tests/resources/com/twitter/common/runtime',
   ],
   sources=globs('*.java'),
-  resources=pants('tests/resources/com/twitter/common/runtime')
 )
