@@ -136,6 +136,18 @@ class Target(AbstractTarget):
   parse context.
   """
 
+  def has_sources(self, extension=''):
+    return self.payload.has_sources(extension)
+
+  def has_resources(self, extension):
+    return self.payload.has_resources(extension)
+
+  def sources_relative_to_buildroot(self):
+    if self.has_sources():
+      return self.payload.sources_relative_to_buildroot()
+    else:
+      return []
+
   @classmethod
   def identify(cls, targets):
     """Generates an id for a set of targets."""
