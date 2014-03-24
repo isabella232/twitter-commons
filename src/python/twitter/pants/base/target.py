@@ -26,7 +26,7 @@ from twitter.common.lang import Compatibility
 from .address import Address
 from .build_manual import manual
 from .hash_utils import hash_all
-from .parse_context import ParseContext
+from .source_root import SourceRoot
 
 
 class TargetDefinitionException(Exception):
@@ -139,8 +139,11 @@ class Target(AbstractTarget):
   def has_sources(self, extension=''):
     return self.payload.has_sources(extension)
 
-  def has_resources(self, extension):
-    return self.payload.has_resources(extension)
+  @property
+  def target_base(self):
+    return SourceRoot.find(self)
+  # def has_resources(self):
+  #   return self.payload.has_resources()
 
   def sources_relative_to_buildroot(self):
     if self.has_sources():

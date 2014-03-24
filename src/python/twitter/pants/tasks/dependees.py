@@ -23,7 +23,7 @@ import twitter.pants.base.build_file_context
 from twitter.pants.base.build_environment import get_buildroot
 from twitter.pants.base.target import Target
 from twitter.pants.base.build_file import BuildFile
-from twitter.pants.targets.sources import SourceRoot
+from twitter.pants.base.source_root import SourceRoot
 
 from .console_task import ConsoleTask
 

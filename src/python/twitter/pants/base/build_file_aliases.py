@@ -46,7 +46,6 @@ from twitter.pants.targets.resources import Resources
 from twitter.pants.targets.scala_library import ScalaLibrary
 from twitter.pants.targets.scala_tests import ScalaTests
 from twitter.pants.targets.scalac_plugin import ScalacPlugin
-from twitter.pants.targets.sources import SourceRoot
 
 
 # aliases
@@ -112,7 +111,7 @@ object_aliases = {
 
 from twitter.common.dirutil.fileset import Fileset
 from twitter.pants.targets.jvm_binary import Bundle
-from twitter.pants.targets.sources import SourceRoot
+from twitter.pants.base.source_root import SourceRoot
 
 def maven_layout(basedir='', rel_path=None):
   """Sets up typical maven project source roots for all built-in pants target types.

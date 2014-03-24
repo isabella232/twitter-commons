@@ -19,7 +19,7 @@ from twitter.pants.goal.products import Products
 from twitter.pants.java.distribution.distribution import Distribution
 from twitter.pants.reporting.report import Report
 from twitter.pants.targets.pants_target import Pants
-from twitter.pants.targets.sources import SourceRoot
+from twitter.pants.base.source_root import SourceRoot
 
 
 # Utility definition for grabbing process info for locking.
