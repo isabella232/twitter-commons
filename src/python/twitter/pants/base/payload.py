@@ -20,6 +20,12 @@ class Payload(AbstractClass):
   def invalidation_hash(hasher):
     raise NotImplemented
 
+  def has_sources(self, extension):
+    raise NotImplemented
+
+  def has_resources(self, extension):
+    raise NotImplemented
+
 
 class JvmTargetPayload(Payload):
   def __init__(self,
@@ -37,6 +43,15 @@ class JvmTargetPayload(Payload):
   def __hash__(self):
     return hash((self.sources, self.provides, self.excludes, self.configurations))
 
+  def has_sources(self, extension=''):
+    return any(source.endswith(extension) for source in self.sources)
+
+  def has_resources(self):
+    return False
+
+  def sources_relative_to_buildroot(self):
+    return [os.path.join(self.sources_rel_path, source) for source in self.sources]
+
   def invalidation_hash(self, hasher):
     sources_hash = hash_sources(hasher, get_buildroot(), self.sources_rel_path, self.sources)
     hasher.update(str(hash(self.provides)))
@@ -49,6 +64,12 @@ class JarLibraryPayload(Payload):
   def __init__(self, jars, overrides):
     self.jars = OrderedSet(jars)
     self.overrides = OrderedSet(overrides)
+
+  def has_sources(self, extension):
+    return False
+
+  def has_resources(self):
+    return False
 
   def invalidation_hash(self, hasher):
     hasher.update(str(hash(self.jars)))

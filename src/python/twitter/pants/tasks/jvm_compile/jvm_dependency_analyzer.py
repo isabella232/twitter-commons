@@ -49,7 +49,7 @@ class JvmDependencyAnalyzer(object):
           for src in target.sources_relative_to_buildroot():
             targets_by_file[os.path.join(buildroot, src)].add(target)
         elif isinstance(target, JarLibrary):
-          for jardep in target.dependencies:
+          for jardep in target.jar_dependencies:
             if isinstance(jardep, JarDependency):
               jarlibs_by_id[(jardep.org, jardep.name)].add(target)
 
