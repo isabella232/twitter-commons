@@ -16,5 +16,5 @@
 
 dependencies(name='pingpong',
   dependencies=[
-    pants('tests/java/com/twitter/common/examples/pingpong/handler'),
+    'tests/java/com/twitter/common/examples/pingpong/handler',
   ])
