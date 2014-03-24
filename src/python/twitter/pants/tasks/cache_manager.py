@@ -29,6 +29,13 @@ from twitter.pants.targets.pants_target import Pants
 from twitter.pants.targets.with_sources import TargetWithSources
 
 
+# class VersionedTarget(object):
+#   def __init__(self, cache_manager, target):
+#     self._cache_manager = cache_manager
+#     self.target = target
+#     self.cache_key = cache_manager.key_for_target(target.cache_key
+
+
 class VersionedTargetSet(object):
   """Represents a list of targets, a corresponding CacheKey, and a flag determining whether the
   list of targets is currently valid.
@@ -88,7 +95,18 @@ class VersionedTarget(VersionedTargetSet):
     # Must come after the assignments above, as they are used in the parent's __init__.
     VersionedTargetSet.__init__(self, cache_manager, [self])
     self.id = target.id
-    self.dependencies = set()
+    self._dependencies = set()
+
+  @property
+  def dependencies(self):
+    import pdb; pdb.set_trace()  
+    return self._dependencies
+
+  @dependencies.setter
+  def dependencies(self, value):
+    print "SETTING DEPENDENCIES"
+    self._dependencies = value
+  
 
 
 # The result of calling check() on a CacheManager.
@@ -225,35 +243,7 @@ class CacheManager(object):
     id_to_hash = {}
 
     for target in ordered_targets:
-      dependency_keys = set()
-      if self._invalidate_dependents:
-        # Note that we only need to do this for the immediate deps, because those will already
-        # reflect changes in their own deps.
-        for dep in target.dependencies:
-          # TODO(pl): Do I maintain this invariant?
-          # We rely on the fact that any deps have already been processed, either in an earlier
-          # round or because they came first in ordered_targets.
-          # NOTE(pl): JarDependency is no longer a Target.  It is the payload of JarLibrary.
-          # Note that only external deps (e.g., JarDependency) or targets with sources can
-          # affect invalidation. Other targets (JarLibrary, Pants) are just dependency scaffolding.
-          fprint = id_to_hash.get(dep.id, None)
-          if fprint is None:
-            # It may have been processed in a prior round, and therefore the fprint should
-            # have been written out by the invalidator.
-            fprint = self._invalidator.existing_hash(dep.id)
-            # Note that fprint may still be None here. E.g., a codegen target is in the list
-            # of deps, but its fprint is not visible to our self._invalidator (that of the
-            # target synthesized from it is visible, so invalidation will still be correct.)
-            #
-            # Another case where this can happen is a dep of a codegen target on, say,
-            # a java target that hasn't been built yet (again, the synthesized target will
-            # depend on that same java target, so invalidation will still be correct.)
-            # TODO(benjy): Make this simpler and more obviously correct.
-          if fprint is not None:
-            dependency_keys.add(fprint)
-          else:
-            raise ValueError('Cannot calculate a cache_key for a dependency: %s' % dep)
-      cache_key = self._key_for(target, dependency_keys)
+      cache_key = self._key_for(target, transitive=self._invalidate_dependents)
       id_to_hash[target.id] = cache_key.hash
 
       # Create a VersionedTarget corresponding to @target.
@@ -261,44 +251,6 @@ class CacheManager(object):
 
       # Add the new VersionedTarget to the list of computed VersionedTargets.
       versioned_targets.append(versioned_target)
-
-      # Add to the mapping from Targets to VersionedTargets, for use in hooking up VersionedTarget
-      # dependencies below.
-      versioned_targets_by_target[target] = versioned_target
-
-    # Having created all applicable VersionedTargets, now we build the VersionedTarget dependency
-    # graph, looking through targets that don't correspond to VersionedTargets themselves.
-    versioned_target_deps_by_target = {}
-
-    def get_versioned_target_deps_for_target(target):
-      # For every dependency of @target, we will store its corresponding VersionedTarget here. For
-      # dependencies that don't correspond to a VersionedTarget (e.g. pass-through dependency
-      # wrappers), we will resolve their actual dependencies and find VersionedTargets for them.
-      versioned_target_deps = set([])
-      if hasattr(target, 'dependencies'):
-        for dep in target.dependencies:
-          for dependency in dep.resolve():
-            if dependency in versioned_targets_by_target:
-              # If there exists a VersionedTarget corresponding to this Target, store it and
-              # continue.
-              versioned_target_deps.add(versioned_targets_by_target[dependency])
-            elif dependency in versioned_target_deps_by_target:
-              # Otherwise, see if we've already resolved this dependency to the VersionedTargets it
-              # depends on, and use those.
-              versioned_target_deps.update(versioned_target_deps_by_target[dependency])
-            else:
-              # Otherwise, compute the VersionedTargets that correspond to this dependency's
-              # dependencies, cache and use the computed result.
-              versioned_target_deps_by_target[dependency] = get_versioned_target_deps_for_target(
-                  dependency)
-              versioned_target_deps.update(versioned_target_deps_by_target[dependency])
-
-      # Return the VersionedTarget dependencies that this target's VersionedTarget should depend on.
-      return versioned_target_deps
-
-    # Initialize all VersionedTargets to point to the VersionedTargets they depend on.
-    for versioned_target in versioned_targets:
-      versioned_target.dependencies = get_versioned_target_deps_for_target(versioned_target.target)
 
     return versioned_targets
 
@@ -309,14 +261,6 @@ class CacheManager(object):
     """Orders the targets topologically, from least to most dependent."""
     return filter(targets.__contains__, reversed(sort_targets(targets)))
 
-  def _key_for(self, target, dependency_keys):
-    def fingerprint_extra(sha):
-      sha.update(self._extra_data)
-      for key in sorted(dependency_keys):  # Sort to ensure hashing in a consistent order.
-        sha.update(key)
-
-    return self._cache_key_generator.key_for_target(
-      target,
-      fingerprint_extra=fingerprint_extra
-    )
+  def _key_for(self, target, transitive=False):
+    return self._cache_key_generator.key_for_target(target, transitive=transitive)
 

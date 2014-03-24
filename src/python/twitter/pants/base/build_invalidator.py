@@ -74,27 +74,25 @@ class CacheKeyGenerator(object):
     """
     self._cache_key_gen_version = (cache_key_gen_version or '') + '_' + GLOBAL_CACHE_KEY_GEN_VERSION
 
-  def key_for_target(self, target, fingerprint_extra=None):
+  def key_for_target(self, target, transitive=False):
     """Get a key representing the given target and its sources.
 
     A key for a set of targets can be created by calling combine_cache_keys()
     on the target's individual cache keys.
 
     :target: The target to create a CacheKey for.
-    :sources: A source scope to select from the target for hashing, defaults to TARGET_SOURCES.
     :fingerprint_extra: A function that accepts a sha hash and updates it with extra fprint data.
     """
-    if not fingerprint_extra:
-      if not sources or not sources.valid(target):
-        raise ValueError('A target needs to have at least one of sources or a '
-                         'fingerprint_extra function to generate a CacheKey.')
 
-    sha = hashlib.sha1()
-    target.payload.invalidation_hash(sha)
-    if fingerprint_extra:
-      fingerprint_extra(sha)
-    sha.update(self._cache_key_gen_version)
-    return CacheKey(target.id, sha.hexdigest(), (target.payload,))
+    hasher = hashlib.sha1()
+    hasher.update(self._cache_key_gen_version)
+    target.payload.invalidation_hash(hasher)
+    if transitive:
+      dep_hashes = [self.key_for_target(dep, transitive=True).hash
+                    for dep in target.dependencies]
+      for dep_hash in sorted(dep_hashes):
+        hasher.update(dep_hash)
+    return CacheKey(target.id, hasher.hexdigest(), (target.payload,))
 
 
 # A persistent map from target set to cache key, which is a fingerprint of all

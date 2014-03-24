@@ -20,6 +20,7 @@ from twitter.common.collections import  maybe_list, OrderedDict, OrderedSet
 
 from twitter.pants.base.workunit import WorkUnit
 from twitter.pants.goal import Goal
+from twitter.pants.graph.build_graph import coalesce_targets
 from twitter.pants.targets.internal import InternalTarget
 from twitter.pants.tasks import TaskError
 from twitter.pants.tasks.check_exclusives import ExclusivesMapping
@@ -59,7 +60,7 @@ class GroupIterator(object):
     assert len(map(lambda m: m.name, group_members)) == len(group_members), (
       'Expected group members with unique names')
 
-    self._targets = maybe_list(targets, expected_type=InternalTarget, raise_type=ValueError)
+    self._targets = targets  # maybe_list(targets, expected_type=InternalTarget, raise_type=ValueError)
     self._group_members = group_members
 
   def __iter__(self):
@@ -78,7 +79,7 @@ class GroupIterator(object):
 
     # TODO(John Sirois): coalescing should be made available in another spot, InternalTarget is jvm
     # specific, and all we care is that the Targets have dependencies defined
-    coalesced = InternalTarget.coalesce_targets(self._targets, discriminator)
+    coalesced = coalesce_targets(self._targets, discriminator)
     coalesced = list(reversed(coalesced))
 
     chunks = []
@@ -206,7 +207,8 @@ class GroupEngine(Engine):
               for exclusive_chunk in exclusive_chunks:
                 # TODO(Travis Crawford): Targets should be filtered by is_concrete rather than
                 # is_internal, however, at this time python targets are not internal targets.
-                group_chunks = GroupIterator(filter(lambda t: t.is_internal, exclusive_chunk),
+                filtered_targets = filter(lambda t: t.is_internal, exclusive_chunk)
+                group_chunks = GroupIterator(exclusive_chunk,
                                              goals_by_group_member.keys())
                 goal_chunks.extend(group_chunks)
 
