@@ -17,14 +17,15 @@ def hash_sources(hasher, root_path, rel_path, sources):
 
 
 class Payload(AbstractClass):
-  def invalidation_hash(hasher):
-    raise NotImplemented
+  def invalidation_hash(self, hasher):
+    pass
+    # raise NotImplementedError
 
   def has_sources(self, extension):
-    raise NotImplemented
+    raise NotImplementedError
 
   def has_resources(self, extension):
-    raise NotImplemented
+    raise NotImplementedError
 
 
 class JvmTargetPayload(Payload):

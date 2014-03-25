@@ -123,10 +123,6 @@ class AbstractTarget(object):
     """Returns True if the target is comprised of tests."""
     return self.has_label('tests')
 
-  def resolve(self):
-    """Returns an iterator over the target(s) this target represents."""
-    yield self
-
 
 @manual.builddict()
 class Target(AbstractTarget):
@@ -144,6 +140,9 @@ class Target(AbstractTarget):
     return SourceRoot.find(self)
   # def has_resources(self):
   #   return self.payload.has_resources()
+
+  def inject_dependency(self, dependency_address):
+    self._build_graph.inject_dependency(dependent=self.address, dependency=dependency_address)
 
   def sources_relative_to_buildroot(self):
     if self.has_sources():
