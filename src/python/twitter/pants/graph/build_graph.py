@@ -22,6 +22,8 @@ class BuildGraph(object):
     self._target_by_address = {}
     self._target_dependencies_by_address = defaultdict(set)
     self._target_dependents_by_address = defaultdict(set)
+    self._derived_from_by_derivative_address = {}
+    self._derivative_by_derived_from_address = defaultdict(set)
 
   def contains_address(self, address):
     return address in self._target_by_address
@@ -47,7 +49,7 @@ class BuildGraph(object):
     )
     return self._target_dependents_by_address[address]
 
-  def inject_target(self, target, dependencies=None):
+  def inject_target(self, target, dependencies=None, derived_from=None):
     dependencies = dependencies or frozenset()
     address = target.address
 
@@ -58,6 +60,16 @@ class BuildGraph(object):
               address=address,
               target=target)
     )
+
+    if derived_from:
+      assert self.contains_address(derived_from.address), (
+        "Attempted to inject synthetic {target} derived from {derived_from} into the"
+        " BuildGraph, but {derived_from} was not in the BuildGraph.  Synthetic Targets must be"
+        " derived from no Target (None) or from a Target already in the BuildGraph."
+        .format(target=target,
+                derived_from=derived_from))
+      self._derived_from_by_derivative_address[target.address] = derived_from.address
+      self._derivative_by_derived_from_address[derived_from.address].add(target.address)
 
     self._target_by_address[address] = target
 
@@ -105,6 +117,26 @@ class BuildGraph(object):
     self.walk_transitive_dependency_graph(address, ret.add)
     return ret
 
+  def inject_synthetic_target(self,
+                              address,
+                              target_type,
+                              dependencies=None,
+                              derived_from=None,
+                              **kwargs):
+    assert not self.contains_address(address), (
+      "Attempted to inject synthetic {target_type} derived from {derived_from} into BuildGraph"
+      " with address {address}, but there is already a Target {existing_target} with that address"
+      " in the BuildGraph."
+      .format(target_type=target_type,
+              derived_from=derived_from,
+              address=address,
+              existing_target=self.get_target(address)))
+
+    target = target_type(name=address.target_name,
+                         address=address,
+                         build_graph=self,
+                         **kwargs)
+    self.inject_target(target, dependencies=dependencies, derived_from=derived_from)
 
 class CycleException(Exception):
   """Thrown when a circular dependency is detected."""
@@ -112,6 +144,7 @@ class CycleException(Exception):
     Exception.__init__(self, 'Cycle detected:\n\t%s' % (
         ' ->\n\t'.join(str(target.address) for target in cycle)
     ))
+
 
 def sort_targets(targets):
   """Returns the targets that targets depend on sorted from most dependent to least."""
@@ -207,3 +240,4 @@ def coalesce_targets(targets, discriminator):
         current_type = discriminator(current_target)
 
   return sorted_targets
+

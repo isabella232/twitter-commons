@@ -173,15 +173,12 @@ class Bundle(object):
         self.filemap[abspath] = self.mapper(abspath)
     return self
 
-  def resolve(self):
-    yield self
-
   def __repr__(self):
     return 'Bundle(%s, %s)' % (self.mapper, self.filemap)
 
 
 @manual.builddict(tags=["jvm"])
-class JvmApp(InternalTarget):
+class JvmApp(Target):
   """A JVM-based application consisting of a binary plus "extra files".
 
   Invoking the ``bundle`` goal on one of these targets creates a
@@ -190,7 +187,7 @@ class JvmApp(InternalTarget):
   extra files like config files, startup scripts, etc.
   """
 
-  def __init__(self, name, binary, bundles, basename=None):
+  def __init__(self, bundles=None, basename=None, **kwargs):
     """
     :param string name: The name of this target, which combined with this
       build file defines the target :class:`twitter.pants.base.address.Address`.
@@ -203,6 +200,7 @@ class JvmApp(InternalTarget):
       ``name``. Pants uses this in the ``bundle`` goal to name the distribution
       artifact. In most cases this parameter is not necessary.
     """
+    # payload = 
     super(JvmApp, self).__init__(name, dependencies=[])
 
     self._binaries = maybe_list(
@@ -217,69 +215,69 @@ class JvmApp(InternalTarget):
       raise TargetDefinitionException(self, 'basename must not equal name.')
     self.basename = basename or name
 
-    self._resolved_binary = None
-    self._resolved_bundles = []
+    # self._resolved_binary = None
+    # self._resolved_bundles = []
 
   def is_jvm_app(self):
     return True
 
-  @property
-  def binary(self):
-    self._maybe_resolve_binary()
-    return self._resolved_binary
+  # @property
+  # def binary(self):
+  #   self._maybe_resolve_binary()
+  #   return self._resolved_binary
 
-  def _maybe_resolve_binary(self):
-    if self._binaries is not None:
-      binaries_list = []
-      for binary in self._binaries:
-        binaries_list.extend(filter(lambda t: t.is_concrete, binary.resolve()))
+  # def _maybe_resolve_binary(self):
+  #   if self._binaries is not None:
+  #     binaries_list = []
+  #     for binary in self._binaries:
+  #       binaries_list.extend(filter(lambda t: t.is_concrete, binary.resolve()))
 
-      if len(binaries_list) != 1 or not isinstance(binaries_list[0], JvmBinary):
-        raise TargetDefinitionException(self,
-                                        'must supply exactly 1 JvmBinary, got %s' % binaries_list)
-      self._resolved_binary = binaries_list[0]
-      self.update_dependencies([self._resolved_binary])
-      self._binaries = None
+  #     if len(binaries_list) != 1 or not isinstance(binaries_list[0], JvmBinary):
+  #       raise TargetDefinitionException(self,
+  #                                       'must supply exactly 1 JvmBinary, got %s' % binaries_list)
+  #     self._resolved_binary = binaries_list[0]
+  #     self.update_dependencies([self._resolved_binary])
+  #     self._binaries = None
 
-  @property
-  def bundles(self):
-    self._maybe_resolve_bundles()
-    return self._resolved_bundles
+  # @property
+  # def bundles(self):
+  #   self._maybe_resolve_bundles()
+  #   return self._resolved_bundles
 
-  def _maybe_resolve_bundles(self):
-    if self._bundles is not None:
-      def is_resolvable(item):
-        return hasattr(item, 'resolve')
+  # def _maybe_resolve_bundles(self):
+  #   if self._bundles is not None:
+  #     def is_resolvable(item):
+  #       return hasattr(item, 'resolve')
 
-      def is_bundle(bundle):
-        return isinstance(bundle, Bundle)
+  #     def is_bundle(bundle):
+  #       return isinstance(bundle, Bundle)
 
-      def resolve(item):
-        return list(item.resolve()) if is_resolvable(item) else [None]
+  #     def resolve(item):
+  #       return list(item.resolve()) if is_resolvable(item) else [None]
 
-      if is_resolvable(self._bundles):
-        self._bundles = resolve(self._bundles)
+  #     if is_resolvable(self._bundles):
+  #       self._bundles = resolve(self._bundles)
 
-      try:
-        for item in iter(self._bundles):
-          for bundle in resolve(item):
-            if not is_bundle(bundle):
-              raise TypeError()
-            self._resolved_bundles.append(bundle)
-      except TypeError:
-        raise TargetDefinitionException(self, 'bundles must be one or more Bundle objects, '
-                                              'got %s' % self._bundles)
-      self._bundles = None
+  #     try:
+  #       for item in iter(self._bundles):
+  #         for bundle in resolve(item):
+  #           if not is_bundle(bundle):
+  #             raise TypeError()
+  #           self._resolved_bundles.append(bundle)
+  #     except TypeError:
+  #       raise TargetDefinitionException(self, 'bundles must be one or more Bundle objects, '
+  #                                             'got %s' % self._bundles)
+  #     self._bundles = None
 
-  @property
-  def dependencies(self):
-    self._maybe_resolve_binary()
-    return super(JvmApp, self).dependencies
+  # @property
+  # def dependencies(self):
+  #   self._maybe_resolve_binary()
+  #   return super(JvmApp, self).dependencies
 
-  def resolve(self):
-    # TODO(John Sirois): Clean this up when BUILD parse refactoring is tackled.
-    unused_resolved_binary = self.binary
-    unused_resolved_bundles = self.bundles
+  # def resolve(self):
+  #   # TODO(John Sirois): Clean this up when BUILD parse refactoring is tackled.
+  #   unused_resolved_binary = self.binary
+  #   unused_resolved_bundles = self.bundles
 
-    for resolved in super(JvmApp, self).resolve():
-      yield resolved
+  #   for resolved in super(JvmApp, self).resolve():
+  #     yield resolved
