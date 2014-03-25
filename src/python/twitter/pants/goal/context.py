@@ -225,29 +225,24 @@ class Context(object):
       self._targets.update(tgt for tgt in tgt.resolve() if isinstance(tgt, self._target_base))
     target.walk(add_targets)
 
-  def add_new_target(self, target_base, target_type, *args, **kwargs):
+  def add_new_target(self, address, target_type, dependencies=None, **kwargs):
     """Creates a new target, adds it to the context and returns it.
 
     This method ensures the target resolves files against the given target_base, creating the
     directory if needed and registering a source root.
     """
-    if 'derived_from' in kwargs:
-      derived_from = kwargs.get('derived_from')
-      del kwargs['derived_from']
-    else:
-      derived_from = None
-    target = self._create_new_target(target_base, target_type, *args, **kwargs)
-    self.add_target(target)
-    if derived_from:
-      target.derived_from = derived_from
-    return target
-
-  def _create_new_target(self, target_base, target_type, *args, **kwargs):
+    target_base = os.path.join(get_buildroot(), address.spec_path)
     if not os.path.exists(target_base):
       os.makedirs(target_base)
-    SourceRoot.register(target_base, target_type)
-    with ParseContext.temp(target_base):
-      return target_type(*args, **kwargs)
+    SourceRoot.register(address.spec_path, target_type)
+    if dependencies:
+      dependencies = [dep.address for dep in dependencies]
+
+    self.build_graph.inject_synthetic_target(address=address,
+                                             target_type=target_type,
+                                             dependencies=dependencies,
+                                             **kwargs)
+    return self.build_graph.get_target(address)
 
   def remove_target(self, target):
     """Removes the given Target object from the context completely if present."""
@@ -269,10 +264,9 @@ class Context(object):
     core = set(self.targets(on_predicate))
     dependees = defaultdict(set)
     for target in self.targets(from_predicate):
-      if hasattr(target, 'dependencies'):
-        for dependency in target.dependencies:
-          if dependency in core:
-            dependees[target].add(dependency)
+      for dependency in target.dependencies:
+        if dependency in core:
+          dependees[target].add(dependency)
     return dependees
 
   def resolve(self, spec):
