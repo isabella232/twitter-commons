@@ -23,13 +23,11 @@ from twitter.common.dirutil import Fileset
 from twitter.common.lang import Compatibility
 
 from twitter.pants.base.build_manual import manual
-from twitter.pants.base.target import TargetDefinitionException
+from twitter.pants.base.payload import BundlePayload
+from twitter.pants.base.target import Target, TargetDefinitionException
 
 from . import util
-from .internal import InternalTarget
-from .jar_library import JarLibrary
 from .jvm_target import JvmTarget
-from .pants_target import Pants
 
 
 @manual.builddict(tags=["jvm"])
@@ -142,15 +140,15 @@ class Bundle(object):
     if mapper and relative_to:
       raise ValueError("Must specify exactly one of 'mapper' or 'relative_to'")
 
-    self._base = rel_path
+    self._rel_path = rel_path
 
     if relative_to:
-      base = os.path.join(self._base, relative_to)
+      base = os.path.join(self._rel_path, relative_to)
       if not os.path.isdir(base):
         raise ValueError('Could not find a directory to bundle relative to at %s' % base)
       self.mapper = RelativeToMapper(base)
     else:
-      self.mapper = mapper or RelativeToMapper(self._base)
+      self.mapper = mapper or RelativeToMapper(self._rel_path)
 
     self.filemap = {}
 
@@ -166,7 +164,7 @@ class Bundle(object):
       for path in paths:
         abspath = path
         if not os.path.isabs(abspath):
-          abspath = os.path.join(self._base, path)
+          abspath = os.path.join(self._rel_path, path)
         if not os.path.exists(abspath):
           raise ValueError('Given path: %s with absolute path: %s which does not exist'
                            % (path, abspath))
@@ -200,23 +198,17 @@ class JvmApp(Target):
       ``name``. Pants uses this in the ``bundle`` goal to name the distribution
       artifact. In most cases this parameter is not necessary.
     """
-    # payload = 
-    super(JvmApp, self).__init__(name, dependencies=[])
-
-    self._binaries = maybe_list(
-        util.resolve(binary),
-        expected_type=(Pants, JarLibrary, JvmBinary),
-        raise_type=partial(TargetDefinitionException, self))
-
-    self._bundles = maybe_list(bundles, expected_type=Bundle,
-                               raise_type=partial(TargetDefinitionException, self))
+    payload = BundlePayload(bundles)
+    super(JvmApp, self).__init__(name, payload=payload, **kwargs)
 
     if name == basename:
       raise TargetDefinitionException(self, 'basename must not equal name.')
     self.basename = basename or name
 
-    # self._resolved_binary = None
-    # self._resolved_bundles = []
+  @property
+  def binary(self):
+    # TODO(pl): Assert there is only on dep and it is a JvmBinary
+    return self.dependencies[0]
 
   def is_jvm_app(self):
     return True
