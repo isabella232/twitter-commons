@@ -10,10 +10,23 @@ from twitter.pants.base.build_environment import get_buildroot
 
 def hash_sources(hasher, root_path, rel_path, sources):
   hasher.update(rel_path)
-  for source in sources:
+  for source in sorted(sources):
     with open(os.path.join(root_path, rel_path, source), 'r') as f:
       hasher.update(source)
       hasher.update(f.read())
+
+
+def hash_bundle(bundle):
+  hasher = sha1()
+  hasher.update(bundle.relative_to)
+  hasher.update(bundle.rel_path)
+  for abs_path in sorted(bundle.filemap.keys()):
+    buildroot_relative_path = os.path.relpath(abs_path, get_buildroot())
+    hasher.update(buildroot_relative_path)
+    hasher.update(bundle.filemap[abs_path])
+    with open(abs_path, 'r') as f:
+      hasher.update(f.read())
+  return hasher.hexdigest()
 
 
 class Payload(AbstractClass):
@@ -26,6 +39,16 @@ class Payload(AbstractClass):
 
   def has_resources(self, extension):
     raise NotImplementedError
+
+
+class BundlePayload(Payload):
+  def __init__(self, bundles):
+    self.bundles = bundles
+
+  def invalidation_hash(self, hasher):
+    bundle_hashes = [hash_bundle(bundle) for bundle in self.bundles]
+    for bundle_hash in sorted(bundle_hashes):
+      hasher.update(bundle_hash)
 
 
 class JvmTargetPayload(Payload):

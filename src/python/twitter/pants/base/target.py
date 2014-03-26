@@ -279,7 +279,7 @@ class Target(AbstractTarget):
       raise ValueError('work must be callable but was %s' % work)
     if predicate and not callable(predicate):
       raise ValueError('predicate must be callable but was %s' % predicate)
-    self._build_graph.walk_transitive_dependency_graph(self.address, work, predicate)
+    self._build_graph.walk_transitive_dependency_graph([self.address], work, predicate)
 
   @manual.builddict()
   def with_description(self, description):

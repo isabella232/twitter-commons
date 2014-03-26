@@ -97,7 +97,7 @@ class BuildGraph(object):
   def sorted_targets(self):
     return sort_targets(self._target_by_address.values())
 
-  def walk_transitive_dependency_graph(self, address, work, predicate=None):
+  def walk_transitive_dependency_graph(self, addresses, work, predicate=None):
     walked = set()
     def _walk_rec(address):
       if address not in walked:
@@ -110,11 +110,12 @@ class BuildGraph(object):
             _walk_rec(dep_address)
           for additional_address in additional_addresses:
             _walk_rec(additional_address)
-    _walk_rec(address)
+    for address in addresses:
+      _walk_rec(address)
 
-  def transitive_subgraph_of_address(self, address):
-    ret = set()
-    self.walk_transitive_dependency_graph(address, ret.add)
+  def transitive_subgraph_of_addresses(self, addresses, predicate=None):
+    ret = set() 
+    self.walk_transitive_dependency_graph(addresses, ret.add, predicate=predicate)
     return ret
 
   def inject_synthetic_target(self,

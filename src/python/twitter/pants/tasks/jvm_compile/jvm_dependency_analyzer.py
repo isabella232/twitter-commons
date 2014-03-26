@@ -211,11 +211,7 @@ class JvmDependencyAnalyzer(object):
       buildroot = get_buildroot()
       abs_srcs = [os.path.join(buildroot, src) for src in srcs]
       for src in abs_srcs:
-        print src, targets_by_file.get(src)
-        try:
-          src_tgt = next(iter(targets_by_file.get(src)))
-        except:
-          import pdb; pdb.set_trace()
+        src_tgt = next(iter(targets_by_file.get(src)))
         if src_tgt is not None:
           for actual_dep in filter(must_be_explicit_dep, actual_deps.get(src, [])):
             actual_dep_tgts = targets_by_file.get(actual_dep)

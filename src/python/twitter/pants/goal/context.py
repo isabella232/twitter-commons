@@ -145,7 +145,8 @@ class Context(object):
     return os.path.realpath(self.config.get('ivy', 'cache_dir'))
 
   def __str__(self):
-    return 'Context(id:%s, state:%s, targets:%s)' % (self.id, self.state, self.targets())
+    ident = Target.identify(self.targets())
+    return 'Context(id:%s, state:%s, targets:%s)' % (ident, self.state, self.targets())
 
   def submit_foreground_work_and_wait(self, work, workunit_parent=None):
     """Returns the pool to which tasks can submit foreground (blocking) work."""
@@ -211,20 +212,6 @@ class Context(object):
     """
     self._target_roots = list(target_roots)
 
-    self._targets = OrderedSet()
-    for target in self._target_roots:
-      self.add_target(target)
-    self.id = Target.identify(self._targets)
-
-  def add_target(self, target):
-    """Adds a target and its transitive dependencies to the run context.
-
-    The target is not added to the target roots.
-    """
-    def add_targets(tgt):
-      self._targets.update(tgt for tgt in tgt.resolve() if isinstance(tgt, self._target_base))
-    target.walk(add_targets)
-
   def add_new_target(self, address, target_type, dependencies=None, **kwargs):
     """Creates a new target, adds it to the context and returns it.
 
@@ -244,18 +231,15 @@ class Context(object):
                                              **kwargs)
     return self.build_graph.get_target(address)
 
-  def remove_target(self, target):
-    """Removes the given Target object from the context completely if present."""
-    if target in self.target_roots:
-      self.target_roots.remove(target)
-    self._targets.discard(target)
-
   def targets(self, predicate=None):
     """Selects targets in-play in this run from the target roots and their transitive dependencies.
 
     If specified, the predicate will be used to narrow the scope of targets returned.
     """
-    return filter(predicate, self._targets)
+    target_root_addresses = [target.address for target in self._target_roots]
+    target_set =self.build_graph.transitive_subgraph_of_addresses(target_root_addresses,
+                                                                  predicate=predicate)
+    return list(target_set)
 
   def dependents(self, on_predicate=None, from_predicate=None):
     """Returns  a map from targets that satisfy the from_predicate to targets they depend on that
@@ -272,7 +256,7 @@ class Context(object):
   def resolve(self, spec):
     """Returns an iterator over the target(s) the given address points to."""
     self.build_file_parser.inject_spec_closure_into_build_graph(spec, self.build_graph)
-    return self.build_graph.transitive_subgraph_of_address(SyntheticAddress(spec))
+    return self.build_graph.transitive_subgraph_of_addresses([SyntheticAddress(spec)])
 
   @contextmanager
   def state(self, key, default=None):
