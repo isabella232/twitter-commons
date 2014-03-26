@@ -31,7 +31,7 @@ class JvmTarget(Target, Jarable):
                provides=None,
                excludes=None,
                configurations=None,
-               *args, **kwargs):
+               **kwargs):
     """
     :param string name: The name of this target, which combined with this
       build file defines the target :class:`twitter.pants.base.address.Address`.
@@ -53,7 +53,7 @@ class JvmTarget(Target, Jarable):
                                provides=provides,
                                excludes=excludes,
                                configurations=configurations)
-    super(JvmTarget, self).__init__(*args, address=address, payload=payload, **kwargs)
+    super(JvmTarget, self).__init__(address=address, payload=payload, **kwargs)
 
     self.add_labels('jvm')
 
