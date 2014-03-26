@@ -60,7 +60,7 @@ class JvmTargetPayload(Payload):
                configurations=None):
     self.sources_rel_path = sources_rel_path
     self.sources = OrderedSet(sources)
-    self.provides = provides
+    self.provides = provides or frozenset()
     self.excludes = OrderedSet(excludes)
     self.configurations = OrderedSet(configurations)
 
@@ -78,11 +78,13 @@ class JvmTargetPayload(Payload):
 
   def invalidation_hash(self, hasher):
     sources_hash = hash_sources(hasher, get_buildroot(), self.sources_rel_path, self.sources)
-    hasher.update(str(hash(self.provides)))
+    if self.provides:
+      hasher.update(str(hash(self.provides)))
     for exclude in self.excludes:
       hasher.update(str(hash(exclude)))
     for config in self.configurations:
       hasher.update(config)
+    # print 'payload hash', hasher.hexdigest()
 
 
 class ResourcesPayload(Payload):

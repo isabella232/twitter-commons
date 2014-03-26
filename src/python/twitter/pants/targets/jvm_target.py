@@ -20,6 +20,7 @@ from twitter.pants.targets.jar_library import JarLibrary
 
 from .exclude import Exclude
 from .jarable import Jarable
+from .resources import Resources
 
 
 class JvmTarget(Target, Jarable):
@@ -67,3 +68,12 @@ class JvmTarget(Target, Jarable):
 
     self.walk(work=collect_jar_deps)
     return jar_deps
+
+  @property
+  def has_resources(self):
+    return len(self.resources) > 0
+
+  @property
+  def resources(self):
+    return [dep for dep in self.dependencies if isinstance(dep, Resources)]
+
