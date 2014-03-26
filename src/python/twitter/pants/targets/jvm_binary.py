@@ -47,7 +47,6 @@ class JvmBinary(JvmTarget):
                main=None,
                basename=None,
                source=None,
-               resources=None,
                deploy_excludes=None, *args, **kwargs):
     """
     :param string name: The name of this target, which combined with this
@@ -84,7 +83,6 @@ class JvmBinary(JvmTarget):
 
     self.main = main
     self.basename = basename or name
-    self.resources = resources
     self.deploy_excludes = deploy_excludes or []
 
 

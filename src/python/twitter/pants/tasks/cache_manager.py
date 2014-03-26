@@ -84,19 +84,7 @@ class VersionedTarget(VersionedTargetSet):
     # Must come after the assignments above, as they are used in the parent's __init__.
     VersionedTargetSet.__init__(self, cache_manager, [self])
     self.id = target.id
-    self._dependencies = set()
-
-  @property
-  def dependencies(self):
-    import pdb; pdb.set_trace()  
-    return self._dependencies
-
-  @dependencies.setter
-  def dependencies(self, value):
-    print "SETTING DEPENDENCIES"
-    self._dependencies = value
   
-
 
 # The result of calling check() on a CacheManager.
 # Each member is a list of VersionedTargetSet objects in topological order.
