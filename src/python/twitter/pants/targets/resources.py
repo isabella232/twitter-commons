@@ -41,6 +41,10 @@ class Resources(Target):
     payload = ResourcesPayload(resources=sources)
     super(Resources, self).__init__(payload=payload, **kwargs)
 
+  # @property
+  # def target_base(self):
+  #   return self.address.spec_path
+
   def has_sources(self, extension=None):
     """``Resources`` never own sources of any particular native type, like for example
     ``JavaLibrary``.
