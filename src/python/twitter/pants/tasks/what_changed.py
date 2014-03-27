@@ -81,13 +81,18 @@ class WhatChanged(ConsoleTask):
       raise TaskError(e)
 
   def _owning_targets(self, path):
+    build_graph = self.context.build_graph
+    build_file_parser = self.context.build_file_parser
     for build_file in self._candidate_owners(path):
+      build_file_parser.parse_build_file(build_file)
       is_build_file = (build_file.full_path == os.path.join(get_buildroot(), path))
-      for address in Target.get_all_addresses(build_file):
-        target = Target.get(address)
+      # import pdb; pdb.set_trace()
+      for address in self.context.build_file_parser.addresses_by_build_file[build_file]:
+        build_file_parser.inject_spec_closure_into_build_graph(address.spec, build_graph)
+        target = build_graph.get_target(address)
 
         # A synthesized target can never own permanent files on disk
-        if target != target.derived_from:
+        if target.address in build_graph._derived_from_by_derivative_address:
           # TODO(John Sirois): tighten up the notion of targets written down in a BUILD by a user
           # vs. targets created by pants at runtime.
           continue

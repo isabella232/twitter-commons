@@ -26,7 +26,7 @@ python_library(
 python_library(
   name = 'python',
   dependencies = [
-    pants(':python-source'),
+    ':python-source',
   ],
   provides = setup_py(
     name = 'twitter.common.python',
@@ -47,14 +47,14 @@ virtualized environments.
       'Programming Language :: Python',
     ]
   ).with_binaries(
-    pex = pants('src/python/twitter/common/python/bin:pex'),
+    pex = 'src/python/twitter/common/python/bin:pex',
   )
 )
 
 page(name = 'pexreadme',
   source = 'README.md',
   dependencies = [
-    pants(':pexinstall'),
+    ':pexinstall',
   ]
 )
 
