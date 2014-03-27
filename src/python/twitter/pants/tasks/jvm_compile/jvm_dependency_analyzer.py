@@ -6,7 +6,6 @@ from twitter.common.collections import OrderedSet
 
 from twitter.pants.base.build_environment import get_buildroot
 from twitter.pants.graph.build_graph import sort_targets
-from twitter.pants.targets.internal import InternalTarget
 from twitter.pants.targets.jar_dependency import JarDependency
 from twitter.pants.targets.jar_library import JarLibrary
 from twitter.pants.targets.jvm_target import JvmTarget

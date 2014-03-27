@@ -21,7 +21,6 @@ from twitter.common.collections import  maybe_list, OrderedDict, OrderedSet
 from twitter.pants.base.workunit import WorkUnit
 from twitter.pants.goal import Goal
 from twitter.pants.graph.build_graph import coalesce_targets
-from twitter.pants.targets.internal import InternalTarget
 from twitter.pants.tasks import TaskError
 from twitter.pants.tasks.check_exclusives import ExclusivesMapping
 
@@ -205,11 +204,7 @@ class GroupEngine(Engine):
                 exclusive_chunks = ExclusivesIterator.from_context(self._context)
 
               for exclusive_chunk in exclusive_chunks:
-                # TODO(Travis Crawford): Targets should be filtered by is_concrete rather than
-                # is_internal, however, at this time python targets are not internal targets.
-                filtered_targets = filter(lambda t: t.is_internal, exclusive_chunk)
-                group_chunks = GroupIterator(exclusive_chunk,
-                                             goals_by_group_member.keys())
+                group_chunks = GroupIterator(exclusive_chunk, goals_by_group_member.keys())
                 goal_chunks.extend(group_chunks)
 
               self._context.log.debug('::: created chunks(%d)' % len(goal_chunks))

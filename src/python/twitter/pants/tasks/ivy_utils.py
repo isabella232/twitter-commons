@@ -342,7 +342,7 @@ class IvyUtils(object):
     self.exec_ivy(mapdir,
                   [target],
                   ivyargs,
-                  confs=target.configurations,
+                  confs=target.payload.configurations,
                   ivy=Bootstrapper.default_ivy(executor),
                   workunit_factory=workunit_factory,
                   workunit_name='map-jars')

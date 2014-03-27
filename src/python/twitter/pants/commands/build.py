@@ -24,7 +24,6 @@ from twitter.common.collections import OrderedSet
 from twitter.pants.base.address import parse_spec
 from twitter.pants.base.config import Config
 from twitter.pants.base.target import Target
-from twitter.pants.targets.internal import InternalTarget
 from twitter.pants.python.interpreter_cache import PythonInterpreterCache
 from twitter.pants.python.python_builder import PythonBuilder
 

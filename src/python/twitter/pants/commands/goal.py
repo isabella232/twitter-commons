@@ -390,7 +390,7 @@ class Goal(Command):
               self.build_file_parser.inject_spec_closure_into_build_graph(address.spec,
                                                                           self.build_graph)
 
-      self.targets = self.build_graph._target_by_address.values()
+              self.targets.append(self.build_graph.get_target(address))
       self.phases = [Phase(goal) for goal in goals]
 
       rcfiles = self.config.getdefault('rcfiles', type=list,

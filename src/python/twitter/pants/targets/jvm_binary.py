@@ -46,7 +46,8 @@ class JvmBinary(JvmTarget):
                main=None,
                basename=None,
                source=None,
-               deploy_excludes=None, *args, **kwargs):
+               deploy_excludes=None,
+               **kwargs):
     """
     :param string name: The name of this target, which combined with this
       build file defines the target :class:`twitter.pants.base.address.Address`.
@@ -72,7 +73,7 @@ class JvmBinary(JvmTarget):
     :type configurations: tuple of strings
     """
     sources = [source] if source else None
-    super(JvmBinary, self).__init__(*args, name=name, sources=sources, **kwargs)
+    super(JvmBinary, self).__init__(name=name, sources=sources, **kwargs)
 
     if main and not isinstance(main, Compatibility.string):
       raise TargetDefinitionException(self, 'main must be a fully qualified classname')
@@ -182,7 +183,7 @@ class JvmApp(Target):
   extra files like config files, startup scripts, etc.
   """
 
-  def __init__(self, bundles=None, basename=None, **kwargs):
+  def __init__(self, name=None, bundles=None, basename=None, **kwargs):
     """
     :param string name: The name of this target, which combined with this
       build file defines the target :class:`twitter.pants.base.address.Address`.
@@ -196,7 +197,7 @@ class JvmApp(Target):
       artifact. In most cases this parameter is not necessary.
     """
     payload = BundlePayload(bundles)
-    super(JvmApp, self).__init__(name, payload=payload, **kwargs)
+    super(JvmApp, self).__init__(name=name, payload=payload, **kwargs)
 
     if name == basename:
       raise TargetDefinitionException(self, 'basename must not equal name.')

@@ -27,7 +27,6 @@ from twitter.common.dirutil import safe_mkdir
 
 from twitter.pants.base.address import SyntheticAddress
 from twitter.pants.base.build_environment import get_buildroot
-from twitter.pants.targets.internal import InternalTarget
 from twitter.pants.targets.java_library import JavaLibrary
 from twitter.pants.targets.java_thrift_library import JavaThriftLibrary
 from twitter.pants.targets.python_library import PythonLibrary
