@@ -49,11 +49,6 @@ class AbstractTarget(object):
     return self.has_label('exportable') and self.provides
 
   @property
-  def is_internal(self):
-    """Returns True if the target is internal to the repo (ie: it might have dependencies)."""
-    return self.has_label('internal')
-
-  @property
   def is_jar(self):
     """Returns True if the target is a jar."""
     return False
