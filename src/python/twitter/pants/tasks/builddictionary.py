@@ -18,9 +18,8 @@ import inspect
 import os
 
 from twitter.common.dirutil import Fileset, safe_open
-from twitter.pants.base.build_file_helpers import maven_layout
+from twitter.pants.base.build_file_aliases import maven_layout
 from twitter.pants.base.build_manual import get_builddict_info
-from twitter.pants.base.parse_context import ParseContext
 from twitter.pants.base.generator import Generator, TemplateData
 from twitter.pants.goal.phase import Phase
 from twitter.pants.tasks import Task, TaskError

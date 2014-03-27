@@ -40,7 +40,6 @@ from twitter.pants.base.address import BuildFileAddress, parse_spec
 from twitter.pants.base.build_environment import get_buildroot
 from twitter.pants.base.build_file import BuildFile
 from twitter.pants.base.config import Config
-from twitter.pants.base.parse_context import ParseContext
 from twitter.pants.base.rcfile import RcFile
 from twitter.pants.base.run_info import RunInfo
 from twitter.pants.base.target import Target, TargetDefinitionException
@@ -391,7 +390,7 @@ class Goal(Command):
               self.build_file_parser.inject_spec_closure_into_build_graph(address.spec,
                                                                           self.build_graph)
 
-      self.targets = self.build_graph._target_by_address.values()
+              self.targets.append(self.build_graph.get_target(address))
       self.phases = [Phase(goal) for goal in goals]
 
       rcfiles = self.config.getdefault('rcfiles', type=list,

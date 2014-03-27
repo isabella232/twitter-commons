@@ -18,8 +18,6 @@ from twitter.pants.base.build_manual import manual
 from twitter.pants.base.payload import ResourcesPayload
 from twitter.pants.base.target import Target
 
-from . import util
-
 
 @manual.builddict(tags=['jvm'])
 class Resources(Target):

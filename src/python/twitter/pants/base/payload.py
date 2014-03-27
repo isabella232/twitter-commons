@@ -45,6 +45,12 @@ class BundlePayload(Payload):
   def __init__(self, bundles):
     self.bundles = bundles
 
+  def has_sources(self, extension):
+    return False
+
+  def has_resources(self):
+    return False
+
   def invalidation_hash(self, hasher):
     bundle_hashes = [hash_bundle(bundle) for bundle in self.bundles]
     for bundle_hash in sorted(bundle_hashes):

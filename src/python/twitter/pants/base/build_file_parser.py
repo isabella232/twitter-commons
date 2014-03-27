@@ -5,6 +5,7 @@ from collections import defaultdict
 from copy import deepcopy
 from functools import partial
 import os.path
+import traceback
 
 from twitter.common.python import compatibility
 
@@ -56,6 +57,7 @@ class TargetProxy(object):
     try:
       return self.target_type(build_graph=build_graph, address=self.address, **self.kwargs)
     except Exception as e:
+      traceback.print_exc()
       logger.exception('Failed to instantiate Target with type {target_type} with name "{name}"'
                        ' from {build_file}'
                        .format(target_type=self.target_type,
