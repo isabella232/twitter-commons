@@ -93,11 +93,10 @@ class ReverseDepmap(ConsoleTask):
           # TODO(John Sirois): tighten up the notion of targets written down in a BUILD by a
           # user vs. targets created by pants at runtime.
           target = self.get_concrete_target(target)
-          if hasattr(target, 'dependencies'):
-            for dependencies in target.dependencies:
-              for dependency in dependencies.resolve():
-                dependency = self.get_concrete_target(dependency)
-                dependees_by_target[dependency].add(target)
+          for dependencies in target.dependencies:
+            for dependency in dependencies.resolve():
+              dependency = self.get_concrete_target(dependency)
+              dependees_by_target[dependency].add(target)
 
     roots = set(self.context.target_roots)
     if self._closed:

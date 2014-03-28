@@ -5,7 +5,7 @@ from collections import defaultdict
 
 from twitter.common.collections import OrderedSet
 
-from twitter.pants.base.address import Address
+from twitter.pants.base.address import Address, SyntheticAddress
 
 
 import logging
@@ -27,6 +27,9 @@ class BuildGraph(object):
 
   def contains_address(self, address):
     return address in self._target_by_address
+
+  def get_target_from_spec(self, spec):
+    return self.get_target(SyntheticAddress(spec))
 
   def get_target(self, address):
     assert address in self._target_by_address, (

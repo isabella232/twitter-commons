@@ -168,6 +168,10 @@ class BuildFileParser(object):
                                                   addresses_already_closed)
       target = target_proxy.to_target(build_graph)
       build_graph.inject_target(target, dependencies=dependency_addresses)
+      for traversable_spec in target.traversable_specs:
+        self.inject_spec_closure_into_build_graph(traversable_spec,
+                                                  build_graph,
+                                                  addresses_already_closed)
 
   def populate_target_proxy_transitive_closure_for_spec(self, spec, addresses_already_closed=None):
     '''
