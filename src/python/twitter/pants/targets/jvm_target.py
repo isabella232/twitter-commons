@@ -31,6 +31,7 @@ class JvmTarget(Target, Jarable):
                sources=None,
                provides=None,
                excludes=None,
+               resources=None,
                configurations=None,
                **kwargs):
     """
@@ -56,6 +57,7 @@ class JvmTarget(Target, Jarable):
                                configurations=configurations)
     super(JvmTarget, self).__init__(address=address, payload=payload, **kwargs)
 
+    self._resource_specs = resources or []
     self.add_labels('jvm')
 
   @property
@@ -74,6 +76,12 @@ class JvmTarget(Target, Jarable):
     return len(self.resources) > 0
 
   @property
+  def traversable_specs(self):
+    return self._resource_specs
+
+  @property
   def resources(self):
-    return [dep for dep in self.dependencies if isinstance(dep, Resources)]
+    ret = [self._build_graph.get_target(SyntheticAddress(spec)) for spec in self._resource_specs]
+    print self, ret
+    return ret
 

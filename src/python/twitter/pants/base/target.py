@@ -200,6 +200,10 @@ class Target(AbstractTarget):
     return self._build_graph.get_clonal_ancestor(self.address)
 
   @property
+  def traversable_specs(self):
+    return []
+
+  @property
   def dependencies(self):
     return [self._build_graph.get_target(dep_address)
             for dep_address in self._build_graph.dependencies_of(self.address)]

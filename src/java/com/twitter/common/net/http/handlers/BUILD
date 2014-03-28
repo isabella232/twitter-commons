@@ -75,7 +75,6 @@ java_library(
     'src/java/com/twitter/common/base',
     'src/java/com/twitter/common/quantity',
     'src/java/com/twitter/common/stats',
-    'src/resources/com/twitter/common/net/http/handlers:log',
   ],
   sources=(globs('*.java')
            - TEXT_SOURCES
@@ -83,6 +82,9 @@ java_library(
            - THRIFT_SOURCES
            - TIME_SERIES_SOURCES
            - PARAMS_SOURCES),
+  resources=[
+    'src/resources/com/twitter/common/net/http/handlers:log',
+  ],
 )
 
 java_library(
@@ -101,9 +103,11 @@ java_library(
     'src/java/com/twitter/common/base',
     'src/java/com/twitter/common/thrift',
     ':string-template',
-    'src/resources/com/twitter/common/net/http/handlers:thrift',
   ],
   sources=THRIFT_SOURCES,
+  resources=[
+    'src/resources/com/twitter/common/net/http/handlers:thrift',
+  ],
 )
 
 java_library(
