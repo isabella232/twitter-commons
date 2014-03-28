@@ -106,8 +106,8 @@ class Command(object):
       plugin_module = __import__(module, globals(), locals(), [entry_point], 0)
       getattr(plugin_module, entry_point)(config)
 
-    self.build_file_parser = BuildFileParser(root_dir=self.root_dir)
-    self.build_graph = BuildGraph()
+    self.build_file_parser = BuildFileParser(root_dir=self.root_dir, run_tracker=self.run_tracker)
+    self.build_graph = BuildGraph(run_tracker=self.run_tracker)
 
     # Override the OptionParser's error with more useful output
     def error(message=None, show_help=True):

@@ -52,6 +52,21 @@ class TargetProxy(object):
     self.dependencies = self.kwargs.pop('dependencies', [])
     self.name = kwargs['name']
     self.address = BuildFileAddress(build_file, self.name)
+    self._dependency_addresses = None
+
+  @property
+  def dependency_addresses(self):
+    def dep_address_iter():
+      for dep_spec in self.dependencies:
+        dep_spec_path, dep_target_name = parse_spec(dep_spec,
+                                                    relative_to=self.build_file.spec_path)
+        dep_build_file = BuildFile(self.build_file.root_dir, dep_spec_path)
+        dep_address = BuildFileAddress(dep_build_file, dep_target_name)
+        yield dep_address
+
+    if self._dependency_addresses is None:
+      self._dependency_addresses = list(dep_address_iter())
+    return self._dependency_addresses
 
   def to_target(self, build_graph):
     try:
@@ -135,13 +150,15 @@ class BuildFileParser(object):
                   .format(alias=alias))
     cls._target_alias_map[alias] = obj
 
-  def __init__(self, root_dir):
+  def __init__(self, root_dir, run_tracker):
     self._root_dir = root_dir
+    self.run_tracker = run_tracker
 
     self._target_proxy_by_address = {}
     self._target_proxies_by_build_file = defaultdict(set)
     self.addresses_by_build_file = defaultdict(set)
     self._added_build_files = set()
+    self._added_build_file_families = set()
 
   def inject_spec_closure_into_build_graph(self, spec, build_graph, addresses_already_closed=None):
     addresses_already_closed = addresses_already_closed or set()
@@ -150,32 +167,25 @@ class BuildFileParser(object):
     build_file = BuildFile(self._root_dir, spec_path)
     address = BuildFileAddress(build_file, target_name)
 
-    self.populate_target_proxy_transitive_closure_for_spec(spec)
+    self.populate_target_proxy_transitive_closure_for_address(address)
     target_proxy = self._target_proxy_by_address[address]
-
-    def dependency_iter():
-      for dep_spec in target_proxy.dependencies:
-        dep_spec_path, dep_target_name = parse_spec(dep_spec,
-                                                    relative_to=target_proxy.build_file.spec_path)
-        dep_build_file = BuildFile(self._root_dir, dep_spec_path)
-        dep_address = BuildFileAddress(dep_build_file, dep_target_name)
-        yield dep_address
 
     if not build_graph.contains_address(address) and address not in addresses_already_closed:
       addresses_already_closed.add(address)
-      dependency_addresses = frozenset(dependency_iter())
-      for dep_address in dependency_addresses:
+      for dep_address in target_proxy.dependency_addresses:
         self.inject_spec_closure_into_build_graph(dep_address.spec,
                                                   build_graph,
                                                   addresses_already_closed)
       target = target_proxy.to_target(build_graph)
-      build_graph.inject_target(target, dependencies=dependency_addresses)
+      build_graph.inject_target(target, dependencies=target_proxy.dependency_addresses)
       for traversable_spec in target.traversable_specs:
         self.inject_spec_closure_into_build_graph(traversable_spec,
                                                   build_graph,
                                                   addresses_already_closed)
 
-  def populate_target_proxy_transitive_closure_for_spec(self, spec, addresses_already_closed=None):
+  def populate_target_proxy_transitive_closure_for_address(self,
+                                                           address,
+                                                           addresses_already_closed=None):
     '''
     Translates a spec into a BuildFileAddress, parses the BUILD file, then recurses over the
      dependency specs of the TargetProxy referred to by the caller.  This method is immune to
@@ -185,13 +195,10 @@ class BuildFileParser(object):
 
     addresses_already_closed = addresses_already_closed or set()
 
-    spec_path, target_name = parse_spec(spec)
-    build_file = BuildFile(self._root_dir, spec_path)
-    address = BuildFileAddress(build_file, target_name)
+    if address in addresses_already_closed:
+      return
 
-    self.parse_build_file_family(build_file)
-
-    addresses_already_closed.add(address)
+    self.parse_build_file_family(address.build_file)
 
     assert address in self._target_proxy_by_address, (
         '{address} from spec {spec} was not found in BUILD file {build_file}.'
@@ -200,18 +207,17 @@ class BuildFileParser(object):
                 build_file=build_file))
 
     target_proxy = self._target_proxy_by_address[address]
-    for dependency_spec in target_proxy.dependencies:
-      dep_spec_path, dep_target_name = parse_spec(dependency_spec,
-                                                  relative_to=build_file.spec_path)
-      dep_build_file = BuildFile(self._root_dir, dep_spec_path)
-      dep_address = BuildFileAddress(dep_build_file, dep_target_name)
-      if dep_address not in addresses_already_closed:
-        self.populate_target_proxy_transitive_closure_for_spec(dep_address.spec,
-                                                               addresses_already_closed)
+    addresses_already_closed.add(address)
+
+    for dep_address in target_proxy.dependency_addresses:
+      self.populate_target_proxy_transitive_closure_for_address(dep_address,
+                                                                addresses_already_closed)
 
   def parse_build_file_family(self, build_file):
-    for bf in build_file.family():
-      self.parse_build_file(bf)
+    if build_file not in self._added_build_file_families:
+      for bf in build_file.family():
+        self.parse_build_file(bf)
+      self._added_build_file_families.add(build_file)
 
   def parse_build_file(self, build_file): 
     '''
