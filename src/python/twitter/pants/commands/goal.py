@@ -40,7 +40,7 @@ from twitter.pants.base.address import BuildFileAddress, parse_spec
 from twitter.pants.base.build_environment import get_buildroot
 from twitter.pants.base.build_file import BuildFile
 from twitter.pants.base.config import Config
-from twitter.pants.base.parse_context import ParseContext
+# from twitter.pants.base.parse_context import ParseContext
 from twitter.pants.base.rcfile import RcFile
 from twitter.pants.base.run_info import RunInfo
 from twitter.pants.base.target import Target, TargetDefinitionException

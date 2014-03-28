@@ -26,7 +26,7 @@ from twitter.pants.base.target import Target, TargetDefinitionException
 from .anonymous import AnonymousDeps
 from .external_dependency import ExternalDependency
 from .jar_dependency import JarDependency
-from .util import resolve
+# from .util import resolve
 
 
 class InternalTarget(Target):

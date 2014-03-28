@@ -31,7 +31,7 @@ from twitter.common.python.platforms import Platform
 
 from twitter.pants.base.build_invalidator import BuildInvalidator, CacheKeyGenerator
 from twitter.pants.base.config import Config
-from twitter.pants.base.parse_context import ParseContext
+# from twitter.pants.base.parse_context import ParseContext
 from twitter.pants.targets.python_antlr_library import PythonAntlrLibrary
 from twitter.pants.targets.python_binary import PythonBinary
 from twitter.pants.targets.python_library import PythonLibrary
