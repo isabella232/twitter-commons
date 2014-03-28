@@ -18,7 +18,10 @@ from __future__ import print_function
 
 from twitter.common.collections import OrderedSet
 from twitter.pants.base.build_file import BuildFile
+from twitter.pants.base.build_file_parser import BuildFileParser
+from twitter.pants.base.config import Config
 from twitter.pants.base.target import Target
+from twitter.pants.graph.build_graph import BuildGraph
 
 
 class Command(object):
