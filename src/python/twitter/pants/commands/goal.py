@@ -390,7 +390,6 @@ class Goal(Command):
             for address in spec_parser.parse_addresses(spec):
               self.build_file_parser.inject_spec_closure_into_build_graph(address.spec,
                                                                           self.build_graph)
-
               self.targets.append(self.build_graph.get_target(address))
       self.phases = [Phase(goal) for goal in goals]
 
