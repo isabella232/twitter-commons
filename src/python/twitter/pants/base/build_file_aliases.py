@@ -66,8 +66,6 @@ target_aliases = {
   'jvm_binary': JvmBinary,
   'jvm_app': JvmApp,
   'page': Page,
-  'python_artifact': PythonArtifact,
-  'setup_py': PythonArtifact,
   'python_binary': PythonBinary,
   'python_library': PythonLibrary,
   'python_requirement_library': PythonRequirementLibrary,
@@ -84,7 +82,7 @@ target_aliases = {
   'wiki': Wiki,
 }
 
-
+from twitter.common.quantity import Amount, Time
 from twitter.pants.goal import Context, Goal, Group, Phase
 from twitter.pants.targets.exclude import Exclude
 from twitter.pants.tasks import Task, TaskError
@@ -105,6 +103,10 @@ object_aliases = {
   'jar': JarDependency,
   'python_requirement': PythonRequirement,
   'exclude': Exclude,
+  'python_artifact': PythonArtifact,
+  'setup_py': PythonArtifact,
+  'Amount': Amount,
+  'Time': Time,
 }
 
 

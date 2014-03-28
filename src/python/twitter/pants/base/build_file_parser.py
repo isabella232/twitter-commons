@@ -203,8 +203,8 @@ class BuildFileParser(object):
     assert address in self._target_proxy_by_address, (
         '{address} from spec {spec} was not found in BUILD file {build_file}.'
         .format(address=address,
-                spec=spec,
-                build_file=build_file))
+                spec=address.spec,
+                build_file=address.build_file))
 
     target_proxy = self._target_proxy_by_address[address]
     addresses_already_closed.add(address)

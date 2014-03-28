@@ -16,8 +16,8 @@
 
 python_test_suite(name = 'all',
   dependencies = [
-    pants(':test_crawler'),
-    pants(':test_http'),
+    ':test_crawler',
+    ':test_http',
   ]
 )
 
@@ -25,8 +25,8 @@ python_tests(
   name = 'test_crawler',
   sources = ['test_crawler.py'],
   dependencies = [
-    pants('src/python/twitter/common/contextutil'),
-    pants('src/python/twitter/common/python'),
+    'src/python/twitter/common/contextutil',
+    'src/python/twitter/common/python',
   ]
 )
 
@@ -37,10 +37,12 @@ python_tests(
   name = 'test_http',
   sources = ['test_http.py'],
   dependencies = [
-    pants('src/python/twitter/common/contextutil'),
-    pants('src/python/twitter/common/python'),
-    pants('src/python/twitter/common/quantity'),
-    pants('src/python/twitter/common/testing'),
-    python_requirement('mock', version_filter=mock_filter)
-  ]
+    'src/python/twitter/common/contextutil',
+    'src/python/twitter/common/python',
+    'src/python/twitter/common/quantity',
+    'src/python/twitter/common/testing',
+  ],
+  requirements = [
+    python_requirement('mock', version_filter=mock_filter),
+  ],
 )

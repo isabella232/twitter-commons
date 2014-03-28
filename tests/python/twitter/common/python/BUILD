@@ -17,84 +17,86 @@
 
 python_test_suite(name = 'all',
   dependencies = [
-    pants('tests/python/twitter/common/python/http:all'),
-    pants(':test_environment'),
-    pants(':test_finders'),
-    pants(':test_interpreter'),
-    pants(':test_obtainer'),
-    pants(':test_package'),
-    pants(':test_pep425'),
-    pants(':test_platform'),
-    pants(':test_pex_builder'),
-    pants(':test_util'),
+    'tests/python/twitter/common/python/http:all',
+    ':test_environment',
+    ':test_finders',
+    ':test_interpreter',
+    ':test_obtainer',
+    ':test_package',
+    ':test_pep425',
+    ':test_platform',
+    ':test_pex_builder',
+    ':test_util',
   ]
 )
 
 python_tests(name = 'test_environment',
   sources = ['test_environment.py'],
   dependencies = [
-    pants('src/python/twitter/common/contextutil'),
-    pants('src/python/twitter/common/python')
+    'src/python/twitter/common/contextutil',
+    'src/python/twitter/common/python',
   ]
 )
 
 python_tests(name = 'test_finders',
   sources = ['test_finders.py'],
   dependencies = [
-    pants('src/python/twitter/common/python'),
-    python_requirement('mock', version_filter=lambda py, plat: py.startswith('2'))
-  ]
+    'src/python/twitter/common/python',
+  ],
+  requirements = [
+    python_requirement('mock', version_filter=lambda py, plat: py.startswith('2')),
+  ],
 )
 
 python_tests(name = 'test_interpreter',
   sources = ['test_interpreter.py'],
   dependencies = [
-    pants('3rdparty/python:mock'),
-    pants('src/python/twitter/common/python'),
+    '3rdparty/python:mock',
+    'src/python/twitter/common/python',
   ]
 )
 
 python_tests(name = 'test_obtainer',
   sources = ['test_obtainer.py'],
   dependencies = [
-    pants('src/python/twitter/common/python')
+    'src/python/twitter/common/python',
   ]
 )
 
 python_tests(name = 'test_package',
   sources = ['test_package.py'],
   dependencies = [
-    pants('src/python/twitter/common/contextutil'),
-    pants('src/python/twitter/common/python'),
+    'src/python/twitter/common/contextutil',
+    'src/python/twitter/common/python',
   ]
 )
 
 python_tests(name = 'test_pep425',
   sources = ['test_pep425.py'],
   dependencies = [
-    pants('src/python/twitter/common/python'),
+    'src/python/twitter/common/python',
   ]
 )
 
 python_tests(name = 'test_platform',
   sources = ['test_platform.py'],
   dependencies = [
-    pants('src/python/twitter/common/python')
+    'src/python/twitter/common/python'
   ]
 )
 
 python_tests(name = 'test_pex_builder',
   sources = ['test_pex_builder.py'],
   dependencies = [
-    pants('src/python/twitter/common/contextutil'),
-    pants('src/python/twitter/common/python'),
+    'src/python/twitter/common/contextutil',
+    'src/python/twitter/common/python',
   ]
 )
 
 python_tests(name = 'test_util',
   sources = ['test_util.py'],
   dependencies = [
-    pants('src/python/twitter/common/contextutil'),
-    pants('src/python/twitter/common/python'),
+    'src/python/twitter/common/contextutil',
+    'src/python/twitter/common/python',
   ]
 )

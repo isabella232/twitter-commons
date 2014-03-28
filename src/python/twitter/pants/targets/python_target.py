@@ -27,14 +27,14 @@ class PythonTarget(Target):
   """Base class for all Python targets."""
 
   def __init__(self,
-               name,
-               sources,
+               sources=None,
                resources=None,
-               dependencies=None,
+               requirements=None,
                provides=None,
                compatibility=None,
-               exclusives=None):
-
+               **kwargs):
+    payload = PythonPayload(sources=sources)
+    super(PythonTarget, self).__init__(payload=payload, **kwargs)
     self.add_labels('python')
 
     if provides and not isinstance(provides, PythonArtifact):

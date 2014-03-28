@@ -4,8 +4,8 @@ python_library(
   name = 'zookeeper',
   sources = globs('*.py') - TEST_SERVER,
   dependencies = [
-    pants('3rdparty/python:zc-zookeeper-static'),
-    pants('src/python/twitter/common')
+    '3rdparty/python:zc-zookeeper-static',
+    'src/python/twitter/common',
   ],
 )
 
@@ -13,8 +13,8 @@ python_library(
   name = 'kazoo_client',
   sources = ['kazoo_client.py'],
   dependencies = [
-    pants('3rdparty/python:kazoo'),
-    pants('src/python/twitter/common/metrics'),
+    '3rdparty/python:kazoo',
+    'src/python/twitter/common/metrics',
   ]
 )
 
@@ -22,19 +22,19 @@ python_library(
   name = 'testing',
   sources = TEST_SERVER,
   dependencies = [
-    pants('src/python/twitter/common/contextutil'),
-    pants('src/python/twitter/common/dirutil'),
-    pants('src/python/twitter/common/rpc/finagle'),
-    pants('src/thrift/com/twitter/common/zookeeper/testing/angrybird:py-thrift')
+    'src/python/twitter/common/contextutil',
+    'src/python/twitter/common/dirutil',
+    'src/python/twitter/common/rpc/finagle',
+    'src/thrift/com/twitter/common/zookeeper/testing/angrybird:py-thrift',
   ]
 )
 
 python_library(
   name = 'zookeeper-packaged',
   dependencies = [
-    pants(':kazoo_client'),
-    pants('src/python/twitter/common/zookeeper/group:kazoo_group'),
-    pants('src/python/twitter/common/zookeeper/serverset:kazoo_serverset'),
+    ':kazoo_client',
+    'src/python/twitter/common/zookeeper/group:kazoo_group',
+    'src/python/twitter/common/zookeeper/serverset:kazoo_serverset',
   ],
   provides = setup_py(
     name = 'twitter.common.zookeeper',
