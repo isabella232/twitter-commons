@@ -237,9 +237,8 @@ class Context(object):
     If specified, the predicate will be used to narrow the scope of targets returned.
     """
     target_root_addresses = [target.address for target in self._target_roots]
-    target_set = self.build_graph.transitive_subgraph_of_addresses(target_root_addresses,
-                                                                   predicate=predicate)
-    return list(target_set)
+    target_set = self.build_graph.transitive_subgraph_of_addresses(target_root_addresses)
+    return list(filter(predicate, target_set))
 
   def dependents(self, on_predicate=None, from_predicate=None):
     """Returns  a map from targets that satisfy the from_predicate to targets they depend on that

@@ -14,6 +14,7 @@
 # limitations under the License.
 # ==================================================================================================
 
+from twitter.pants.base.address import SyntheticAddress
 from twitter.pants.base.payload import JvmTargetPayload
 from twitter.pants.base.target import Target
 from twitter.pants.targets.jar_library import JarLibrary
@@ -81,7 +82,5 @@ class JvmTarget(Target, Jarable):
 
   @property
   def resources(self):
-    ret = [self._build_graph.get_target(SyntheticAddress(spec)) for spec in self._resource_specs]
-    print self, ret
-    return ret
+    return [self._build_graph.get_target(SyntheticAddress(spec)) for spec in self._resource_specs]
 
