@@ -18,7 +18,7 @@ from collections import defaultdict
 
 from twitter.common.collections import OrderedSet
 
-# import twitter.pants.base.build_file_context
+import twitter.pants.base.build_file_aliases
 
 from twitter.pants.base.build_environment import get_buildroot
 from twitter.pants.base.target import Target

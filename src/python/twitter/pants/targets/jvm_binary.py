@@ -26,7 +26,6 @@ from twitter.pants.base.build_manual import manual
 from twitter.pants.base.payload import BundlePayload
 from twitter.pants.base.target import Target, TargetDefinitionException
 
-# from . import util
 from .jvm_target import JvmTarget
 
 

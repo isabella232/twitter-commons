@@ -19,7 +19,6 @@ from twitter.common.collections import maybe_list
 from twitter.pants.base.build_manual import manual
 from twitter.pants.base.target import Target, TargetDefinitionException
 
-# from . import util
 from .exportable_jvm_library import ExportableJvmLibrary
 from .java_library import JavaLibrary
 
