@@ -20,8 +20,9 @@ from twitter.common.collections import OrderedSet
 from twitter.common.python.interpreter import PythonIdentity
 
 from twitter.pants.base.target import Target, TargetDefinitionException
-
+from twitter.pants.base.payload import PythonPayload
 from twitter.pants.targets.python_artifact import PythonArtifact
+
 
 class PythonTarget(Target):
   """Base class for all Python targets."""

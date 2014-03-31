@@ -41,6 +41,14 @@ class Payload(AbstractClass):
     raise NotImplementedError
 
 
+class SourcesMixin(object):
+  def has_sources(self, extension=''):
+    return any(source.endswith(extension) for source in self.sources)
+
+  def sources_relative_to_buildroot(self):
+    return [os.path.join(self.sources_rel_path, source) for source in self.sources]
+
+
 class BundlePayload(Payload):
   def __init__(self, bundles):
     self.bundles = bundles
@@ -57,7 +65,7 @@ class BundlePayload(Payload):
       hasher.update(bundle_hash)
 
 
-class JvmTargetPayload(Payload):
+class JvmTargetPayload(Payload, SourcesMixin):
   def __init__(self,
                sources_rel_path=None,
                sources=None,
@@ -73,14 +81,8 @@ class JvmTargetPayload(Payload):
   def __hash__(self):
     return hash((self.sources, self.provides, self.excludes, self.configurations))
 
-  def has_sources(self, extension=''):
-    return any(source.endswith(extension) for source in self.sources)
-
   def has_resources(self):
     return False
-
-  def sources_relative_to_buildroot(self):
-    return [os.path.join(self.sources_rel_path, source) for source in self.sources]
 
   def invalidation_hash(self, hasher):
     sources_hash = hash_sources(hasher, get_buildroot(), self.sources_rel_path, self.sources)
@@ -90,7 +92,22 @@ class JvmTargetPayload(Payload):
       hasher.update(str(hash(exclude)))
     for config in self.configurations:
       hasher.update(config)
-    # print 'payload hash', hasher.hexdigest()
+
+
+class PythonPayload(Payload, SourcesMixin):
+  def __init__(self,
+               sources_rel_path=None,
+               sources=None,
+               resources=None,
+               requirements=None,
+               provides=None,
+               compatibility=None):
+    self.sources_rel_path = sources_rel_path
+    self.sources = sources
+    self.resources = resources
+    self.requirements = requirements
+    self.provides = provides
+    self.compatibility = compatibility
 
 
 class ResourcesPayload(Payload):
