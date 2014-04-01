@@ -67,7 +67,8 @@ class PythonChroot(object):
                builder=None,
                platforms=None,
                interpreter=None,
-               conn_timeout=None):
+               conn_timeout=None,
+               resolver_ttl= 60 * 60 * 24):
     self._config = Config.load()
     self._target = target
     self._root = root_dir
@@ -75,6 +76,7 @@ class PythonChroot(object):
     self._interpreter = interpreter or PythonInterpreter.get()
     self._extra_targets = list(extra_targets) if extra_targets is not None else []
     self._builder = builder or PEXBuilder(tempfile.mkdtemp(), interpreter=self._interpreter)
+    self._resolver_ttl = resolver_ttl
 
     # Note: unrelated to the general pants artifact cache.
     self._egg_cache_root = os.path.join(
@@ -198,7 +200,8 @@ class PythonChroot(object):
          self._config,
          reqs_to_build,
          interpreter=self._interpreter,
-         platforms=platforms)
+         platforms=platforms,
+         ttl=self._resolver_ttl)
 
     locations = set()
     for platform, dist_set in distributions.items():

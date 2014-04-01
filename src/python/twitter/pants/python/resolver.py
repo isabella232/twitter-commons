@@ -38,9 +38,10 @@ def fetchers_from_config(config):
   return fetchers
 
 
-def crawler_from_config(config, conn_timeout=None):
+def crawler_from_config(config, conn_timeout=None, ttl=3600):
   download_cache = PythonSetup(config).scratch_dir('download_cache', default_name='downloads')
-  return Crawler(cache=download_cache, conn_timeout=conn_timeout)
+
+  return Crawler(cache=download_cache, conn_timeout=conn_timeout, cache_ttl=ttl)
 
 
 class PantsEnvironment(Environment):
@@ -86,7 +87,7 @@ def resolve_multi(config,
 
   install_cache = PythonSetup(config).scratch_dir('install_cache', default_name='eggs')
   platforms = get_platforms(platforms or config.getlist('python-setup', 'platforms', ['current']))
-  crawler = crawler_from_config(config, conn_timeout=conn_timeout)
+  crawler = crawler_from_config(config, conn_timeout=conn_timeout, ttl=ttl)
   fetchers = fetchers_from_config(config)
 
   for platform in platforms:
